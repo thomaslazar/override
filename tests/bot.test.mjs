@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { solve, limitFor, prepare, CAP } from '../src/bot.js';
+import { solve, pick, limitFor, prepare, CAP } from '../src/bot.js';
 import { makeAttempt } from '../src/levels.js';
-import { validSave } from '../src/core.js';
+import { validSave, rngFor } from '../src/core.js';
 
 test('limit eases from the 4th fail, capped at +40%', () => {
   assert.equal(limitFor(20, 0), Math.ceil(20 * 1.3 + 2));
@@ -27,4 +27,12 @@ test('levels 1 to 60 are prepared, valid and beatable within the limit', () => {
     assert.equal(S.nice, true);
   }
   console.log(`prepared 60 levels in ${Date.now() - t0} ms`);
+});
+
+test('pick never reads the future refills: the seed does not change the move', () => {
+  for (const l of [1, 10, 25]) {
+    const S1 = makeAttempt(l), S2 = JSON.parse(JSON.stringify(S1));
+    S2.seed = S1.seed + 12345;
+    assert.deepEqual(pick(S1, rngFor(1, 19)), pick(S2, rngFor(1, 19)), `level ${l}`);
+  }
 });

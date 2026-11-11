@@ -11,21 +11,27 @@ function value(S){
   for (const x of S.grid) if (x && x.s) v += 15;
   return v + S.ids * .5;
 }
+// One greedy step. Candidates run on a copy with a scrambled refill seed (independent of S.seed),
+// so the bot never sees the refills that will really fall.
+export function pick(S, rnd){
+  const ms = validMoves(S);
+  if (!ms.length) return null;
+  let best = ms[0], bv = -Infinity;
+  for (const [a, b] of ms) for (const [x, y] of [[a, b], [b, a]]) {
+    const T = copy(S); T.seed = hash(991, S.level, S.spawns, S.moves); move(T, x, y);
+    const v = value(T) + rnd() * .01;
+    if (v > bv) { bv = v; best = [x, y] }
+  }
+  return best;
+}
 // Plays a copy of S with the given refill seed and no limit; returns the moves used, or Infinity at the cap.
-// The bot looks one move ahead including that move's refills (a mild advantage K absorbs).
 export function solve(S0, seed, nice = false){
   const S = copy(S0);
   S.nice = nice; S.limit = 0; S.moves = CAP; S.seed = hash(S0.seed, seed, 17);
   const rnd = rngFor(seed, 19);
   while (!won(S) && S.moves > 0) {
-    const ms = validMoves(S);
-    if (!ms.length) return Infinity;
-    let best = ms[0], bv = -Infinity;
-    for (const [a, b] of ms) for (const [x, y] of [[a, b], [b, a]]) {
-      const T = copy(S); move(T, x, y);
-      const v = value(T) + rnd() * .01;
-      if (v > bv) { bv = v; best = [x, y] }
-    }
+    const best = pick(S, rnd);
+    if (!best) return Infinity;
     move(S, best[0], best[1]);
   }
   return won(S) ? CAP - S.moves : Infinity;
