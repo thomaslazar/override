@@ -234,3 +234,30 @@ test('steps replay to the final grid over many random moves', () => {
     }
   }
 });
+
+test('a new special consumes an unlocked firewalled tile under it', () => {
+  // row 0 is a pre-existing run of four; its middle spot (cell 2) holds a firewalled tile
+  const S = mk(['A A A! A', 'B C D E', 'E D C F', 'F B C D'], { goals: [{ kind: 'firewall', need: 1, got: 0 }, { kind: 'tiles', t: 0, need: 99, got: 0 }] });
+  const old = S.grid[2].id, start = ids(S), { ok, steps } = move(S, 5, 6);
+  assert.ok(ok);
+  const w = wave(steps);
+  assert.deepEqual(w.unlocked, [2]);
+  assert.ok(w.cleared.some(x => x.i === 2 && x.id === old), 'old tile id is cleared');
+  assert.deepEqual(w.created.map(c => [c.i, c.tile.s]), [[2, 'h']]);
+  assert.equal(S.goals[0].got, 1);
+  assert.ok(S.goals[1].got >= 4, 'all four A tiles counted');
+  assert.deepEqual(replay(S.n, start, steps), ids(S));
+});
+
+test('without blockers nothing ever falls diagonally', () => {
+  for (let seed = 1; seed <= 3; seed++) {
+    const S = mk(Array(8).fill('. . . . . . . .'), { k: 5, seed, nice: true, moves: 999, limit: 999 });
+    fillBoard(S, rngFor(seed));
+    const r = rngFor(seed, 99);
+    for (let k = 0; k < 40; k++) {
+      const ms = vm(S); if (!ms.length) break;
+      const [a, b] = ms[Math.floor(r() * ms.length)];
+      for (const s of move(S, a, b).steps) if (s.k === 'fall') for (const m of s.moves) assert.equal(m.from % S.n, m.to % S.n, 'straight down only');
+    }
+  }
+});

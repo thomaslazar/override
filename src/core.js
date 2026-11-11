@@ -206,7 +206,11 @@ function wave(S, cells, matched, creates, fired = new Set()){
     if (x.s !== 'z') bump(S, 'tiles', x.t);
     step.cleared.push({ i, id: x.id }); S.grid[i] = null;
   }
-  for (const c of creates) { const x = tile(S, c.t, c.s); S.grid[c.i] = x; step.created.push({ i: c.i, tile: { ...x } }) }
+  for (const c of creates) {
+    const old = S.grid[c.i];   // an unlocked firewalled tile can still sit here: consume it like a matched one
+    if (old) { if (old.s !== 'z') bump(S, 'tiles', old.t); step.cleared.push({ i: c.i, id: old.id }) }
+    const x = tile(S, c.t, c.s); S.grid[c.i] = x; step.created.push({ i: c.i, tile: { ...x } });
+  }
   return step;
 }
 
