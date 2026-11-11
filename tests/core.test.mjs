@@ -288,3 +288,18 @@ test('a special swapped without a match still fires', () => {
   const w = wave(move(S, idx(S, 1, 1), idx(S, 2, 1)).steps);
   assert.ok(w.fired.some(f => f.s === 'h'));
 });
+
+test('a zero-day fired by a blast clears one random colour that is on the board', () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    // the worm drops into row 1 and fires it, hitting the zero-day; colours A..D are on the board, E is not
+    const S = mk(['A Ah C D', 'B D Z C', 'C B A B', 'D A B C'], { seed, k: 5 });
+    const colour = new Map(S.grid.map(x => [x.id, x.t]));
+    const w = wave(move(S, idx(S, 0, 1), idx(S, 1, 1)).steps);
+    assert.ok(w.fired.some(f => f.s === 'z'), 'the zero-day fires');
+    const cols = new Set(w.cleared.filter(c => c.i < 4 || c.i > 7).map(c => colour.get(c.id)));
+    assert.equal(cols.size, 1, 'one colour');
+    cols.forEach(c => { assert.ok(c >= 0 && c < 4, 'a colour on the board'); seen.add(c) });
+  }
+  assert.ok(seen.size >= 3, 'not always the same colour');
+});

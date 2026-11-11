@@ -164,10 +164,10 @@ export function fillBoard(S, rnd){
 }
 
 /* ---------- clearing ---------- */
-function commonColour(S){
-  const m = Array(S.k).fill(0);
-  for (const x of S.grid) if (x && x.s !== 'z') m[x.t]++;
-  return m.indexOf(Math.max(...m));
+// A random colour still on the board (seeded by the zero-day's id), for a zero-day fired by a blast.
+function randomColour(S, id){
+  const on = [...new Set(S.grid.filter(x => x && x.s !== 'z').map(x => x.t))].sort((a, b) => a - b);
+  return on[Math.floor(rngFor(S.seed, 13, id)() * on.length)];
 }
 function square(S, i, d){
   const [r, c] = rc(S, i), out = [];
@@ -180,7 +180,7 @@ function area(S, i, x){
   if (x.s === 'h') return range(0, n).map(k => r * n + k);
   if (x.s === 'v') return range(0, n).map(k => k * n + c);
   if (x.s === 'b') return square(S, i, 1);
-  const t = x.target ?? commonColour(S);   // zero-day: the swapped tile's colour, else the most common
+  const t = x.target ?? randomColour(S, x.id);   // zero-day: the swapped tile's colour, else a random one
   return range(0, n * n).filter(j => S.grid[j] && S.grid[j].s !== 'z' && S.grid[j].t === t);
 }
 function bump(S, kind, t){ for (const g of S.goals) if (g.kind === kind && (kind !== 'tiles' || g.t === t)) g.got++ }

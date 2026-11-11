@@ -72,7 +72,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`
   zero-day with a worm or bomb converts every tile of that colour into worms (random h or v) or
   bombs, then fires them, `zz` clears the board. Zero-day with a plain tile clears that colour.
-  A lone zero-day fired by a cascade clears the most common colour.
+  A zero-day fired by a blast clears a random colour still on the board (seeded by its id).
 - **wave**: fires specials in a chain (each id once), cracks encrypted cells (hits from a fired
   area, plus matched neighbours), unlocks firewalled tiles (a firewalled tile hit is unlocked,
   not cleared), clears the rest and counts goals, then places the new specials. A special
