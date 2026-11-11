@@ -36,7 +36,8 @@ export function solve(S0, seed, nice = false){
   }
   return won(S) ? CAP - S.moves : Infinity;
 }
-export const limitFor = (need, fails) => Math.ceil((need * K + C) * (1 + Math.min(.4, Math.max(0, fails - 3) * .1)));
+export const MIN_LIMIT = 10;
+export const limitFor = (need, fails) => Math.ceil(Math.max(MIN_LIMIT, Math.ceil(need * K + C)) * (1 + Math.min(.4, Math.max(0, fails - 3) * .1)));
 // Ready-to-play attempt: tries salts, then lowers difficulty in steps of 0.1, until all RUNS bot runs finish.
 export function prepare(level, fails = 0){
   let S;

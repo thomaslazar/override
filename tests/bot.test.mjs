@@ -9,6 +9,8 @@ test('limit eases from the 4th fail, capped at +40%', () => {
   assert.equal(limitFor(20, 3), limitFor(20, 0));
   assert.equal(limitFor(20, 4), Math.ceil((20 * 1.3 + 2) * 1.1));
   assert.equal(limitFor(20, 20), Math.ceil((20 * 1.3 + 2) * 1.4));
+  assert.equal(limitFor(2, 0), 10);
+  assert.equal(limitFor(2, 4), 11);
 });
 
 test('solve is deterministic and does not touch its input', () => {
