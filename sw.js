@@ -1,8 +1,8 @@
 // Offline play, latest version when online: network first, cache as fallback.
 // Requests skip the browser's HTTP cache (GitHub Pages sends max-age=600) and revalidate
-// with the server, so a deploy shows up on the next launch. Offline, or after 3 s, the
+// with the server, so a deploy shows up on the next launch. Offline, or when no response arrives within 3 s, the
 // cached copy is used.
-const CACHE = 'override-1';   // a new name drops the old cache, see activate; only override- caches, the origin is shared with Kiln and Splice
+const CACHE = 'override-2';   // a new name drops the old cache, see activate; only override- caches, the origin is shared with Kiln and Splice
 const SHELL = ['./', 'index.html', 'style.css', 'fonts/barlow-semi-condensed-latin-400.woff2', 'fonts/barlow-semi-condensed-latin-600.woff2',
   'src/core.js', 'src/levels.js', 'src/bot.js', 'src/worker.js', 'src/ui.js', 'manifest.webmanifest',
   'lang/languages.json', 'lang/en.json',
@@ -21,9 +21,10 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     try {
-      const opts = { cache: 'no-cache' };
-      if (AbortSignal.timeout) opts.signal = AbortSignal.timeout(3000);
-      const r = await fetch(e.request.url, opts);   // by URL: navigation requests cannot take options
+      const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 3000);   // bounds the wait for headers only
+      let r;
+      try { r = await fetch(e.request.url, { cache: 'no-cache', signal: ac.signal }) }   // by URL: navigation requests cannot take options
+      finally { clearTimeout(timer) }
       if (r.ok) c.put(key, r.clone());
       return r;
     } catch {

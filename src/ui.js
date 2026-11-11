@@ -5,7 +5,7 @@ import { chapterOf, ENC_FROM, FW_FROM } from './levels.js';
 const $ = s => document.querySelector(s);
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const DEV = !location.hostname.endsWith('github.io');
-const store = { get(k){ try { return localStorage.getItem(k) } catch { return null } }, set(k, v){ try { localStorage.setItem(k, v) } catch {} }, del(k){ try { localStorage.removeItem(k) } catch {} } };
+const store = { get(k){ try { return localStorage.getItem(k) } catch { return null } }, set(k, v){ try { localStorage.setItem(k, v) } catch {} } };
 const getJSON = async u => (await fetch(u)).json();
 const sleep = ms => new Promise(r => setTimeout(r, RM ? 0 : ms));
 
@@ -28,6 +28,8 @@ worker.onmessage = e => {
   ready.set(k, S);
   waiting.get(k)?.(S); waiting.delete(k);
 };
+const failed = () => { hideLoading(); showSheet(t('loadFailed'), '', [[t('reload'), () => location.reload(), true]]) };
+worker.onerror = worker.onmessageerror = failed;
 function ask(level, fails){ const k = keyOf(level, fails); if (!ready.has(k) && !asked.has(k)) { asked.add(k); worker.postMessage({ level, fails }) } }
 // Resolves with a fresh copy of the attempt for (level, fails); only the latest want() is delivered.
 let wantKey = null;
@@ -121,8 +123,7 @@ async function play(a, b){
   busy = true;
   const r = move(S, a, b);
   if (r.ok) save();           // saved before animating: closing mid-cascade loses nothing
-  await animate(r.steps);
-  sync(); hud(); busy = false;
+  try { await animate(r.steps) } finally { sync(); hud(); busy = false }
   if (!r.ok) return;
   if (won(S)) win(); else if (lost(S)) lose();
 }
@@ -255,10 +256,11 @@ function frame(now){
 
 /* ---------- rain ---------- */
 const rc = $('#rain'), rg = rc.getContext('2d'), rnd = mulberry32(hash(7, 7));
+const sizeRain = () => { rc.width = innerWidth; rc.height = innerHeight }; sizeRain();
 const drops = Array.from({ length: 90 }, () => ({ x: rnd(), y: rnd(), v: .6 + rnd() * .5, l: 10 + rnd() * 18 }));
 function rainFrame(dt){
   if (RM) return;   // reduced motion: no rain
-  const w = rc.width = innerWidth, h = rc.height = innerHeight;
+  const w = rc.width, h = rc.height; rg.clearRect(0, 0, w, h);
   rg.strokeStyle = PAL.rain; rg.lineWidth = 1; rg.beginPath();
   for (const d of drops) {
     d.y += d.v * dt; d.x -= d.v * dt * .08; if (d.y > 1) { d.y = -.05; d.x = rnd() * 1.1 }
@@ -378,7 +380,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 const first = load();
 if (first.S) { S = first.S; start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
-addEventListener('resize', () => S && fit());
+addEventListener('resize', () => { sizeRain(); S && fit() });
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
 if ('serviceWorker' in navigator) {

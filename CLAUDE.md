@@ -37,8 +37,8 @@ Read before changing behaviour:
   `<code>.json` holds flat `"key": "text"` pairs with `{placeholders}`. `tests/lang.test.mjs` checks them.
   `tests/helpers.mjs` has shared test builders.
 - `fonts/`: Barlow Semi Condensed (latin 400 and 600, woff2), self-hosted, with `OFL.txt`.
-- `manifest.webmanifest`, `sw.js`, `icons/`: PWA. `sw.js` is network first (revalidates, 3 s
-  timeout, cache only as offline fallback). `CACHE` is `override-1`; rename it when `sw.js`
+- `manifest.webmanifest`, `sw.js`, `icons/`: PWA. `sw.js` is network first (revalidates; 3 s
+  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-2`; rename it when `sw.js`
   changes how it caches or `SHELL` changes, so `activate` drops the old cache (only `override-`
   caches). `icons/og.png` (1200 x 630) is the link preview card; not in `SHELL`.
 - `.github/workflows/pages.yml`: runs `node --test` on pull requests and pushes; on push to
@@ -116,15 +116,17 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - `solve(S, seed, nice)` plays a copy to a win with no limit (`Infinity` at `CAP`).
 - `limitFor(need, fails)` = `max(MIN_LIMIT, ceil(need * K + C))`, then +10% per fail from the
   4th, capped at +40%.
-- `prepare(level, fails)`: tries salts 0..9, then lowers difficulty by `drop` steps of 0.1,
-  until all `RUNS` bot runs finish; `need` is the median. For `fails > 0` the need is at least
-  the fails-0 need (memoised, last 8 levels) so a retry never gets fewer moves than the first
-  try. The bot plays with `nice` off.
+- `prepare(level, fails)`: at fails 0 tries salts 0..9, then lowers difficulty by `drop` steps of
+  0.1, until all `RUNS` bot runs finish; `need` is the median, and `{salt, drop, need}` is
+  memoised (last 8 levels). Retries reuse that salt and drop (same layout and goals, no search);
+  their need is at least the fails-0 need (exactly it if the bot cannot finish), so a retry never
+  gets fewer moves than the first try. The bot plays with `nice` off.
 
 ## Worker and UI (`src/worker.js`, `src/ui.js`)
 
 - Worker protocol: the UI posts `{ level, fails }`, the worker answers `{ level, fails, S }`
-  from `prepare`, in order. The UI keeps `ready` (answers by `level:fails`), `ask` (once per
+  from `prepare`, in order. `worker.onerror`/`onmessageerror` hide the loading card and show a
+  non-dismissable "Reload" sheet. The UI keeps `ready` (answers by `level:fails`), `ask` (once per
   key), `want` (a promise for the latest key only, delivering a copy) and `prefetch(level,
   fails)`, which asks for the next level and the next retry after every start.
 - `begin(level, fails)`: closes sheets, shows the loading card if the answer is not ready
@@ -141,7 +143,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
-- Sheets: one sheet for win ("Root access" with a note at a new chapter), loss (Try again) and
+- Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (best level, Restart level, Start over), Settings
   (language, theme auto/light/dark) and Info (how to play, Share, GitHub, licence, font).
 - Look: the canvas draws tiles as seven glyphs (`types`) so colour is never the only cue;
@@ -155,7 +157,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-theme`, `override-1`); the origin is shared with
+  `override-run`, `override-lang`, `override-theme`, `override-2`); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work.
