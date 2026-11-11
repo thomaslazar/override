@@ -162,7 +162,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   `override-run`, `override-lang`, `override-theme`, `override-2`); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
-  current work.
+  current work. Work happens on one branch per plan, merged into `master` locally; no pull
+  requests. **Never push to origin without the owner's say-so for that push.**
 - **No attribution of any kind.** Never add `Co-Authored-By:` trailers or "Generated with"
   lines (Claude, Claude Code or any other tool) to commits, PR bodies, issues or docs.
 - No em-dashes in UI copy or docs. Use typographic apostrophes (’) in visible text.
