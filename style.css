@@ -26,12 +26,15 @@
 }
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;overflow:hidden}
-body{
-  font:15px/1.35 "Barlow Semi Condensed",system-ui,sans-serif; color:var(--ink);
+html{
   background:
     radial-gradient(ellipse 80% 45% at 72% 0%, var(--sodium), transparent 70%),
     repeating-linear-gradient(90deg, transparent 0 79px, rgba(0,0,0,.18) 79px 81px),
     linear-gradient(var(--wall), var(--wall2));
+}
+body{                                                  /* phone-sized column, centred on wide screens */
+  font:15px/1.35 "Barlow Semi Condensed",system-ui,sans-serif; color:var(--ink);
+  width:100%; max-width:480px; margin:0 auto;
   display:flex; flex-direction:column; height:100dvh; touch-action:none; user-select:none; -webkit-user-select:none;
   padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
 }
@@ -83,7 +86,7 @@ body{
 #toast.on{opacity:1}
 #sheet{position:fixed;inset:0;z-index:9;display:none;align-items:flex-end;background:rgba(0,0,0,.45)}
 #sheet.on{display:flex}
-#card{width:100%;max-width:520px;margin:0 auto;background:var(--sheet);color:var(--sheetInk);border-radius:16px 16px 0 0;
+#card{width:100%;max-width:480px;margin:0 auto;background:var(--sheet);color:var(--sheetInk);border-radius:16px 16px 0 0;
   padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
 #card h2{font-size:19px}
 .row{display:flex;flex-direction:column;gap:6px}
@@ -100,7 +103,7 @@ body{
 #loadSub{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
 #loadSub::after{content:"_";animation:blink 1s steps(2) infinite}
 @keyframes blink{50%{opacity:0}}
-#menu{position:fixed;inset:0;z-index:8;background:var(--sheet);color:var(--sheetInk);display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));gap:12px;overflow:auto}
+#menu{position:fixed;inset:0;max-width:480px;margin:0 auto;z-index:8;background:var(--sheet);color:var(--sheetInk);display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));gap:12px;overflow:auto}
 #menu[hidden]{display:none}
 .tabs{display:flex;gap:6px}
 .tabs button{flex:1;font:inherit;padding:10px;border-radius:8px;border:1px solid rgba(127,127,127,.4);background:transparent;color:inherit}
