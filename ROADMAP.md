@@ -30,11 +30,17 @@ visual pass settles them.
    its exit, or it won’t finish these levels.
 
 3. **Teleporters and islands.**
-   - Teleporters: one-way pairs where whatever falls out of the bottom of one cell comes in at
-     the top of another. Tiles, drops and specials pass through; a worm’s blast and matches do
-     not reach across. Chained across the board they make a snake: a drop starting top left
-     travels down each column and over to the next until it reaches an exit on the far side.
+   - Teleporters: an ingress and an egress, placed anywhere on the board. Whatever falls out
+     of the bottom of the ingress cell comes in at the top of the egress cell. One way only.
+     Tiles, drops and specials pass through; a worm’s blast and matches do not reach across.
      Drawn as a marked pair, with a glyph as well as colour.
+   - Teleporter layouts are part of the template library. Examples:
+     - Snake: each column’s bottom leads to the top of the next column, so a drop starting top
+       left travels the whole board to an exit on the far side.
+     - Feeder: an island with no spawn point gets its tiles from another part of the board.
+     - Crossover: the left half drains into the right half, or the bottom of one island into
+       the top of another, so drops change sides or levels.
+     - Mid-board egress: tiles come in below a wall instead of from the top.
    - Islands: parts of the board cut off from the rest, each fed by its own spawn point or a
      teleporter exit. Set pieces like a three-column island holding the drops, walled in by
      ICE that only specials break.
