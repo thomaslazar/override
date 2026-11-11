@@ -48,10 +48,10 @@ const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
 function load(){
   let o = null; try { o = JSON.parse(store.get('override-v1')) } catch {}
   const q = DEV && +new URLSearchParams(location.search).get('level');
-  if (q >= 1) return { level: q, fails: 0 };
+  if (Number.isInteger(q) && q >= 1) return { level: q, fails: 0 };
   const s = fromSave(o);
   if (s) return { S: s };
-  return { level: Number.isInteger(o?.level) && o.level >= 1 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0 };
+  return { level: Number.isInteger(o?.level) && o.level >= 1 && o.level <= 1e6 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0 };
 }
 const showLoading = level => { $('#loadTitle').textContent = t('loading', { n: level }); $('#loadSub').textContent = t('loadingSub'); $('#loading').classList.add('on') };
 const hideLoading = () => $('#loading').classList.remove('on');
@@ -124,7 +124,7 @@ async function play(a, b){
   await animate(r.steps);
   sync(); hud(); busy = false;
   if (!r.ok) return;
-  if (won(S)) win(); else if (lost(S)) { run.fails = S.fails + 1; saveRun(); lose() }
+  if (won(S)) win(); else if (lost(S)) lose();
 }
 function unlockScene(open){ $('#scene').classList.toggle('open', open); $('#lockTxt').textContent = open ? 'OPEN' : 'LOCKED' }
 async function win(reloaded){
@@ -136,7 +136,7 @@ async function win(reloaded){
   const text = t('winText', { n: S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
   sheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }]]);
 }
-function lose(){ sheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, run.fails)]]) }
+function lose(){ sheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1)]]) }
 
 /* ---------- drawing ---------- */
 const cv = $('#board'); let g = cv.getContext('2d');
