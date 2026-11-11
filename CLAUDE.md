@@ -26,7 +26,7 @@ Read before changing behaviour:
 
 ## Files
 
-- `index.html`: markup (comms line, scene with the lock, deck with HUD, board canvas, sheet, menu, loading card). `style.css`: all styles, light and dark.
+- `index.html`: markup (comms line, scene with the lock, deck with HUD, board canvas, "prototype" line, sheet, menu, loading card). `style.css`: all styles, light and dark.
 - `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs` and `tests/refill.test.mjs`.
 - `src/levels.js`: chapters, difficulty, `paramsFor`, `makeAttempt`, pure. Tested in `tests/levels.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in

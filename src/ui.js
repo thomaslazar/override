@@ -288,7 +288,7 @@ function icon(goal){
   g = g2; cs = cs2; return c;
 }
 function hud(){
-  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu');
+  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip');
   $('#who').textContent = t('decker'); $('#turnText').textContent = t('turnPhone');
   $('#levelLabel').textContent = t('level', { c: chapterOf(S.level).n, n: S.level });
   const el = $('#goals'); el.textContent = '';

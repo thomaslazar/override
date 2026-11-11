@@ -5,7 +5,7 @@ the lock, line up three or more, and crack it before the patrol comes back. Leve
 generated endlessly, every level is checked beatable by a bot, and the board never runs
 out of moves.
 
-**Play:** https://thomaslazar.github.io/override/ (work in progress)
+**Play the prototype:** https://thomaslazar.github.io/override/ (work in progress; feedback welcome)
 
 ## Install on your phone
 

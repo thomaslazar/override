@@ -63,6 +63,7 @@ body{                                                  /* phone-sized column, ce
 .screw:nth-of-type(3){left:7px;bottom:7px}.screw:nth-of-type(4){right:7px;bottom:7px}
 .bar{gap:8px;display:flex;justify-content:space-between;align-items:center;padding:0 10px;
   font:600 10px "Barlow Semi Condensed",system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--plasticInk)}
+#wip{opacity:.6;letter-spacing:.1em}
 .pwr{width:8px;height:8px;border-radius:50%;background:#58e06a;box-shadow:0 0 5px #58e06a}
 #screen{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:10px;
   background:var(--screen);box-shadow:inset 0 3px 10px rgba(0,0,0,.5),0 0 0 3px rgba(0,0,0,.35)}
