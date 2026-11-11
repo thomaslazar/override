@@ -38,27 +38,31 @@ export function solve(S0, seed, nice = false){
 }
 export const MIN_LIMIT = 10;
 export const limitFor = (need, fails) => Math.ceil(Math.max(MIN_LIMIT, Math.ceil(need * K + C)) * (1 + Math.min(.4, Math.max(0, fails - 3) * .1)));
-// Ready-to-play attempt: tries salts, then lowers difficulty in steps of 0.1, until all RUNS bot runs finish.
-// Retries never get a tighter limit than the first try: need is at least the fails-0 need (memoised, last 8 levels).
+// Ready-to-play attempt. Fails 0: tries salts, then lowers difficulty in steps of 0.1, until all RUNS bot runs finish,
+// and memoises {salt, drop, need} (last 8 levels). Retries reuse that salt and drop, so the layout and goals never change,
+// and never get fewer moves than the first try: need is at least the fails-0 need.
 const first = new Map();
 export function prepare(level, fails = 0){
-  let S;
-  for (let drop = 0; drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < SALTS; salt++) {
-    S = makeAttempt(level, fails, salt, drop);
+  if (fails > 0) {
+    if (!first.has(level)) prepare(level, 0);
+    const f = first.get(level), S = makeAttempt(level, fails, f.salt, f.drop);
     const r = Array.from({ length: RUNS }, (_, k) => solve(S, k)).sort((a, b) => a - b);
-    if (!Number.isFinite(r[RUNS - 1])) continue;
-    S.need = r[RUNS >> 1];
-    if (fails > 0) S.need = Math.max(S.need, firstNeed(level));
+    S.need = Number.isFinite(r[RUNS - 1]) ? Math.max(r[RUNS >> 1], f.need) : f.need;
     S.limit = S.moves = limitFor(S.need, fails);
     return S;
   }
-  S.need = CAP; S.limit = S.moves = limitFor(CAP, fails);   // unreachable in practice; keeps the game going
-  return S;
-}
-function firstNeed(level){
-  if (!first.has(level)) {
-    first.set(level, prepare(level, 0).need);
-    if (first.size > 8) first.delete(first.keys().next().value);
+  let S;
+  for (let drop = 0; drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < SALTS; salt++) {
+    S = makeAttempt(level, 0, salt, drop);
+    const r = Array.from({ length: RUNS }, (_, k) => solve(S, k)).sort((a, b) => a - b);
+    if (!Number.isFinite(r[RUNS - 1])) continue;
+    return done(level, S, r[RUNS >> 1], salt, drop);
   }
-  return first.get(level);
+  return done(level, S, CAP, S.salt, S.drop);   // unreachable in practice; keeps the game going
+}
+function done(level, S, need, salt, drop){
+  S.need = need; S.limit = S.moves = limitFor(need, 0);
+  first.set(level, { salt, drop, need });
+  if (first.size > 8) first.delete(first.keys().next().value);
+  return S;
 }

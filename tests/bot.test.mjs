@@ -46,3 +46,16 @@ test('a retry never gets fewer moves than the first try, and easing adds', () =>
     assert.ok(prepare(l, 4).limit > base, `level ${l} easing`);
   }
 });
+
+test('a retry keeps the level layout and goals', () => {
+  const locks = S => S.grid.flatMap((x, i) => x && x.lock ? [i] : []);
+  for (let l = 55; l <= 60; l++) {
+    const b = prepare(l, 0);
+    for (let f = 1; f <= 6; f++) {
+      const S = prepare(l, f), id = `level ${l} fails ${f}`;
+      assert.equal(S.salt, b.salt, id); assert.equal(S.drop, b.drop, id); assert.equal(S.n, b.n, id);
+      assert.deepEqual(S.enc, b.enc, id); assert.deepEqual(locks(S), locks(b), id);
+      assert.deepEqual(S.goals, b.goals, id); assert.ok(S.limit >= b.limit, id);
+    }
+  }
+});
