@@ -107,6 +107,47 @@ export function hasMove(S){
   }
   return false;
 }
+
+/* ---------- refill ---------- */
+// Helpful refill (spec, Fairness): weights only ever add to 1, never against the player.
+export const REFILL = { A: 1.5, B: 0.5, M: 2 };
+// 0 while goal progress keeps pace with moves used, up to 1 when far behind. 0 without a limit (bot).
+export function pressure(S){
+  if (!S.limit) return 0;
+  let need = 0, got = 0;
+  for (const g of S.goals) { need += g.need; got += Math.min(g.got, g.need) }
+  const used = (S.limit - S.moves) / S.limit, progress = need ? got / need : 1;
+  return Math.max(0, Math.min(1, (used - progress) * 2));
+}
+// Colour t at cell i makes a near pair (same colour next to it, or one cell further in a line),
+// but not a direct match: free cascades get no help.
+export function setsUp(S, i, t){
+  const old = S.grid[i];
+  S.grid[i] = { t, s: null };
+  const [r, c] = rc(S, i);
+  let ok = false;
+  if (!lineAt(S, i)) for (const [dr, dc] of [[0, 1], [1, 0], [0, -1], [-1, 0]])
+    if (colourAt(S, r + dr, c + dc) === t || colourAt(S, r + 2 * dr, c + 2 * dc) === t) { ok = true; break }
+  S.grid[i] = old;
+  return ok;
+}
+export function refillWeights(S, i){
+  const w = Array(S.k).fill(1);
+  if (!S.nice) return w;
+  const p = pressure(S);
+  for (let t = 0; t < S.k; t++) {
+    if (setsUp(S, i, t)) w[t] += REFILL.A + REFILL.M * p;
+    if (S.goals.some(g => g.kind === 'tiles' && g.t === t && g.got < g.need)) w[t] += REFILL.B;
+  }
+  return w;
+}
+export function spawnColour(S, i){
+  const w = refillWeights(S, i);
+  let x = rngFor(S.seed, 7, S.spawns++)() * w.reduce((a, b) => a + b, 0);
+  for (let t = 0; t < w.length; t++) if ((x -= w[t]) < 0) return t;
+  return w.length - 1;
+}
+
 // Fills every free cell without a match, retrying until a move exists. Encrypted cells stay empty.
 export function fillBoard(S, rnd){
   do {
