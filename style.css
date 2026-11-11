@@ -78,7 +78,7 @@ body{
   background:linear-gradient(rgba(255,255,255,.08),rgba(0,0,0,.15));border:0;border-radius:8px;padding:10px 16px;
   box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.15)}
 .hw:active{transform:translateY(2px);box-shadow:none}
-#toast{position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:5;background:rgba(0,0,0,.8);color:#f2f0e6;
+#toast{position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:10;background:rgba(0,0,0,.8);color:#f2f0e6;
   padding:8px 14px;border-radius:6px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none}
 #toast.on{opacity:1}
 #sheet{position:fixed;inset:0;z-index:9;display:none;align-items:flex-end;background:rgba(0,0,0,.45)}
@@ -111,3 +111,4 @@ select{font:inherit;padding:10px;border-radius:8px}
 #menu>.btn{flex:none}
 #menu a{color:inherit}
 #menu .menu-body{flex:1}
+.menu-body .btn{flex:none}
