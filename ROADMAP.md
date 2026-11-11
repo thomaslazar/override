@@ -44,7 +44,8 @@ visual pass settles them.
    - Islands: parts of the board cut off from the rest, each fed by its own spawn point or a
      teleporter exit. Set pieces like a three-column island holding the drops, walled in by
      ICE that only specials break.
-   - Research on how the genre lays out levels: `docs/research/2026-11-11-level-layouts.md`.
+   - Research on how the genre lays out levels: `docs/research/2026-11-11-level-layouts.md`;
+     50 real levels transcribed and 26 template candidates: `docs/research/2026-11-11-layout-gallery.md`.
 
 4. **More blockers.** The genre’s usual set, in the fiction:
    - **ICE:** a hardened cell that matches next to it do not touch; only worms, bombs and
