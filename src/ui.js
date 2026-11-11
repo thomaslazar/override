@@ -174,30 +174,39 @@ function drawFw(cx, cy, a, lw){
   g.strokeRect(cx - a, cy - a, a * 2, a * 2);
   for (const d of [-.33, 0, .33]) { g.beginPath(); g.moveTo(cx + d * a * 2, cy - a); g.lineTo(cx + d * a * 2, cy + a); g.stroke() }
 }
+const edge = R => { g.lineWidth = Math.max(1, R * .1); g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke() };
+const hole = (ty, x, y, R) => { glyphPath(ty, x, y, R); g.fillStyle = PAL.cell; g.fill() };   // colour's shape cut out: colour is never the only cue
 function drawTile(x, cx, cy, sc = 1){
   const R = cs * .34 * sc;
-  if (x.s === 'z') {
-    g.fillStyle = PAL.ink; g.beginPath(); g.arc(cx, cy, R * 1.05, 0, 7); g.fill();
-    g.save(); g.translate(cx, cy); g.rotate(RM ? 0 : performance.now() / 600);
-    g.setLineDash([R * .35, R * .25]); g.strokeStyle = PAL.screen; g.lineWidth = R * .14;
-    g.beginPath(); g.arc(0, 0, R * .78, 0, 7); g.stroke(); g.restore(); g.setLineDash([]);
-    g.fillStyle = PAL.screen; g.font = `700 ${R * .9}px ui-monospace,monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('0', cx, cy + R * .05);
+  if (x.s === 'z') {                                  // zero-day: dark core, turning ring in the level's colours
+    g.save(); g.translate(cx, cy); g.rotate(RM ? 0 : performance.now() / 1500);
+    for (let i = 0; i < S.k; i++) {
+      g.beginPath(); g.arc(0, 0, R * .92, i * 2 * Math.PI / S.k + .08, (i + 1) * 2 * Math.PI / S.k - .08);
+      g.strokeStyle = PAL.t[S.types[i]]; g.lineWidth = R * .32; g.stroke();
+    }
+    g.restore();
+    g.beginPath(); g.arc(cx, cy, R * .55, 0, 7); g.fillStyle = PAL.ink; g.fill();
+    g.beginPath(); g.arc(cx, cy, R * .2, 0, 7); g.fillStyle = PAL.cell; g.fill();
+  } else if (x.s === 'h' || x.s === 'v') {           // worm: data packet along the line it clears, chevrons both ways
+    const ty = S.types[x.t], L = R * .95, H = R * .5;
+    g.save(); g.translate(cx, cy); if (x.s === 'v') g.rotate(Math.PI / 2);
+    g.beginPath(); g.moveTo(-L - H * .9, 0); g.lineTo(-L, -H); g.lineTo(L, -H); g.lineTo(L + H * .9, 0); g.lineTo(L, H); g.lineTo(-L, H); g.closePath();
+    g.fillStyle = PAL.t[ty]; g.fill(); edge(R);
+    g.strokeStyle = PAL.cell; g.lineWidth = R * .14;
+    for (const d of [-1, 1]) { const o = d * L; g.beginPath(); g.moveTo(o - d * H * .3, -H * .5); g.lineTo(o + d * H * .15, 0); g.lineTo(o - d * H * .3, H * .5); g.stroke() }
+    g.restore(); hole(ty, cx, cy, R * .4);
+  } else if (x.s === 'b') {                           // logic bomb: chip with pins on all sides
+    const ty = S.types[x.t], a = R * .78, p = R * .3;
+    g.fillStyle = PAL.t[ty];
+    for (const d of [-.75, 0, .75]) for (const s of [-1, 1]) {
+      g.fillRect(cx + s * (a + p / 2) - p / 2, cy + d * a - R * .1, p, R * .2);
+      g.fillRect(cx + d * a - R * .1, cy + s * (a + p / 2) - p / 2, R * .2, p);
+    }
+    g.beginPath(); g.roundRect(cx - a, cy - a, a * 2, a * 2, R * .15); g.fill(); edge(R);
+    hole(ty, cx, cy, R * .45);
   } else {
     const ty = S.types[x.t];
-    glyphPath(ty, cx, cy, R * (x.s === 'b' ? .72 : x.s ? .85 : 1));
-    g.fillStyle = PAL.t[ty]; g.fill(); g.lineWidth = Math.max(1, R * .1); g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke();
-    if (x.s === 'h' || x.s === 'v') {                // worm: ink line with arrowheads along the line it clears
-      g.save(); g.translate(cx, cy); if (x.s === 'v') g.rotate(Math.PI / 2);
-      g.fillStyle = PAL.ink; g.strokeStyle = PAL.ink; g.lineWidth = R * .16;
-      g.beginPath(); g.moveTo(-R * 1.1, 0); g.lineTo(R * 1.1, 0); g.stroke();
-      for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * R * 1.5, 0); g.lineTo(s * R * 1.0, -R * .42); g.lineTo(s * R * 1.0, R * .42); g.fill() }
-      g.restore();
-    }
-    if (x.s === 'b') {                                // logic bomb: corner brackets around a smaller glyph
-      const a = R * 1.25, l = R * .55; g.strokeStyle = PAL.ink; g.lineWidth = R * .2;
-      for (const [sx, sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]) { g.beginPath(); g.moveTo(cx + sx * a, cy + sy * (a - l)); g.lineTo(cx + sx * a, cy + sy * a); g.lineTo(cx + sx * (a - l), cy + sy * a); g.stroke() }
-    }
+    glyphPath(ty, cx, cy, R); g.fillStyle = PAL.t[ty]; g.fill(); edge(R);
   }
   if (x.lock) drawFw(cx, cy, cs * .42, cs * .07);
 }

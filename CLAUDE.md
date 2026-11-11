@@ -147,7 +147,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   the confirmations. The menu has tabs Run (best level, Restart level, Start over), Settings
   (language, theme auto/light/dark) and Info (how to play, Share, GitHub, licence, font).
 - Look: the canvas draws tiles as seven glyphs (`types`) so colour is never the only cue;
-  specials are marked with ink (worm arrows, bomb brackets, zero-day ring); firewall and
+  specials have their own shapes in their colour with the colour's glyph cut out (worm a
+  data packet along its line, bomb a chip with pins, zero-day a turning ring in the level's colours); firewall and
   encrypted cells have their own drawing. `prefers-reduced-motion` skips rain, fades and eases.
 - Saving: `override-v1` holds `S` whole, written after every move. `override-run` is
   `{ best, fails }`. A save that fails `validSave` but holds an integer `level` restarts that
