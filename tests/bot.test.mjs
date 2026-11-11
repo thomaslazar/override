@@ -38,3 +38,11 @@ test('pick never reads the future refills: the seed does not change the move', (
     assert.deepEqual(pick(S1, rngFor(1, 19)), pick(S2, rngFor(1, 19)), `level ${l}`);
   }
 });
+
+test('a retry never gets fewer moves than the first try, and easing adds', () => {
+  for (const l of [5, 17, 30]) {
+    const base = prepare(l, 0).limit;
+    for (let f = 1; f <= 6; f++) assert.ok(prepare(l, f).limit >= base, `level ${l} fails ${f}`);
+    assert.ok(prepare(l, 4).limit > base, `level ${l} easing`);
+  }
+});

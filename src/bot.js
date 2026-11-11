@@ -39,6 +39,8 @@ export function solve(S0, seed, nice = false){
 export const MIN_LIMIT = 10;
 export const limitFor = (need, fails) => Math.ceil(Math.max(MIN_LIMIT, Math.ceil(need * K + C)) * (1 + Math.min(.4, Math.max(0, fails - 3) * .1)));
 // Ready-to-play attempt: tries salts, then lowers difficulty in steps of 0.1, until all RUNS bot runs finish.
+// Retries never get a tighter limit than the first try: need is at least the fails-0 need (memoised, last 8 levels).
+const first = new Map();
 export function prepare(level, fails = 0){
   let S;
   for (let drop = 0; drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < SALTS; salt++) {
@@ -46,9 +48,17 @@ export function prepare(level, fails = 0){
     const r = Array.from({ length: RUNS }, (_, k) => solve(S, k)).sort((a, b) => a - b);
     if (!Number.isFinite(r[RUNS - 1])) continue;
     S.need = r[RUNS >> 1];
+    if (fails > 0) S.need = Math.max(S.need, firstNeed(level));
     S.limit = S.moves = limitFor(S.need, fails);
     return S;
   }
   S.need = CAP; S.limit = S.moves = limitFor(CAP, fails);   // unreachable in practice; keeps the game going
   return S;
+}
+function firstNeed(level){
+  if (!first.has(level)) {
+    first.set(level, prepare(level, 0).need);
+    if (first.size > 8) first.delete(first.keys().next().value);
+  }
+  return first.get(level);
 }
