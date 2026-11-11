@@ -261,3 +261,16 @@ test('without blockers nothing ever falls diagonally', () => {
     }
   }
 });
+
+import { validSave, fromSave, toSave } from '../src/core.js';
+
+test('saves round trip and reject broken data', () => {
+  const S = mk([...Array(6).fill('A B C D E F A'), 'A B C D E F Bh!']);
+  S.enc[10] = 2;
+  const o = JSON.parse(JSON.stringify(toSave(S)));
+  assert.ok(validSave(o));
+  assert.deepEqual(fromSave(o), S);
+  for (const bad of [null, 5, {}, { ...o, v: 2 }, { ...o, grid: o.grid.slice(1) }, { ...o, level: 0 }, { ...o, goals: [] },
+    { ...o, grid: o.grid.map((x, i) => i ? x : { id: 1, t: 9, s: null, lock: false }) }, { ...o, enc: o.enc.map(() => -1) }])
+    assert.equal(validSave(bad), false, JSON.stringify(bad)?.slice(0, 60));
+});

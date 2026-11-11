@@ -326,3 +326,23 @@ export function reshuffle(S, steps){
   }
   steps.push({ k: 'shuffle', tiles: spots.map(i => ({ i, id: S.grid[i].id, t: S.grid[i].t })) });
 }
+
+/* ---------- saves ---------- */
+const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
+const validTile = (x, k) => x === null || (x && typeof x === 'object' && Number.isInteger(x.id) && typeof x.lock === 'boolean'
+  && ((x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b'].includes(x.s) && int(x.t, 0, k - 1))));
+export function validSave(o){
+  if (!o || typeof o !== 'object' || o.v !== 1) return false;
+  if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 7, 9) || !int(o.k, 2, TYPES)) return false;
+  if (!int(o.moves, 0, 999) || !int(o.limit, 0, 999) || !int(o.seed, 0, 2 ** 32) || !int(o.ids, 0, 1e9)) return false;
+  if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
+  if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
+  const nn = o.n * o.n;
+  if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
+  if (!Array.isArray(o.enc) || o.enc.length !== nn || !o.enc.every(x => int(x, 0, 3))) return false;
+  if (!Array.isArray(o.goals) || !o.goals.length || o.goals.length > 3) return false;
+  return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 9999)
+    && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
+}
+export const toSave = S => JSON.parse(JSON.stringify(S));
+export const fromSave = o => validSave(o) ? JSON.parse(JSON.stringify(o)) : null;
