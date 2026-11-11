@@ -64,9 +64,11 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
   if (fwSpots.length && gr() < .5) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
   if (S.goals.length < 2 || gr() < .5) {
-    const need = Math.round((15 + 25 * p.d) * 5 / p.k), t = Math.floor(gr() * p.k);
+    // goals ignore fails: size from the fails-0 colour count, colours from those that survive easing
+    const kBase = paramsFor(level, 0, drop).k, kGoal = Math.max(4, kBase - 1);
+    const need = Math.round((15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
     if (p.d > .5 && S.goals.length < 2 && gr() < .4) {
-      const u = (t + 1 + Math.floor(gr() * (p.k - 1))) % p.k;
+      const u = (t + 1 + Math.floor(gr() * (kGoal - 1))) % kGoal;
       S.goals.push({ kind: 'tiles', t, need: Math.round(need * .6), got: 0 }, { kind: 'tiles', t: u, need: Math.round(need * .6), got: 0 });
     } else S.goals.push({ kind: 'tiles', t, need, got: 0 });
   }

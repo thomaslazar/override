@@ -70,3 +70,12 @@ test('encrypted cells are mirrored and never seal a row', () => {
     if (crack) assert.equal(crack.need, S.enc.filter(Boolean).length);
   }
 });
+
+test('goals stay the same when easing drops a colour', () => {
+  const ls = [12, 25, 29, 58, ...Array.from({ length: 120 }, (_, i) => i + 1).filter(l => paramsFor(l).k >= 5)];
+  for (const l of ls) {
+    const a = makeAttempt(l, 0), b = makeAttempt(l, 6);
+    assert.deepEqual(b.goals, a.goals, `level ${l}`);
+    assert.ok(b.goals.every(g => g.kind !== 'tiles' || g.t < b.k), `level ${l} colour`);
+  }
+});
