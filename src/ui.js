@@ -134,9 +134,9 @@ async function win(reloaded){
   }
   busy = false;
   const text = t('winText', { n: S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
-  sheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }]]);
+  showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]]);
 }
-function lose(){ sheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1)]]) }
+function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1), true]]) }
 
 /* ---------- drawing ---------- */
 const cv = $('#board'); let g = cv.getContext('2d');
@@ -294,16 +294,61 @@ function comms(){
   $('#line').textContent = S.level === ENC_FROM ? t('hintCrack') : S.level === FW_FROM ? t('hintFirewall') : lines[hash(S.level, 23) % lines.length];
 }
 let toastTimer; function toast(s){ const el = $('#toast'); el.textContent = s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 1600) }
-const closeSheets = () => $('#sheet').classList.remove('on');
-function sheet(title, text, buttons){
-  const card = $('#card'); card.textContent = '';
+let dismissable = false;
+const closeSheet = () => { $('#sheet').classList.remove('on'); grace = performance.now() + 400 };
+const closeMenu = () => { $('#menu').hidden = true; grace = performance.now() + 400 };
+const closeSheets = () => { closeSheet(); closeMenu() };
+// buttons: [label, fn, main]. dismiss: tap outside the card or Escape closes it (win and loss sheets never dismiss).
+function showSheet(title, text, buttons, dismiss){
+  const card = $('#card'); card.textContent = ''; dismissable = !!dismiss;
   const h = document.createElement('h2'); h.textContent = title; card.append(h);
   if (text) { const p = document.createElement('p'); p.textContent = text; card.append(p) }
-  for (const [label, fn] of buttons) {
-    const b = document.createElement('button'); b.className = 'btn main'; b.textContent = label;
-    b.onclick = () => { closeSheets(); grace = performance.now() + 400; fn() }; card.append(b);
+  for (const [label, fn, main] of buttons) {
+    const b = document.createElement('button'); b.className = 'btn' + (main ? ' main' : ''); b.textContent = label;
+    b.onclick = () => { closeSheet(); fn() }; card.append(b);
   }
   $('#sheet').classList.add('on');
+}
+$('#sheet').onclick = e => { if (e.target === $('#sheet') && dismissable) closeSheet() };
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('#sheet').classList.contains('on')) { if (dismissable) closeSheet() }
+  else if (!$('#menu').hidden) closeMenu();
+});
+
+/* ---------- menu ---------- */
+let tab = 0;
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e };
+const btn = (label, fn, cls = 'btn') => { const b = el('button', label, cls); b.onclick = fn; return b };
+const confirmSheet = (text, fn) => showSheet(text, '', [[t('yes'), fn, true], [t('cancel'), () => {}]], true);
+function renderMenu(){
+  const m = $('#menu'); m.textContent = '';
+  const tabs = el('div', null, 'tabs');
+  [t('tabRun'), t('tabSettings'), t('tabInfo')].forEach((l, i) => { const b = btn(l, () => { tab = i; renderMenu() }, i === tab ? 'on' : ''); tabs.append(b) });
+  const body = el('div', null, 'menu-body');
+  if (tab === 0) body.append(
+    el('p', t('best', { n: run.best })),
+    btn(t('restart'), () => confirmSheet(t('restartAsk'), () => begin(S.level, S.fails))),
+    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run = { best: 1, fails: 0 }; saveRun(); begin(1, 0) })));
+  if (tab === 1) {
+    const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
+    sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); comms(); renderMenu() };
+    const seg = el('div', null, 'seg'), cur = store.get('override-theme') || 'auto';
+    [['auto', t('themeAuto')], ['light', t('themeLight')], ['dark', t('themeDark')]].forEach(([v, l]) => seg.append(btn(l, () => { store.set('override-theme', v); applyTheme(); renderMenu() }, v === cur ? 'on' : '')));
+    body.append(el('label', t('language')), sel, el('label', t('theme')), seg);
+  }
+  if (tab === 2) {
+    const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';
+    body.append(el('h2', 'Override'), el('h3', t('howTitle')), el('p', t('howText')), el('p', t('fair')), btn(t('share'), share, 'btn main'), a, el('p', t('licence')), el('p', t('font')));
+  }
+  m.append(tabs, body, btn(t('keepPlaying'), closeMenu, 'btn main'));
+}
+$('#menuBtn').onclick = () => { if (busy || !S) return; renderMenu(); $('#menu').hidden = false };
+async function share(){
+  const url = location.origin + location.pathname;
+  if (navigator.share) { try { await navigator.share({ title: 'Override', text: t('shareText'), url }) } catch {} return }
+  try { await navigator.clipboard.writeText(url); toast(t('linkCopied')) }
+  catch { showSheet(t('share'), url, [[t('cancel'), () => {}]], true) }
 }
 
 /* ---------- input ---------- */

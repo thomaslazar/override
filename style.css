@@ -81,7 +81,7 @@ body{
 #toast{position:fixed;left:50%;top:40%;transform:translateX(-50%);z-index:5;background:rgba(0,0,0,.8);color:#f2f0e6;
   padding:8px 14px;border-radius:6px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none}
 #toast.on{opacity:1}
-#sheet{position:fixed;inset:0;z-index:6;display:none;align-items:flex-end;background:rgba(0,0,0,.45)}
+#sheet{position:fixed;inset:0;z-index:9;display:none;align-items:flex-end;background:rgba(0,0,0,.45)}
 #sheet.on{display:flex}
 #card{width:100%;max-width:520px;margin:0 auto;background:var(--sheet);color:var(--sheetInk);border-radius:16px 16px 0 0;
   padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
@@ -108,3 +108,6 @@ body{
 .menu-body{display:flex;flex-direction:column;gap:10px}
 select{font:inherit;padding:10px;border-radius:8px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+#menu>.btn{flex:none}
+#menu a{color:inherit}
+#menu .menu-body{flex:1}
