@@ -389,7 +389,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 const first = load();
 if (first.S) { S = first.S; start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
-addEventListener('resize', () => { sizeRain(); S && fit() });
+addEventListener('resize', sizeRain);
+new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
 if ('serviceWorker' in navigator) {
