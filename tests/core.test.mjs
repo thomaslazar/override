@@ -274,3 +274,17 @@ test('saves round trip and reject broken data', () => {
     { ...o, grid: o.grid.map((x, i) => i ? x : { id: 1, t: 9, s: null, lock: false }) }, { ...o, enc: o.enc.map(() => -1) }])
     assert.equal(validSave(bad), false, JSON.stringify(bad)?.slice(0, 60));
 });
+
+test('a special swapped into a match fires with it and the new special survives', () => {
+  // the bomb (colour A) drops into the gap of A A _ A A: a run of five makes a zero-day on its cell
+  const S = mk(['C D E F C', 'D E Ab C D', 'A A B A A', 'E F C D E', 'F C D E F']);
+  const w = wave(move(S, idx(S, 1, 2), idx(S, 2, 2)).steps);
+  assert.ok(w.fired.some(f => f.s === 'b'), 'the bomb fires');
+  assert.deepEqual(w.created.map(c => [c.i, c.tile.s]), [[idx(S, 2, 2), 'z']]);
+});
+
+test('a special swapped without a match still fires', () => {
+  const S = mk(['A B C D', 'E Ah F B', 'C D E F', 'D E F A']);
+  const w = wave(move(S, idx(S, 1, 1), idx(S, 2, 1)).steps);
+  assert.ok(w.fired.some(f => f.s === 'h'));
+});

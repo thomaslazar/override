@@ -249,11 +249,12 @@ export const nextTo = (S, a, b) => { const [r1, c1] = rc(S, a), [r2, c2] = rc(S,
 export const won = S => S.goals.every(g => g.got >= g.need);
 export const lost = S => !won(S) && S.moves <= 0;
 
-function cascade(S, steps, prefer = [], swipe = null){
+// `fire` holds cells that join the first wave even without a match (a swapped special).
+function cascade(S, steps, prefer = [], swipe = null, fire = []){
   for (;;) {
     const gs = findGroups(S);
     if (!gs.length) return;
-    const cells = new Set(), matched = new Set(), creates = [];
+    const cells = new Set(fire), matched = new Set(), creates = [];
     for (const g of gs) {
       for (const i of g.cells) { cells.add(i); matched.add(i) }
       const s = specialOf(g, swipe);
@@ -261,7 +262,7 @@ function cascade(S, steps, prefer = [], swipe = null){
     }
     steps.push(wave(S, cells, matched, creates));
     gravity(S, steps);
-    prefer = []; swipe = null;
+    prefer = []; swipe = null; fire = [];
   }
 }
 // A swap with at least one special. A is the dragged tile (now at pa), B the other (now at pb).
@@ -307,8 +308,12 @@ export function move(S, a, b){
   const A = S.grid[a], B = S.grid[b];
   S.grid[a] = B; S.grid[b] = A;
   steps.push({ k: 'swap', a, b });
-  if (A.s || B.s) { S.moves--; combo(S, A, b, B, a, steps); cascade(S, steps) }
-  else if (findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v') }
+  const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z';
+  // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
+  // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
+  if (lone && findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
+  else if (A.s || B.s) { S.moves--; combo(S, A, b, B, a, steps); cascade(S, steps) }
+  else if (findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe) }
   else { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
   if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
   return { ok: true, steps };

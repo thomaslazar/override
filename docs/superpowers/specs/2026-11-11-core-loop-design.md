@@ -79,6 +79,8 @@ look, translations beyond English, an "easier retries" switch.
 
 - A special fires when it is cleared (by a match or by another special's blast), and on any
   swap: a swapped special fires on the cell where it lands; the other tile just moves.
+- A worm or bomb swapped into a match fires as part of that match, and the special the match
+  makes is placed after the clear, so a new special is never destroyed by the wave that made it.
 - Zero-day swapped with a normal tile: clears every tile of that tile's colour. Fired by a
   blast: clears the most common colour on the board.
 - Chains: every special hit by a blast fires once.

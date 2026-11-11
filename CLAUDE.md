@@ -64,8 +64,9 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   worm along the swipe (or its own direction). `spotOf` puts it on a swapped cell, else the
   crossing (bomb), else the middle of the longest run. `swapLegal` needs a match, or a special.
 - **move**: `move(S, a, b)` returns `{ ok, steps }`. Steps are `swap`, `back`, `combo`,
-  `convert`, `wave`, `fall`, `shuffle` (contract in the plan). Flow: swap; a swap with a
-  special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
+  `convert`, `wave`, `fall`, `shuffle` (contract in the plan). Flow: swap; a lone worm or bomb
+  swapped into a match joins that match's first wave (so the special it makes survives); any
+  other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
   exists, `reshuffle` runs.
 - **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`
