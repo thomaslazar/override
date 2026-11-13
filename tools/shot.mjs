@@ -14,6 +14,22 @@ const port = await new Promise(r => { const s = createServer().listen(0, () => {
 // snap Chromium cannot reach /tmp, so the profile lives under $HOME
 const dir = `${homedir()}/override-shots/prof-shot-${process.pid}`; mkdirSync(dir, { recursive: true });
 const proc = spawn('/snap/bin/chromium', ['--headless', '--no-sandbox', '--disable-gpu', `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, 'about:blank'], { stdio: 'ignore' });
+// Snap moves Chromium into its own session and AppArmor blocks signals to it, so proc.kill() leaks
+// whole browsers. Close it from inside instead: Browser.close over the browser-level CDP socket.
+const closeBrowser = async () => {
+  try {
+    const v = await (await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(2000) })).json();
+    const b = new WebSocket(v.webSocketDebuggerUrl);
+    await Promise.race([new Promise(r => b.onopen = r), sleep(2000)]);
+    b.send(JSON.stringify({ id: 1, method: 'Browser.close' }));
+    await Promise.race([new Promise(r => proc.once('exit', r)), sleep(3000)]);
+  } catch {}
+  try { proc.kill() } catch {}
+  try { rmSync(dir, { recursive: true, force: true }) } catch {}
+};
+const bail = async msg => { if (msg) console.error(msg); await closeBrowser(); process.exit(1) };
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => bail());
+setTimeout(() => bail('shot: timed out after 60 s'), 60000).unref();
 let ws;
 try {
   let tab;
@@ -43,8 +59,6 @@ try {
   writeFileSync(out, Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).result.data, 'base64'));
 } finally {
   try { ws?.close() } catch {}
-  try { proc.kill() } catch {}
-  await Promise.race([new Promise(r => proc.once('exit', r)), sleep(2000)]);
-  try { rmSync(dir, { recursive: true, force: true }) } catch {}
+  await closeBrowser();
   setTimeout(() => process.exit(0), 300);
 }
