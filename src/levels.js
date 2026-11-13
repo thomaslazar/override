@@ -32,9 +32,9 @@ export function paramsFor(level, fails = 0, drop = 0){
 }
 
 /* ---------- attempts ---------- */
-// Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles also on fails.
 export const GOAL = 2.5; // tile goal size factor, tuned by playtest
 
+// Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles also on fails.
 export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   const p = paramsFor(level, fails, drop), n = p.n, nn = n * n, lr = rngFor(level, salt, 2);
   const order = Array.from({ length: TYPES }, (_, i) => i), tr = rngFor(level, 4);
@@ -43,7 +43,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
     grid: Array(nn).fill(null), enc: Array(nn).fill(0), goals: [], moves: 0, limit: 0, need: 0,
     seed: hash(level, fails, salt, 1), spawns: 0, shuffles: 0, ids: 0, nice: true };
   // goal kinds first, so only the blockers a goal uses get placed
-  const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && gr() < .5;
+  const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM); // the tutorial hint needs a firewall
   // encrypted cells: mirrored pairs from row 2 down, at most n - 2 per row
   for (let placed = 0, guard = 0; wantCrack && placed < p.enc && guard < 500; guard++) {
     const r = 2 + Math.floor(lr() * (n - 2)), c = Math.floor(lr() * Math.ceil(n / 2)), m = n - 1 - c;

@@ -46,8 +46,11 @@ test('first levels have tile goals only; blockers arrive on schedule', () => {
     assert.ok(S.goals.every(g => g.kind === 'tiles'));
     assert.ok(S.enc.every(x => !x) && S.grid.every(x => !x || !x.lock));
   }
-  assert.ok(Array.from({ length: 10 }, (_, i) => makeAttempt(ENC_FROM + i)).some(S => S.enc.some(Boolean)));
-  assert.ok(Array.from({ length: 10 }, (_, i) => makeAttempt(FW_FROM + i)).some(S => S.grid.some(x => x && x.lock)));
+  for (let salt = 0; salt < 10; salt++) {
+    const F = makeAttempt(FW_FROM, 0, salt), E = makeAttempt(ENC_FROM, 0, salt);
+    assert.ok(F.grid.some(x => x && x.lock) && F.goals.some(g => g.kind === 'firewall'), `fw salt ${salt}`);
+    assert.ok(E.enc.some(Boolean) && E.goals.some(g => g.kind === 'crack'), `enc salt ${salt}`);
+  }
 });
 
 test('layout and goals stay on retry; tiles reshuffle', () => {
