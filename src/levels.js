@@ -33,6 +33,8 @@ export function paramsFor(level, fails = 0, drop = 0){
 
 /* ---------- attempts ---------- */
 // Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles also on fails.
+export const GOAL = 2.5; // tile goal size factor, tuned by playtest
+
 export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   const p = paramsFor(level, fails, drop), n = p.n, nn = n * n, lr = rngFor(level, salt, 2);
   const order = Array.from({ length: TYPES }, (_, i) => i), tr = rngFor(level, 4);
@@ -40,8 +42,10 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   const S = { v: 1, level, fails, salt, drop, n, k: p.k, types: order.slice(0, p.k),
     grid: Array(nn).fill(null), enc: Array(nn).fill(0), goals: [], moves: 0, limit: 0, need: 0,
     seed: hash(level, fails, salt, 1), spawns: 0, shuffles: 0, ids: 0, nice: true };
+  // goal kinds first, so only the blockers a goal uses get placed
+  const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && gr() < .5;
   // encrypted cells: mirrored pairs from row 2 down, at most n - 2 per row
-  for (let placed = 0, guard = 0; placed < p.enc && guard < 500; guard++) {
+  for (let placed = 0, guard = 0; wantCrack && placed < p.enc && guard < 500; guard++) {
     const r = 2 + Math.floor(lr() * (n - 2)), c = Math.floor(lr() * Math.ceil(n / 2)), m = n - 1 - c;
     const inRow = S.enc.slice(r * n, r * n + n).filter(Boolean).length, add = m === c ? 1 : 2;
     if (S.enc[r * n + c] || inRow + add > n - 2) continue;
@@ -51,7 +55,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   }
   // firewall spots come from the layout stream, so they stay on retry
   const fwSpots = [];
-  for (let guard = 0; fwSpots.length < p.fw && guard < 500; guard++) {
+  for (let guard = 0; wantFw && fwSpots.length < p.fw && guard < 500; guard++) {
     const i = n + Math.floor(lr() * (nn - n));
     if (!S.enc[i] && !fwSpots.includes(i)) fwSpots.push(i);
   }
@@ -60,13 +64,13 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
   if (!hasMove(S)) reshuffle(S, []);
   S.shuffles = 0;
   // goals
-  const gr = rngFor(level, salt, 5), cracks = S.enc.filter(Boolean).length;
+  const cracks = S.enc.filter(Boolean).length;
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
-  if (fwSpots.length && gr() < .5) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
+  if (fwSpots.length) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
   if (S.goals.length < 2 || gr() < .5) {
     // goals ignore fails: size from the fails-0 colour count, colours from those that survive easing
     const kBase = paramsFor(level, 0, drop).k, kGoal = Math.max(4, kBase - 1);
-    const need = Math.round((15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
+    const need = Math.round(GOAL * (15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
     if (p.d > .5 && S.goals.length < 2 && gr() < .4) {
       const u = (t + 1 + Math.floor(gr() * (kGoal - 1))) % kGoal;
       S.goals.push({ kind: 'tiles', t, need: Math.round(need * .6), got: 0 }, { kind: 'tiles', t: u, need: Math.round(need * .6), got: 0 });

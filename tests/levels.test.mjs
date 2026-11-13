@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterOf, difficulty, breather, paramsFor, makeAttempt, ENC_FROM, FW_FROM } from '../src/levels.js';
+import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM } from '../src/levels.js';
 import { findGroups, hasMove, validSave } from '../src/core.js';
 
 test('chapters are 30 levels', () => {
@@ -46,8 +46,8 @@ test('first levels have tile goals only; blockers arrive on schedule', () => {
     assert.ok(S.goals.every(g => g.kind === 'tiles'));
     assert.ok(S.enc.every(x => !x) && S.grid.every(x => !x || !x.lock));
   }
-  assert.ok(makeAttempt(ENC_FROM).enc.some(Boolean));
-  assert.ok(makeAttempt(FW_FROM).grid.some(x => x && x.lock));
+  assert.ok(Array.from({ length: 10 }, (_, i) => makeAttempt(ENC_FROM + i)).some(S => S.enc.some(Boolean)));
+  assert.ok(Array.from({ length: 10 }, (_, i) => makeAttempt(FW_FROM + i)).some(S => S.grid.some(x => x && x.lock)));
 });
 
 test('layout and goals stay on retry; tiles reshuffle', () => {
@@ -77,5 +77,35 @@ test('goals stay the same when easing drops a colour', () => {
     const a = makeAttempt(l, 0), b = makeAttempt(l, 6);
     assert.deepEqual(b.goals, a.goals, `level ${l}`);
     assert.ok(b.goals.every(g => g.kind !== 'tiles' || g.t < b.k), `level ${l} colour`);
+  }
+});
+
+test('blockers only with their goal, at least one goal', () => {
+  for (let l = 1; l <= 60; l++) {
+    const S = makeAttempt(l, 0, 0), kinds = S.goals.map(g => g.kind);
+    assert.ok(S.goals.length >= 1, `level ${l} has a goal`);
+    assert.equal(S.enc.some(Boolean), kinds.includes('crack'), `crack ${l}`);
+    assert.equal(S.grid.some(t => t && t.lock), kinds.includes('firewall'), `firewall ${l}`);
+  }
+});
+
+test('single-colour tiles goal is GOAL times the base size', () => {
+  let seen = 0;
+  for (let l = 1; l <= 60; l++) {
+    const S = makeAttempt(l, 0, 0), tg = S.goals.filter(g => g.kind === 'tiles');
+    if (tg.length !== 1) continue;
+    const p = paramsFor(l, 0, 0);
+    assert.equal(tg[0].need, Math.round(GOAL * (15 + 25 * p.d) * 5 / p.k));
+    seen++;
+  }
+  assert.ok(seen > 5);
+});
+
+test('layout and goals stay the same across fails', () => {
+  for (const l of [4, 12, 25, 37, 50]) {
+    const a = makeAttempt(l, 0, 3), b = makeAttempt(l, 3, 3);
+    assert.deepEqual(a.enc, b.enc);
+    assert.deepEqual(a.goals, b.goals);
+    assert.deepEqual(a.grid.map(t => !!(t && t.lock)), b.grid.map(t => !!(t && t.lock)));
   }
 });

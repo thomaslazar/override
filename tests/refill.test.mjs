@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { refillWeights, pressure, setsUp, spawnColour } from '../src/core.js';
+import { move, refillWeights, pressure, setsUp, spawnColour } from '../src/core.js';
 import { mk } from './helpers.mjs';
 
 const rows = ['. B C D', 'A E F B', 'A C D E', 'B D E F'];
@@ -41,7 +41,6 @@ test('spawnColour is seeded and advances the counter', () => {
   assert.ok(xs.every(t => t >= 0 && t < 6));
 });
 
-import { move, lineAt } from '../src/core.js';
 
 test('a refill that makes a line survives about DAMP of the time (shown by a second wave)', () => {
   let cascaded = 0, n = 0;
@@ -52,7 +51,6 @@ test('a refill that makes a line survives about DAMP of the time (shown by a sec
     n++;
     if (r.steps.filter(s => s.k === 'wave').length > 1) cascaded++;
   }
-  console.log('share', cascaded, n);
   assert.ok(n > 100);
   assert.ok(cascaded / n > 0.02 && cascaded / n < 0.3);
 });
