@@ -95,6 +95,21 @@ rather than an attempts-only log, because the per-move entries are what show cas
 - A level must still have at least one goal; with no blocker goal it is a tiles goal.
 - Layout stays deterministic per level, salt and drop; retries keep layout and goals (as today).
 
+### Seeded boards per level (`src/levels.js`, `src/bot.js`, `src/ui.js`), added in testing
+
+Owner's request: layout and goals stay fixed per level, but the tiles should not be the same on every
+attempt, and the move count should not jump between retries.
+
+- Each level has seeded tile boards (deals). The bot plays 12 of them once each on the level's
+  layout, drops the easiest and the hardest, and the median of the 12 sets one move limit for every
+  attempt of the level. Only the fail easing (+10 % per fail from the 4th, at most +40 %) changes it.
+- Ten deals are kept. A level's first attempt picks one at random; every retry or restart takes the
+  next, so a board repeats only after 10 attempts, and other players start at other boards.
+- Deals are seeded, so the bot, the sim and the play log (which records the deal) see exactly the
+  boards players get.
+- Considered and dropped: one limit per random board (the bot's moves vary up to 2x between boards,
+  so the limit would jump), and fully random boards (no bot check of what is played).
+
 ### Balance tool (`tools/sim.mjs`)
 
 Adds per level: the target (`8 + 14 * d`), `need` against target in percent, waves per move,

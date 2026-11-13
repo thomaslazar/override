@@ -98,21 +98,26 @@ the fiction are still working names.
      never possible.
 
 9. **Help for new players.** A short explanation the first time each special, blocker and goal
-   appears, shown on the board. A hint (a glowing valid move) after a few idle seconds,
-   switchable in settings.
+   appears, shown on the board. An idle hint exists (the swap wriggles after 10 s when only one
+   or two exist); open whether it should show on any board and be switchable in settings.
 
 10. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
     The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
 
-11. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
+11. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
+    ASCII style, picked at random per win: REKT, OWNED, ROOTED, ACCESS GRANTED, GG and similar,
+    each with its own small ASCII picture next to the padlock (an open door, a skull, a terminal).
+    Decoration, not translated, static under reduced motion like PWNED.
+
+12. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
     open plate in the same framing as the maglock (`docs/art.md`).
 
-12. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
+13. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
     progress; crew members on comms with names; backgrounds that change with the obstacle
     (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
     last level of a run.
 
-13. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
+14. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
     for matches, specials and the payout; mute in settings.
 
 ## Later
