@@ -3,7 +3,8 @@ import { move, validMoves, won, hash, rngFor } from './core.js';
 import { makeAttempt } from './levels.js';
 
 export const CAP = 80, K = 1.3, C = 2, RUNS = 3, SALTS = 10;
-const copy = S => JSON.parse(JSON.stringify(S));
+// Same as a JSON round trip of S (tiles, enc and goals are the only nested state move changes), but faster.
+const copy = S => ({ ...S, types: [...S.types], grid: S.grid.map(x => x && { ...x }), enc: [...S.enc], goals: S.goals.map(g => ({ ...g })) });
 // Goal progress first, then specials on the board, then tiles cleared (new ids).
 function value(S){
   let v = won(S) ? 1e6 : 0;
@@ -54,8 +55,10 @@ export function prepare(level, fails = 0){
   let S;
   for (let drop = 0; drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < SALTS; salt++) {
     S = makeAttempt(level, 0, salt, drop);
-    const r = Array.from({ length: RUNS }, (_, k) => solve(S, k)).sort((a, b) => a - b);
-    if (!Number.isFinite(r[RUNS - 1])) continue;
+    const r = [];   // a run that hits the cap rules the salt out, so later runs are skipped
+    for (let k = 0; k < RUNS && (k === 0 || Number.isFinite(r[k - 1])); k++) r.push(solve(S, k));
+    if (!Number.isFinite(r[r.length - 1])) continue;
+    r.sort((a, b) => a - b);
     return done(level, S, r[RUNS >> 1], salt, drop);
   }
   return done(level, S, CAP, S.salt, S.drop);   // unreachable in practice; keeps the game going
