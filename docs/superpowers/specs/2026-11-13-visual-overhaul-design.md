@@ -86,7 +86,7 @@ Built from pieces so it fits every phone:
 Cells are faint rounded squares on the black screen.
 
 **Tiles**: one glowing character per glyph slot, in its colour with a glow:
-`ｱ ﾊ ｦ 7 Ξ ﾐ Z` on `--t0 .. --t6` (`#3dff8a #35c2d9 #ff4fa3 #f2c230 #a77cf0 #ff6a2b #e9f0ff`).
+`ｱ ﾊ ｦ Ø Ξ ﾐ Z` on `--t0 .. --t6` (`#3dff8a #35c2d9 #ff4fa3 #f2c230 #a77cf0 #ff6a2b #e9f0ff`).
 Characters use the terminal font, falling back to the phone's own CJK font for katakana.
 
 **Specials** (dedicated items in their tile's colour, brighter and larger than tiles; "specials
