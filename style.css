@@ -72,7 +72,8 @@ body{
 #card .ascL{display:table;margin:4px auto 14px;font:12px/1.1 var(--mono);white-space:pre;text-align:left;color:var(--ink);text-shadow:0 0 5px var(--termGlow)}
 #card .ascW{display:block;margin:0 auto 16px;max-width:100%}
 #turn{display:none}
-@media (orientation:landscape) and (max-height:500px){#turn{display:flex;position:fixed;inset:0;z-index:9;background:#0b0c0e;color:#eee;align-items:center;justify-content:center}}
+@media (orientation:landscape) and (max-height:500px){#turn{display:flex;position:fixed;inset:0;z-index:9;background:#0b0c0e;font:14px var(--mono);color:var(--term);align-items:center;justify-content:center}}
+#turnText::before{content:"> "}
 #loading{position:fixed;inset:0;z-index:7;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(0,0,0,.72);color:var(--term);font:18px var(--mono)}
 #loading.on{display:flex}
 #loadSub{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}

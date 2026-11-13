@@ -1,7 +1,7 @@
 // Browser check: node tools/shot.mjs <url> <out.png> [--size WxH] [--won] [--eval JS] [--reduced-motion]
 // Real-time headless Chromium over CDP (never --virtual-time-budget: it stalls the worker).
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { createServer } from 'node:net';
 
@@ -44,5 +44,7 @@ try {
 } finally {
   try { ws?.close() } catch {}
   try { proc.kill() } catch {}
+  await Promise.race([new Promise(r => proc.once('exit', r)), sleep(2000)]);
+  try { rmSync(dir, { recursive: true, force: true }) } catch {}
   setTimeout(() => process.exit(0), 300);
 }

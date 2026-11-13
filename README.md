@@ -1,7 +1,7 @@
 # Override
 
 An ad-free match-3 for phones. You are the crew’s hacker on site: jack your field deck into
-the lock (a rainy street-level terminal look, with a colour-blind palette in settings), line up three or more, and crack it before the patrol comes back. Levels are
+the lock (a dark street-level hacker terminal look, with a colour-blind palette in settings), line up three or more, and crack it before the patrol comes back. Levels are
 generated endlessly, every level is checked beatable by a bot, and the board never runs
 out of moves.
 

@@ -31,7 +31,7 @@ Read before changing behaviour:
 
 ## Files
 
-- `index.html`: markup (strip with the obstacle plate, comms line, deck with image pieces and stickers, screen with log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; log lines hide below 780 px, the whole log below 620 px height).
+- `index.html`: markup (strip with the obstacle plate, comms line, deck with image pieces and stickers, screen with log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; the middle log line hides below 780 px height, the whole log below 620 px height).
 - `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs` and `tests/refill.test.mjs`.
 - `src/levels.js`: chapters, difficulty, `paramsFor`, `makeAttempt`, pure. Tested in `tests/levels.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in

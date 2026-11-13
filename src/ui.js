@@ -319,7 +319,7 @@ const closeSheets = () => { closeSheet(); closeMenu() };
 // buttons: [label, fn, main]. dismiss: tap outside the card or Escape closes it (win and loss sheets never dismiss).
 function showSheet(title, text, buttons, dismiss, art){
   const card = $('#card'); card.textContent = ''; dismissable = !!dismiss; clearInterval(artTimer);
-  if (art) { const l = document.createElement('pre'), w = document.createElement('canvas'); l.className = 'ascL'; w.className = 'ascW'; card.append(l, w); animateArt(l, w) }
+  if (art) { const l = document.createElement('pre'), w = document.createElement('canvas'); l.setAttribute('aria-hidden', 'true'); w.setAttribute('aria-hidden', 'true'); l.className = 'ascL'; w.className = 'ascW'; card.append(l, w); animateArt(l, w) }
   const h = document.createElement('h2'); h.textContent = title; card.append(h);
   if (text) { const p = document.createElement('p'); p.textContent = text; card.append(p) }
   for (const [label, fn, main] of buttons) {
@@ -340,7 +340,7 @@ function animateArt(l, w){
     k++; l.textContent = PADLOCK[RM || k % 8 >= 4 ? 1 : 0];
     x2.clearRect(0, 0, w.width, w.height);
     PWNED.forEach((row, i) => {
-      const c = PAL.t[(i + k) % 6]; x2.fillStyle = c; x2.shadowColor = c; x2.shadowBlur = 6;
+      const c = PAL.t[(i + k) % 7]; x2.fillStyle = c; x2.shadowColor = c; x2.shadowBlur = 6;
       for (let x = 0; x < cols; x++) if (row[x] === '█') {
         x2.globalAlpha = k % 9 === 0 && !RM && hash(k, i, x) % 5 === 0 ? .45 : 1;
         x2.fillRect(x * px, i * px * 1.4, px - .5, px * 1.4 - .5);
