@@ -108,7 +108,7 @@ look, translations beyond English, an "easier retries" switch.
   tiles that cannot fall straight themselves. A cell roofed over so that nothing can reach it
   stays empty (a pocket) until the blocker above breaks. Spike: 900 random moves, no other
   empty cells.
-- New tiles enter at the top. Their colours come from the refill (see Fairness).
+- New tiles enter at the top. Their colours come from the refill (see Refill).
 - Waves repeat until no match is left (cascades).
 
 ### Reshuffle
@@ -165,7 +165,7 @@ Exact mappings are my call, tuned with the sim and by playtest:
 - The limit is `ceil(need * K + C)` (my call to start: `K = 1.3`, `C = 2`; tune by playtest).
 - If any of the three runs hits the cap, the level is regenerated with the next salt (at most 10
   times, then difficulty drops by 0.1 and it tries again).
-- The bot plays with the neutral refill (see Fairness), so its limit is close to the honest
+- The bot plays with the neutral refill (see Refill), so its limit is close to the honest
   worst case and the player always gets at least that much help on top.
 
 ### Retries and fail easing
@@ -176,7 +176,7 @@ Exact mappings are my call, tuned with the sim and by playtest:
 - From the 6th fail, the level uses one colour fewer, down to 4.
 - Restarting a level from the menu is not a fail.
 
-## Fairness: helpful refill
+## Refill: helpful bias and damping
 
 Each new tile's colour is drawn from the same seeded stream, by weight:
 
@@ -189,13 +189,17 @@ Each new tile's colour is drawn from the same seeded stream, by weight:
   the share of moves used.
 - Starting weights (my call): `A = 1.5`, `B = 0.5`, `M` up to `2`.
 - Weights never go below 1 for any colour. Since the balance pass, refills that settle into a line
-  are also damped (`DAMP`, at settle time in gravity), shared by player and bot, and the bot's play
-  sets every limit, so the limit always reflects the refill the player gets. See
-  `2026-11-13-balance-and-play-log-design.md`, "Fairness, restated".
+  are also damped (`DAMP`, at settle time in gravity), shared by player and bot, so free cascades
+  stay a treat instead of playing the level for you. This is a gameplay choice, not a fairness one:
+  the bot plays the same refills and sets every limit. See
+  `2026-11-13-balance-and-play-log-design.md`, "Refill damping and fun".
 - The bot uses the neutral refill (`A = B = M = 0`). `tools/sim.mjs --refill nice` plays the bot
   with the player's refill and reports how many moves the help is worth, to tune `K` and the
   weights and to catch help that flattens skill.
-- The game says it plainly (Info): "Refills lean your way when you’re behind. Move limits come from a bot playing the very same refills."
+- Fairness, as the owner means it: a level eases off when you hit a wall (more moves, then a colour
+  fewer), and nothing is built to make you fail to sell something (no ads, no shop for money). The
+  game says it in Info: "Hit a wall and the level eases off: more moves, then one colour fewer.
+  Nothing is built to make you fail, and there’s nothing to buy."
 
 ## Architecture
 

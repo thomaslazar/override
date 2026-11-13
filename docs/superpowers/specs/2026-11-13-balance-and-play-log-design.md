@@ -41,9 +41,11 @@ not the cause (3.3 waves, 38 % with it off); plain random refill on 4 to 5 colou
 - A level preparation slow enough to be felt (see Constraints).
 - Logging anything without the player switching it on, or anything personal.
 
-## Fairness, restated
+## Refill damping and fun
 
-The core spec says refills only ever lean the player's way ("weights only add"). That changes:
+Fairness in Override means easing off when the player hits a wall and never making them fail to
+sell something; the refill is a gameplay question, not a fairness one. The core spec said refills
+only ever lean the player's way ("weights only add"). That changes for fun's sake:
 refills may now make a free match less likely, but both the player and the bot play with exactly
 the same damped refill, and the bot's play sets every move limit. So a level's limit always
 reflects the refill the player gets; damping costs the player nothing the limit does not cover.
