@@ -22,7 +22,7 @@ export function difficulty(level){
 // My-call mappings from the spec; tune with tools/sim.mjs and by playtest.
 export function paramsFor(level, fails = 0, drop = 0){
   const d = Math.max(0, difficulty(level) - drop), h = hash(level, 1) % 100;
-  let k = level <= 3 || d < .25 || breather(level) ? 4 : d > .8 ? 6 : 5;
+  let k = d > .8 ? 6 : 5;
   if (fails >= 6) k = Math.max(4, k - 1);
   const n = d < .33 ? (h < 40 ? 9 : 8) : d < .66 ? (h < 15 ? 9 : h < 30 ? 7 : 8) : (h < 45 ? 7 : 8);
   const enc = level < ENC_FROM ? 0 : Math.round(n * n * (.05 + .13 * d));
@@ -32,7 +32,7 @@ export function paramsFor(level, fails = 0, drop = 0){
 }
 
 /* ---------- attempts ---------- */
-export const GOAL = 2.5; // tile goal size factor, tuned by playtest
+export const GOAL = 1.2; // tile goal size factor, tuned by playtest
 
 // Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles also on fails.
 export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
