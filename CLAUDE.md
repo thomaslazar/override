@@ -13,7 +13,8 @@ Read before changing behaviour:
 
 ## Commands
 
-- Run: `python3 -m http.server 8081` and open http://localhost:8081/ (`file://` does not work;
+- Run: `python3 tools/serve.py` (port 8081, sends `Cache-Control: no-store` so phones, Safari included, always load
+  fresh files; `python3 -m http.server 8081` also works) and open http://localhost:8081/ (`file://` does not work;
   avoid ports 8000 and 8080, the siblings' service workers control them). `?level=N` starts
   level N fresh. Off GitHub Pages the service worker is unregistered and `override-` caches
   are deleted, so a reload shows the files on disk.
