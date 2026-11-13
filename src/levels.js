@@ -40,14 +40,15 @@ export function paramsFor(level, fails = 0, drop = 0){
 /* ---------- attempts ---------- */
 export const GOAL = 1.2; // tile goal size factor, tuned by playtest
 
-// Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles also on fails.
-export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
+// Layout (encrypted cells, firewalls, goals) depends on level, salt and drop only; tiles on the deal (one of the
+// level's seeded boards) and the colour count (fails ease it from the 6th).
+export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0){
   const p = paramsFor(level, fails, drop), n = p.n, nn = n * n, lr = rngFor(level, salt, 2);
   const order = Array.from({ length: TYPES }, (_, i) => i), tr = rngFor(level, 4);
   for (let j = TYPES - 1; j > 0; j--) { const m = Math.floor(tr() * (j + 1)); [order[j], order[m]] = [order[m], order[j]] }
   const S = { v: 1, level, fails, salt, drop, n, k: p.k, types: order.slice(0, p.k),
     grid: Array(nn).fill(null), enc: Array(nn).fill(0), goals: [], moves: 0, limit: 0, need: 0,
-    seed: hash(level, fails, salt, 1), spawns: 0, shuffles: 0, ids: 0, nice: true };
+    deal, seed: hash(level, fails, salt, 1, deal), spawns: 0, shuffles: 0, ids: 0, nice: true };
   // goal kinds first, so only the blockers a goal uses get placed
   const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM); // the tutorial hint needs a firewall
   // encrypted cells: mirrored pairs from row 2 down, at most n - 2 per row
@@ -65,7 +66,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0){
     const i = n + Math.floor(lr() * (nn - n));
     if (!S.enc[i] && !fwSpots.includes(i)) fwSpots.push(i);
   }
-  fillBoard(S, rngFor(level, fails, salt, 3));
+  fillBoard(S, rngFor(level, salt, 3, deal));
   for (const i of fwSpots) S.grid[i].lock = true;
   if (!hasMove(S)) reshuffle(S, []);
   S.shuffles = 0;

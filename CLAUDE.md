@@ -41,7 +41,7 @@ Read before changing behaviour:
   `tests/bot.test.mjs`. `tools/sim.mjs`: balance report with it.
 - `src/plays.js`: opt-in play log (pure, tested in `tests/plays.test.mjs`); `tools/plays.mjs`: report over
   exported logs (`tests/plays-report.test.mjs`).
-- `src/worker.js`: Web Worker that runs `prepare(level, fails)` off the main thread.
+- `src/worker.js`: Web Worker that runs `prepare(level, fails, pick)` off the main thread.
 - `src/ui.js`: language, worker client, view model, step animation, drawing (canvas), effects, win art, input, sheets, menu, saving.
 - `src/palette.js`: `PALETTES` (standard and colour-blind tile colours) and `paletteFor`, pure. Tested in `tests/palette.test.mjs`.
 - `lang/`: all visible text. `languages.json` maps codes to own-language names (only `en` now);
@@ -118,11 +118,12 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   difficulty and `hash(level, 1)`; encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
 - `makeAttempt(level, fails, salt, drop)`: layout (encrypted cells in mirrored pairs from row
-  2, firewall spots, goals) depends on level, salt and drop; tiles also on fails. Goals use the
+  2, firewall spots, goals) depends on level, salt and drop; tiles on the deal. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
-  firewall goal. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
+  firewall goal. Tiles come from `deal` (`makeAttempt(level, fails, salt, drop, deal)`), not from fails, so a deal is the
+  same board on every retry until easing drops a colour. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
   colour, or two at 60% each on harder levels).
 
 ## Bot (`src/bot.js`)
@@ -136,17 +137,21 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - `solve(S, seed, nice)` plays a copy to a win with no limit (`Infinity` at `CAP`).
 - `limitFor(need, fails)` = `max(MIN_LIMIT, ceil(need * K + C))`, then +10% per fail from the
   4th, capped at +40%.
-- `prepare(level, fails)`: at fails 0 tries salts 0..9, then lowers difficulty by `drop` steps of
-  0.1, until all `RUNS` bot runs finish; `need` is the median, and `{salt, drop, need}` is
-  memoised (last 8 levels). Retries reuse that salt and drop (same layout and goals, no search);
-  their need is at least the fails-0 need (exactly it if the bot cannot finish), so a retry never
-  gets fewer moves than the first try. The bot plays with `nice` off.
+- `prepare(level, fails, pick)`: the first call for a level tries salts 0..9 on deal 0, then lowers difficulty by `drop`
+  steps of 0.1, until all `RUNS` bot runs finish (layout and goals). Then the bot plays `DEALS` (12) seeded tile boards
+  (deals) of that layout once each; the easiest and the hardest are dropped, the median sets `need` for every attempt
+  of the level, and up to `KEEP` (10) deals are kept. `{salt, drop, need, deals}` is memoised (last 8 levels). An
+  attempt plays `deals[pick % deals.length]` with `limitFor(need, fails)`, so the move count only changes by the fail
+  easing. The bot plays with `nice` off.
 
 ## Worker and UI (`src/worker.js`, `src/ui.js`)
 
-- Worker protocol: the UI posts `{ level, fails }`, the worker answers `{ level, fails, S }`
+- Boards: each attempt plays one of a level's 10 deals by `pick` (stored in `S.pick`). A level's first attempt
+  picks at random (`crypto`), every retry or restart takes the next (mod 10), so a board repeats only after 10
+  attempts. The next level's pick is fixed when it is prefetched.
+- Worker protocol: the UI posts `{ level, fails, pick }`, the worker answers `{ level, fails, pick, S }`
   from `prepare`, in order. `worker.onerror`/`onmessageerror` hide the loading card and show a
-  non-dismissable "Reload" sheet. The UI keeps `ready` (answers by `level:fails`), `ask` (once per
+  non-dismissable "Reload" sheet. The UI keeps `ready` (answers by `level:fails:pick`), `ask` (once per
   key), `want` (a promise for the latest key only, delivering a copy) and `prefetch(level,
   fails)`, which asks for the next level and the next retry after every start.
 - `begin(level, fails)`: closes sheets, shows the loading card if the answer is not ready

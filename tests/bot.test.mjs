@@ -59,3 +59,12 @@ test('a retry keeps the level layout and goals', () => {
     }
   }
 });
+
+test('every deal of a level gets the same move limit and its own board', () => {
+  for (const l of [3, 12, 25]) {
+    const boards = new Set(), limits = new Set();
+    for (let p = 0; p < 10; p++) { const S = prepare(l, 0, p); limits.add(S.limit); boards.add(S.grid.map(x => x?.t).join()) }
+    assert.equal(limits.size, 1, `level ${l} limits`);
+    assert.ok(boards.size >= 8, `level ${l} boards ${boards.size}`);
+  }
+});

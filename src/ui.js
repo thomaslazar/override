@@ -24,25 +24,34 @@ await setLang(pickLang());
 /* ---------- attempts (worker) ---------- */
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 const ready = new Map(), waiting = new Map(), asked = new Set();
-const keyOf = (level, fails) => `${level}:${fails}`;
+// Each level has KEEP seeded boards (deals); an attempt plays one, picked by index. A level's first attempt picks
+// at random, every later attempt (retry or restart) takes the next, so a board repeats only after 10 attempts.
+const PICKS = 10, planned = new Map();
+const randomPick = () => crypto.getRandomValues(new Uint32Array(1))[0] % PICKS;
+const pickFor = level => planned.get(level) ?? (S?.level === level && Number.isInteger(S.pick) ? (S.pick + 1) % PICKS : randomPick());
+const keyOf = (level, fails, pick) => `${level}:${fails}:${pick}`;
 worker.onmessage = e => {
-  const { level, fails, S } = e.data, k = keyOf(level, fails);
-  ready.set(k, S);
+  const { level, fails, pick, S } = e.data, k = keyOf(level, fails, pick);
+  S.pick = pick; ready.set(k, S);
   waiting.get(k)?.(S); waiting.delete(k);
 };
 const failed = () => { hideLoading(); showSheet(t('loadFailed'), '', [[t('reload'), () => location.reload(), true]]) };
 worker.onerror = worker.onmessageerror = failed;
-function ask(level, fails){ const k = keyOf(level, fails); if (!ready.has(k) && !asked.has(k)) { asked.add(k); worker.postMessage({ level, fails }) } }
-// Resolves with a fresh copy of the attempt for (level, fails); only the latest want() is delivered.
+function ask(level, fails, pick){ const k = keyOf(level, fails, pick); if (!ready.has(k) && !asked.has(k)) { asked.add(k); worker.postMessage({ level, fails, pick }) } }
+// Resolves with a fresh copy of the attempt; only the latest want() is delivered.
 let wantKey = null;
-function want(level, fails){
-  const k = keyOf(level, fails); wantKey = k; ask(level, fails);
+function want(level, fails, pick){
+  const k = keyOf(level, fails, pick); wantKey = k; ask(level, fails, pick);
   return new Promise(res => {
     const give = S => { if (wantKey === k) res(JSON.parse(JSON.stringify(S))) };
     ready.has(k) ? give(ready.get(k)) : waiting.set(k, give);
   });
 }
-const prefetch = (level, fails) => { ask(level + 1, 0); ask(level, fails + 1) };
+// Next level (its random pick is fixed now, so the prefetched board is the one played) and the next retry.
+const prefetch = (level, fails, pick) => {
+  if (!planned.has(level + 1)) planned.set(level + 1, randomPick());
+  ask(level + 1, 0, planned.get(level + 1)); ask(level, fails + 1, (pick + 1) % PICKS);
+};
 
 /* ---------- state ---------- */
 let S = null, run = { best: 1, fails: 0 }, busy = false, grace = 0;
@@ -78,9 +87,10 @@ const hideLoading = () => $('#loading').classList.remove('on');
 // Starts (level, fails): loading card until the worker answers (at least 400 ms if it had to wait).
 async function begin(level, fails){
   busy = true; closeSheets();
-  const t0 = performance.now(), cached = ready.has(keyOf(level, fails));
+  const pick = pickFor(level); planned.delete(level);
+  const t0 = performance.now(), cached = ready.has(keyOf(level, fails, pick));
   if (!cached) showLoading(level);
-  const s = await want(level, fails);
+  const s = await want(level, fails, pick);
   if (!cached) await sleep(Math.max(0, 400 - (performance.now() - t0)));
   hideLoading();
   S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save();
@@ -89,7 +99,7 @@ async function begin(level, fails){
 function start(){
   sync(); fit(); hud(); comms(); unlockScene(false);
   busy = false; grace = performance.now() + 400; sel = -1;
-  prefetch(S.level, S.fails);
+  prefetch(S.level, S.fails, Number.isInteger(S.pick) ? S.pick : 0);
   if (won(S)) win(true); else if (lost(S)) lose(true);
 }
 

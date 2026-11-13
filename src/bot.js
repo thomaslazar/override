@@ -39,33 +39,33 @@ export function solve(S0, seed, nice = false){
 }
 export const MIN_LIMIT = 10;
 export const limitFor = (need, fails) => Math.ceil(Math.max(MIN_LIMIT, Math.ceil(need * K + C)) * (1 + Math.min(.4, Math.max(0, fails - 3) * .1)));
-// Ready-to-play attempt. Fails 0: tries salts, then lowers difficulty in steps of 0.1, until all RUNS bot runs finish,
-// and memoises {salt, drop, need} (last 8 levels). Retries reuse that salt and drop, so the layout and goals never change,
-// and never get fewer moves than the first try: need is at least the fails-0 need.
+// Ready-to-play attempt. First for a level: tries salts on deal 0, then lowers difficulty in steps of 0.1, until all RUNS
+// bot runs finish (layout and goals). Then the bot plays DEALS seeded tile boards (deals) of that layout once each; the
+// easiest and the hardest are dropped, the median sets need for every attempt of the level, and up to KEEP deals are kept.
+// Memoised as {salt, drop, need, deals} (last 8 levels). An attempt plays deals[pick % deals.length]; retries keep need,
+// so the move count only changes by limitFor's fail easing.
+export const DEALS = 12, KEEP = 10;
 const first = new Map();
-export function prepare(level, fails = 0){
-  if (fails > 0) {
-    if (!first.has(level)) prepare(level, 0);
-    const f = first.get(level), S = makeAttempt(level, fails, f.salt, f.drop);
-    const r = Array.from({ length: RUNS }, (_, k) => solve(S, k)).sort((a, b) => a - b);
-    S.need = Number.isFinite(r[RUNS - 1]) ? Math.max(r[RUNS >> 1], f.need) : f.need;
-    S.limit = S.moves = limitFor(S.need, fails);
-    return S;
-  }
-  let S;
-  for (let drop = 0; drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < SALTS; salt++) {
-    S = makeAttempt(level, 0, salt, drop);
+function base(level){
+  if (first.has(level)) return first.get(level);
+  let found = null;
+  for (let drop = 0; !found && drop <= 1; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; !found && salt < SALTS; salt++) {
+    const S = makeAttempt(level, 0, salt, drop);
     const r = [];   // a run that hits the cap rules the salt out, so later runs are skipped
     for (let k = 0; k < RUNS && (k === 0 || Number.isFinite(r[k - 1])); k++) r.push(solve(S, k));
-    if (!Number.isFinite(r[r.length - 1])) continue;
-    r.sort((a, b) => a - b);
-    return done(level, S, r[RUNS >> 1], salt, drop);
+    if (Number.isFinite(r[r.length - 1])) found = { salt, drop, need0: r.sort((a, b) => a - b)[RUNS >> 1] };
   }
-  return done(level, S, CAP, S.salt, S.drop);   // unreachable in practice; keeps the game going
-}
-function done(level, S, need, salt, drop){
-  S.need = need; S.limit = S.moves = limitFor(need, 0);
-  first.set(level, { salt, drop, need });
+  found ??= { salt: 0, drop: 1, need0: CAP };   // unreachable in practice; keeps the game going
+  const runs = Array.from({ length: DEALS }, (_, d) => ({ d, need: d ? solve(makeAttempt(level, 0, found.salt, found.drop, d), 0) : found.need0 }))
+    .filter(x => Number.isFinite(x.need)).sort((a, b) => a.need - b.need || a.d - b.d);
+  const kept = runs.length > 2 ? runs.slice(1, -1) : runs;
+  const f = { salt: found.salt, drop: found.drop, need: kept[kept.length >> 1].need, deals: kept.slice(0, KEEP).map(x => x.d) };
+  first.set(level, f);
   if (first.size > 8) first.delete(first.keys().next().value);
+  return f;
+}
+export function prepare(level, fails = 0, pick = 0){
+  const f = base(level), S = makeAttempt(level, fails, f.salt, f.drop, f.deals[pick % f.deals.length]);
+  S.need = f.need; S.limit = S.moves = limitFor(f.need, fails);
   return S;
 }

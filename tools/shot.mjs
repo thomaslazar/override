@@ -43,7 +43,7 @@ try {
     else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map(x => x.value ?? x.description).join(' '));
   };
   const send = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })) });
-  const ev = async js => (await send('Runtime.evaluate', { expression: js, returnByValue: true })).result?.result?.value;
+  const ev = async js => (await send('Runtime.evaluate', { expression: js, returnByValue: true, awaitPromise: true })).result?.result?.value;
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: flag('--dpr') ? +opt('--dpr') : 2, mobile: true });

@@ -53,11 +53,13 @@ test('first levels have tile goals only; blockers arrive on schedule', () => {
   }
 });
 
-test('layout and goals stay on retry; tiles reshuffle', () => {
-  const a = makeAttempt(12, 0), b = makeAttempt(12, 2);
+test('layout and goals stay across deals and retries; tiles follow the deal', () => {
+  const tiles = S => S.grid.map(x => x && x.t);
+  const a = makeAttempt(12, 0, 0, 0, 0), b = makeAttempt(12, 2, 0, 0, 3), c = makeAttempt(12, 2, 0, 0, 0);
   assert.deepEqual(a.enc, b.enc);
   assert.deepEqual(a.goals, b.goals);
-  assert.notDeepEqual(a.grid.map(x => x && x.t), b.grid.map(x => x && x.t));
+  assert.notDeepEqual(tiles(a), tiles(b));
+  assert.deepEqual(tiles(a), tiles(c));   // same deal, same board (fails below 6 do not change it)
 });
 
 test('encrypted cells are mirrored and never seal a row', () => {
