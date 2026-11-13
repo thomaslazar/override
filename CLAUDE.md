@@ -23,30 +23,37 @@ Read before changing behaviour:
   `fails = r`. Per level it prints board, goals, need, limit, margin, salt, drop and time.
   `--refill nice` also re-solves with the helpful refill on and prints what it saves.
 - Browser checks: headless Chromium with `--virtual-time-budget` stalls the worker; use real time.
+  `node tools/shot.mjs <url> <out.png> [--size WxH] [--dpr N] [--won] [--eval JS] [--reduced-motion]`
+  screenshots a page (its Chromium profile lives under `$HOME/override-shots`, because snap
+  Chromium cannot use `/tmp`). Check 402 x 706, 375 x 548 and 412 x 820 and look at enlarged crops.
+- Link preview card: start the server, run `node tools/shot.mjs http://localhost:8081/tools/og.html icons/og.png --size 1200x630 --dpr 1`,
+  then quantise to keep it near 200 KB: `python3 -c "from PIL import Image; Image.open('icons/og.png').convert('RGB').quantize(128).save('icons/og.png', optimize=True)"`.
 
 ## Files
 
-- `index.html`: markup (comms line, scene with the lock, deck with HUD, board canvas, "prototype" line, sheet, menu, loading card). `style.css`: all styles, light and dark.
+- `index.html`: markup (strip with the obstacle plate, comms line, deck with image pieces and stickers, screen with log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; log lines hide below 780 px, the whole log below 620 px height).
 - `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs` and `tests/refill.test.mjs`.
 - `src/levels.js`: chapters, difficulty, `paramsFor`, `makeAttempt`, pure. Tested in `tests/levels.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in
   `tests/bot.test.mjs`. `tools/sim.mjs`: balance report with it.
 - `src/worker.js`: Web Worker that runs `prepare(level, fails)` off the main thread.
-- `src/ui.js`: language, worker client, view model, step animation, drawing (canvas), input, sheets, menu, saving.
+- `src/ui.js`: language, worker client, view model, step animation, drawing (canvas), effects, win art, input, sheets, menu, saving.
+- `src/palette.js`: `PALETTES` (standard and colour-blind tile colours) and `paletteFor`, pure. Tested in `tests/palette.test.mjs`.
 - `lang/`: all visible text. `languages.json` maps codes to own-language names (only `en` now);
   `<code>.json` holds flat `"key": "text"` pairs with `{placeholders}`. `tests/lang.test.mjs` checks them.
   `tests/helpers.mjs` has shared test builders.
-- `fonts/`: Barlow Semi Condensed (latin 400 and 600, woff2), self-hosted, with `OFL.txt`.
+- `fonts/`: Barlow Semi Condensed (latin 400 and 600) and Share Tech Mono (latin 400, terminal text), woff2, self-hosted, with `OFL.txt`.
+- `art/`: generated WebP images (lock plates, deck frame, plug, keys, stickers). Everything drawn on the board is code. `docs/art.md` has the prompts, cut-out steps and rules. All of `art/` and `fonts/` must be in `SHELL` and the workflow copy; `tests/shell.test.mjs` checks this.
 - `manifest.webmanifest`, `sw.js`, `icons/`: PWA. `sw.js` is network first (revalidates; 3 s
-  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-2`; rename it when `sw.js`
+  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-3`; rename it when `sw.js`
   changes how it caches or `SHELL` changes, so `activate` drops the old cache (only `override-`
-  caches). `icons/og.png` (1200 x 630) is the link preview card; not in `SHELL`.
+  caches). `icons/og.png` (1200 x 630) is the link preview card, rendered from `tools/og.html`; not in `SHELL`.
 - `.github/workflows/pages.yml`: runs `node --test` on pull requests and pushes; on push to
   `master` it deploys to https://thomaslazar.github.io/override/. New site files must be added
   to its copy step and, if needed offline, to `SHELL` in `sw.js`. `.github/pull_request_template.md`: PR checklist.
 - `README.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `LICENSE.md` (PolyForm Noncommercial 1.0.0).
 - `spike/`: the throwaway prototype. Not part of the game.
-- `docs/`: `HANDOVER.md`; `superpowers/` holds the spec and plan.
+- `docs/`: `HANDOVER.md`; `art.md` (image workflow); `superpowers/` holds the specs and plans (the visual overhaul spec wins on looks).
 
 ## Core (`src/core.js`)
 
@@ -146,11 +153,16 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (best level, Restart level, Start over), Settings
-  (language, theme auto/light/dark) and Info (how to play, Share, GitHub, licence, font).
-- Look: the canvas draws tiles as seven glyphs (`types`) so colour is never the only cue;
-  specials have their own shapes in their colour with the colour's glyph cut out (worm a
-  data packet along its line, bomb a chip with pins, zero-day a turning ring in the level's colours); firewall and
-  encrypted cells have their own drawing. `prefers-reduced-motion` skips rain, fades and eases.
+  (language, colours standard/colour-blind) and Info (how to play, Share, GitHub, licence, font).
+- Look: dark only, a hacker terminal. The strip shows the obstacle plate (locked; `unlockScene`
+  toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
+  characters (`GLYPHS`, one per slot) so colour is never the only cue; specials are `drawWorm`
+  (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
+  level's colours); blockers are `drawEnc` (static slab, amber outline for hits left) and
+  `drawFw` (flames and cage bars). Effects: worm streak, bomb shockwave, area flash, crack.
+  Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
+  and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
+  animation, effects and cycling (win art static). Tile colours come from `paletteFor`.
 - Saving: `override-v1` holds `S` whole, written after every move. `override-run` is
   `{ best, fails }`. A save that fails `validSave` but holds an integer `level` restarts that
   level fresh (keeping a valid `fails`). `?level=N` works off GitHub Pages only (`DEV`).
@@ -159,7 +171,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-theme`, `override-2`); the origin is shared with
+  `override-run`, `override-lang`, `override-palette`, `override-3`; the old `override-theme` is ignored, not deleted); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work. Work happens on one branch per plan, merged into `master` locally; no pull

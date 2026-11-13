@@ -1,8 +1,8 @@
 # Roadmap
 
 What comes next for Override. Specs and plans for built work are in `docs/superpowers/`; each
-item below gets its own spec, plan and branch. Names in the fiction are working names until the
-visual pass settles them.
+item below gets its own spec, plan and branch. The visual pass (terminal look, generated art, effects, colour-blind palette) is done; names in
+the fiction are still working names.
 
 ## Next, in order
 
@@ -93,15 +93,18 @@ visual pass settles them.
    appears, shown on the board. A hint (a glowing valid move) after a few idle seconds,
    switchable in settings.
 
-10. **Visual pass.** Settle the look: the scene behind the deck, the deck, what tiles are in the
-   fiction, names of specials, blockers and the currency. Redo the link preview card.
+10. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
+    The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
 
-11. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
+11. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
+    open plate in the same framing as the maglock (`docs/art.md`).
+
+12. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
     progress; crew members on comms with names; backgrounds that change with the obstacle
     (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
     last level of a run.
 
-12. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
+13. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
     for matches, specials and the payout; mute in settings.
 
 ## Later
@@ -126,8 +129,6 @@ These are the genre’s pay-to-win parts, which Override exists to leave out:
 - Toast sits over the Share button in the menu.
 - Sheets and the menu have no dialog roles for screen readers.
 - The HUD jumps to the final goal counts on the first wave instead of counting along.
-- The board leaves empty space above and below it on tall phones.
-- The worm glyph is cramped at phone size.
 
 ## Tuning (by playtest)
 

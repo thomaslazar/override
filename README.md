@@ -1,7 +1,7 @@
 # Override
 
 An ad-free match-3 for phones. You are the crew’s hacker on site: jack your field deck into
-the lock, line up three or more, and crack it before the patrol comes back. Levels are
+the lock (a rainy street-level terminal look, with a colour-blind palette in settings), line up three or more, and crack it before the patrol comes back. Levels are
 generated endlessly, every level is checked beatable by a bot, and the board never runs
 out of moves.
 
@@ -55,4 +55,4 @@ Pushes to `master` are tested and deployed to GitHub Pages by
 [PolyForm Noncommercial 1.0.0](LICENSE.md). Free to play, study, modify and share for any
 noncommercial purpose. Commercial use is not permitted without the author’s permission.
 
-The bundled font, Barlow Semi Condensed, is under the [SIL Open Font License 1.1](fonts/OFL.txt).
+The bundled fonts, Barlow Semi Condensed and Share Tech Mono, are under the [SIL Open Font License 1.1](fonts/OFL.txt).
