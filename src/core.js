@@ -291,6 +291,31 @@ function cascade(S, steps, prefer = [], swipe = null, fire = [], chain = 1, calm
     prefer = []; swipe = null; fire = [];
   }
 }
+/* ---------- finale ---------- */
+// After a win: fire every special left, then turn each spare move into a random special and fire it.
+// Refills are not damped (calm), so lucky lines are allowed. Precondition: won(S).
+export function finale(S){
+  const spare = S.moves; S.spare = spare; S.moves = 0;
+  const steps = [{ k: 'finale' }];
+  const burst = () => {
+    for (let n = 0; n < 500; n++) {   // cap: a pathological board cannot loop forever
+      const cells = new Set(); S.grid.forEach((x, i) => { if (x && x.s) cells.add(i) });
+      if (!cells.size) return;
+      steps.push(wave(S, cells, new Set(), [], new Set(), 1)); gravity(S, steps, true);
+      cascade(S, steps, [], null, [], 2, true);
+    }
+  };
+  burst();
+  for (let k = 0; k < spare; k++) {
+    const rnd = rngFor(S.seed, 29, k);
+    const plain = []; S.grid.forEach((x, i) => { if (x && !x.lock && !x.s) plain.push(i) });
+    if (!plain.length) continue;
+    const i = plain[Math.floor(rnd() * plain.length)], s = rnd() < 1 / 3 ? 'b' : rnd() < .5 ? 'h' : 'v';
+    S.grid[i].s = s; steps.push({ k: 'convert', cells: [{ i, s }] });
+    burst();
+  }
+  return { steps };
+}
 // A swap with at least one special. A is the dragged tile (now at pa), B the other (now at pb).
 function combo(S, A, pa, B, pb, steps){
   const cells = new Set(), fired = new Set(), [r, c] = rc(S, pa), n = S.n;

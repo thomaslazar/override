@@ -17,9 +17,10 @@ test('a move adds its waves\' points to S.score, first wave at chain 1', () => {
   assert.equal(S.score, waves.reduce((a, w) => a + w.points, 0));
 });
 test('a combo is chain 1 and the cascade after it continues at 2', () => {
-  const S = mk(['A B C D E', 'B C D E A', 'C Dh Ev A B', 'D E A B C', 'E A B C D']);
+  const S = mk(['A B C D E', 'B C D E A', 'C Dh Ev A B', 'D E A B C', 'E A B C D'], { seed: 518, k: 5 });   // this seed's refill cascades
   const waves = move(S, 11, 12).steps.filter(s => s.k === 'wave');
-  assert.ok(waves.length >= 1);
+  assert.ok(waves.length >= 2);
+  assert.equal(waves[1].points, pointsOf(waves[1], 2));
   waves.forEach((w, k) => assert.equal(w.points, pointsOf(w, Math.min(k + 1, 5))));
   assert.equal(S.score, waves.reduce((a, w) => a + w.points, 0));
 });
