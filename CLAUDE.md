@@ -155,7 +155,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - View model: `sprites` (by tile id, with target `tx`, `ty`), `vEnc`, `fx`. `sync()` rebuilds
   the view from `S`; it runs at level start and after every move's animation, so the view
   always equals the state. `animate(steps)` plays the `move` steps in order (swap and back,
-  combo flash, convert, wave with flashes, cracks, unlocks, pops and created specials, fall (a run of
+  combo flash, convert, wave with flashes, cracks, unlocks, pops and created specials, fall (blasts: worm beams shoot out both ways, bombs flash and send two shock rings, sparks fly from every
+  fired special and cleared tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above the board), shuffle with a toast). `play(a, b)` calls `move`, saves right after it and
   before animating (closing mid-cascade loses nothing), animates, syncs, then shows the win or

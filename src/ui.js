@@ -1,5 +1,5 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, won, lost, fromSave, toSave, hash } from './core.js';
+import { move, won, lost, fromSave, toSave, hash, mulberry32 } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
@@ -131,7 +131,7 @@ async function animate(steps){
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
-      for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sprites.delete(c.id); idAt.delete(c.i) }
+      for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
       hud(); await sleep(190);
     }
@@ -260,19 +260,48 @@ function drawEnc(cx, cy, hp, size = cs){
   if (hp >= 3) { rr(cx - a + size * .06, cy - a + size * .06, 2 * a - size * .12, 2 * a - size * .12, size * .06); g.stroke() }
   g.restore();
 }
-const flash = (i, kind, col) => fx.push({ k: 'flash', i, kind, col, at: performance.now() });
+const flash = (i, kind, col) => { fx.push({ k: 'flash', i, kind, col, at: performance.now() }); boom(i, kind, col) };
+/* ---------- particles and shake (visual only) ---------- */
+// Tuning: BOOM sets how wild blasts look; sparks fly in cells/s, fall with SPARK_G, live 250 to 650 ms.
+const BOOM = { spark: 1, shake: 1 }, SPARK_G = 14, fxRnd = mulberry32(hash(31, 7));
+let shake = { amp: 0, at: 0 };
+const kick = amp => { if (amp * BOOM.shake > shake.amp * (1 - Math.min(1, (performance.now() - shake.at) / 260))) shake = { amp: amp * BOOM.shake, at: performance.now() } };
+function sparks(x, y, col, count, speed, spread = 2 * Math.PI, dir = 0){
+  if (RM) return;
+  for (let k = 0; k < Math.round(count * BOOM.spark); k++) {
+    const a = dir + (fxRnd() - .5) * spread, v = speed * (.35 + fxRnd() * .9);
+    fx.push({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, col: fxRnd() < .25 ? '#ffffff' : col, life: 250 + fxRnd() * 400, w: .07 + fxRnd() * .08, at: performance.now() });
+  }
+}
+function boom(i, kind, col){
+  const n = S.n, r = Math.floor(i / n), c = i % n, cx = c + .5, cy = r + .5, cl = col || GLOW;
+  if (kind === 'h' || kind === 'v') {   // worm: sparks shower off the whole line, kicked sideways
+    for (let k = 0; k < n; k++) { const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
+    kick(4);
+  } else if (kind === 'b') { sparks(cx, cy, cl, 34, 11); kick(8) }
+  else if (kind === 'bb' || kind === 'bw' || kind === 'ww') { sparks(cx, cy, cl, 50, 14); kick(11) }
+  else if (kind === 'z' || kind === 'zw' || kind === 'zb' || kind === 'zz') { for (let t = 0; t < S.k; t++) sparks(cx, cy, PAL.t[S.types[t]], 12, 12); kick(kind === 'zz' ? 14 : 9) }
+}
 const GLOW = '#c9ffd9';
 function flashShape(kind, r, c, n, p, col){
   const w = n * cs, R = (r0, rows) => g.fillRect(0, r0 * cs, w, rows * cs), C = (c0, cols) => g.fillRect(c0 * cs, 0, cols * cs, w);
-  if (kind === 'h' || kind === 'v') {   // worm: glowing bar, 0.35 cells thick, in the worm's colour
-    g.fillStyle = g.shadowColor = col || GLOW; g.shadowBlur = cs * .3; g.globalAlpha = 1 - p;
-    if (kind === 'h') g.fillRect(0, (r + .5 - .175) * cs, w, cs * .35); else g.fillRect((c + .5 - .175) * cs, 0, cs * .35, w);
+  if (kind === 'h' || kind === 'v') {   // worm: a beam shoots out both ways from the worm, then burns out
+    const reach = Math.min(1, p / .3) * w, fade = p < .3 ? 1 : 1 - (p - .3) / .7, th = cs * (.35 + .25 * (1 - fade));
+    const o = (kind === 'h' ? c : r) * cs + cs / 2, a = Math.max(0, o - reach), b = Math.min(w, o + reach), m = (kind === 'h' ? r : c) * cs + cs / 2;
+    const bar = (t, colr, blur) => { g.fillStyle = g.shadowColor = colr; g.shadowBlur = blur; if (kind === 'h') g.fillRect(a, m - t / 2, b - a, t); else g.fillRect(m - t / 2, a, t, b - a) };
+    g.globalAlpha = fade; bar(th, col || GLOW, cs * .5); bar(th * .3, '#ffffff', cs * .3);
+    g.globalAlpha = fade * .9; g.fillStyle = '#ffffff'; for (const e of [a, b]) { g.beginPath(); kind === 'h' ? g.arc(e, m, th * .55, 0, 7) : g.arc(m, e, th * .55, 0, 7); g.fill() }
     g.shadowBlur = 0; return;
   }
-  if (kind === 'b' || kind === 'bb') {   // bomb: square outline growing 1 to 3 (5) cells
-    const h = (1 + ((kind === 'bb' ? 5 : 3) - 1) * p) * cs / 2;
-    g.strokeStyle = GLOW; g.lineWidth = cs * .12; g.globalAlpha = 1 - p;
-    g.strokeRect((c + .5) * cs - h, (r + .5) * cs - h, 2 * h, 2 * h); return;
+  if (kind === 'b' || kind === 'bb') {   // bomb: white flash, then two shock rings racing out past the blast area
+    const X = (c + .5) * cs, Y = (r + .5) * cs, big = kind === 'bb' ? 5 : 3;
+    if (p < .25) { g.globalAlpha = 1 - p / .25; g.fillStyle = '#ffffff'; g.shadowColor = col || GLOW; g.shadowBlur = cs; g.beginPath(); g.arc(X, Y, cs * big * .45 * (.5 + p * 2), 0, 7); g.fill(); g.shadowBlur = 0 }
+    for (const [lag, lw] of [[0, .16], [.18, .07]]) {
+      const q = Math.max(0, (p - lag) / (1 - lag)), h = (.6 + (big + .6) * Math.sqrt(q)) * cs / 2;
+      g.globalAlpha = (1 - q) * (q > 0 ? 1 : 0); g.strokeStyle = g.shadowColor = lag ? '#ffffff' : (col || GLOW); g.shadowBlur = cs * .4; g.lineWidth = cs * lw * (1 - q * .6);
+      g.strokeRect(X - h, Y - h, 2 * h, 2 * h);
+    }
+    g.shadowBlur = 0; return;
   }
   g.fillStyle = GLOW; g.globalAlpha = (1 - p) * .35;
   if (kind === 'ww') { R(r, 1); C(c, 1) }
@@ -297,6 +326,8 @@ function frame(ts){
   if (S) {
     const n = S.n, step = 11 * dt;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, n * cs, n * cs);
+    const sp = RM ? 1 : Math.min(1, (ts - shake.at) / 260);
+    if (sp < 1) { const a = shake.amp * (1 - sp) ** 2; g.translate((fxRnd() - .5) * 2 * a, (fxRnd() - .5) * 2 * a) }
     for (let i = 0; i < n * n; i++) {
       const r = Math.floor(i / n), c = i % n;
       g.fillStyle = PAL.cell; g.beginPath(); g.roundRect(c * cs + cs * .04, r * cs + cs * .04, cs * .92, cs * .92, cs * .1); g.fill();
@@ -311,9 +342,14 @@ function frame(ts){
     }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
-      const p = (ts - f.at) / (f.k === 'flash' ? 320 : 240); if (p >= 1 || RM) return false;
+      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : 240); if (p >= 1 || RM) return false;
       g.globalAlpha = 1 - p;
-      if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .6);
+      if (f.k === 'spark') {   // a glowing streak along its velocity, falling and slowing
+        const t = (ts - f.at) / 1000, x = f.x + f.vx * t * (1 - t * .6), y = f.y + f.vy * t + SPARK_G * t * t / 2, vy = f.vy + SPARK_G * t;
+        g.strokeStyle = g.shadowColor = f.col; g.shadowBlur = cs * .25; g.lineWidth = cs * f.w; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(x * cs, y * cs); g.lineTo((x - f.vx * .05) * cs, (y - vy * .05) * cs); g.stroke(); g.shadowBlur = 0;
+      }
+      else if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .9);
       else {
         const r = Math.floor(f.i / n), c = f.i % n;
         if (f.k === 'crack') { g.strokeStyle = PAL.encInk; g.lineWidth = 3; g.strokeRect(c * cs + 2 - p * 6, r * cs + 2 - p * 6, cs - 4 + p * 12, cs - 4 + p * 12) }
