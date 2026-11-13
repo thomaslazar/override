@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>og</title>
+<style>
+@font-face{font-family:STM;src:url(../fonts/share-tech-mono-latin-400.woff2) format("woff2")}
+html,body{margin:0;background:#000}
+#c{position:relative;width:1200px;height:630px;overflow:hidden;background:#020604;font-family:STM,monospace;color:#7dffb0}
+#lock{position:absolute;left:0;top:0;width:560px;height:630px;background:url(../art/lock-closed.webp) 45% center/auto 100%}
+#lock::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 70%,#020604)}
+#p{position:absolute;left:560px;top:0;right:0;bottom:0;padding:70px 50px 0 40px;border-left:2px solid rgba(125,255,176,.45)}
+h1{margin:0;font:400 104px/1 STM,monospace;letter-spacing:4px;text-shadow:0 0 18px #31ff8a}
+p{margin:22px 0 34px;font-size:30px;line-height:1.3;color:#9fe8b8}
+#t{display:flex;gap:18px;font-size:54px;margin-bottom:34px}
+#t span{text-shadow:0 0 14px currentColor}
+canvas{display:block}
+</style>
+<div id="c"><div id="lock"></div><div id="p"><h1>OVERRIDE</h1><p>Ad-free match-3.<br>Jack in, crack the lock.</p><div id="t"></div><canvas id="w"></canvas></div></div>
+<script>
+const P=['#3dff8a','#35c2d9','#ff4fa3','#f2c230','#a77cf0','#ff6a2b','#e9f0ff'];
+[...'ｱﾊｦ7ΞﾐZ'].forEach((ch,i)=>{const s=document.createElement('span');s.textContent=ch;s.style.color=P[i];t.append(s)});
+const PWNED=[' ██████  ██     ██ ███    ██ ███████ ██████  ',' ██   ██ ██     ██ ████   ██ ██      ██   ██ ',' ██████  ██  █  ██ ██ ██  ██ █████   ██   ██ ',' ██      ██ ███ ██ ██  ██ ██ ██      ██   ██ ',' ██       ███ ███  ██   ████ ███████ ██████  '];
+const px=10,g=w.getContext('2d');w.width=PWNED[0].length*px;w.height=PWNED.length*px*1.4;
+g.fillStyle='#ff4fa3';g.shadowColor='#ff4fa3';g.shadowBlur=10;
+PWNED.forEach((r,i)=>[...r].forEach((c,j)=>{if(c==='█')g.fillRect(j*px,i*px*1.4,px-1,px*1.4-1)}));
+</script>

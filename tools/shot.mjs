@@ -30,7 +30,7 @@ try {
   const ev = async js => (await send('Runtime.evaluate', { expression: js, returnByValue: true })).result?.result?.value;
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
-  await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 2, mobile: true });
+  await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: flag('--dpr') ? +opt('--dpr') : 2, mobile: true });
   if (flag('--reduced-motion')) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   await send('Page.navigate', { url }); await sleep(7000);
   if (flag('--won')) {
