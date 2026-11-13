@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @font-face{font-family:"Share Tech Mono";src:url(../fonts/share-tech-mono-latin-400.woff2) format("woff2")}
+  html,body{margin:0;background:#000}
+</style></head>
+<body><canvas id="c"></canvas>
+<script>
+// App icon: four glowing character tiles on the deck's black screen. ?size=512&mask=1 (maskable: art kept inside the 80 % safe zone).
+const q = new URLSearchParams(location.search), size = +(q.get('size') || 512), mask = q.has('mask');
+const cv = document.getElementById('c'); cv.width = cv.height = size; cv.style.width = cv.style.height = size + 'px';
+const g = cv.getContext('2d');
+const tiles = [['ｱ', '#3dff8a'], ['ﾊ', '#35c2d9'], ['ｦ', '#ff4fa3'], ['7', '#f2c230']];
+document.fonts.load(`700 40px "Share Tech Mono"`).then(() => {
+  g.fillStyle = '#020604'; g.fillRect(0, 0, size, size);
+  const inner = size * (mask ? .62 : .78), gap = inner * .06, cell = (inner - gap) / 2, o = (size - inner) / 2;
+  tiles.forEach(([ch, c], k) => {
+    const x = o + (k % 2) * (cell + gap), y = o + Math.floor(k / 2) * (cell + gap);
+    g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.roundRect(x, y, cell, cell, cell * .14); g.fill();
+    g.font = `700 ${cell * .72}px "Share Tech Mono","Noto Sans CJK JP","Noto Sans JP",monospace`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = c; g.shadowColor = c;
+    for (const b of [cell * .3, cell * .12]) { g.shadowBlur = b; g.fillText(ch, x + cell / 2, y + cell / 2 + cell * .03) }
+    g.shadowBlur = 0;
+  });
+  for (let y = 0; y < size; y += Math.max(2, size / 128)) { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, y, size, Math.max(1, size / 256)) }
+});
+</script></body></html>
