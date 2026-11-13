@@ -72,3 +72,12 @@ test('closing as left keeps the accumulated seconds', () => {
   const l = logFrom({ on: true }); startAttempt(l, mk()); l.attempts[0].t = 17; startAttempt(l, mk());
   assert.equal(l.attempts[0].end, 'left'); assert.equal(l.attempts[0].t, 17);
 });
+
+test('a won close records score and spare, a lost one neither', () => {
+  const l = logFrom(null), a = mk(); startAttempt(l, a);
+  close(l, 'won', { ...mkS(), moves: 0, score: 1234, spare: 3 }, 9);
+  assert.equal(a.score, 1234); assert.equal(a.spare, 3); assert.equal(a.left, 17);
+  const b = mk(); startAttempt(l, b);
+  close(l, 'lost', { ...mkS(), score: 50 }, 9);
+  assert.equal(b.score, undefined); assert.equal(b.spare, undefined);
+});

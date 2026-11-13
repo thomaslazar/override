@@ -7,6 +7,7 @@
   "loadingSub": "Patching in",
   "winTitle": "Door’s open",
   "winText": "Moves to spare: {n}.",
+  "finaleToast": "Override: flushing the buffers",
   "loadFailed": "Something went wrong. Reload to try again.",
   "reload": "Reload",
   "winChapter": "Chapter {n} begins.",

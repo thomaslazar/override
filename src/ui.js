@@ -1,5 +1,5 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, won, lost, fromSave, toSave, hash, mulberry32, validMoves } from './core.js';
+import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
@@ -101,7 +101,7 @@ function start(){
   sync(); fit(); hud(); comms(); unlockScene(false);
   busy = false; grace = performance.now() + 400; sel = -1;
   prefetch(S.level, S.fails, Number.isInteger(S.pick) ? S.pick : 0);
-  if (won(S)) win(true); else if (lost(S)) lose(true);
+  if (won(S)) win(); else if (lost(S)) lose(true);
 }
 
 /* ---------- view model ---------- */
@@ -120,9 +120,12 @@ const place = (sp, i) => { sp.tx = i % S.n; sp.ty = Math.floor(i / S.n) };
 const settled = () => [...sprites.values()].every(p => p.x === p.tx && p.y === p.ty && !p.falling);
 const settle = () => new Promise(res => { const f = () => settled() ? res() : requestAnimationFrame(f); f() });
 const idAt = new Map();   // cell -> sprite id during animation
-async function animate(steps){
+// speed: a factor on every wait and on tile motion (the finale plays faster). skip stops at the next step.
+let pace = 1, skip = false;
+async function animate(steps, speed = 1){
+  const wait = ms => sleep(ms / speed); pace = speed;
   idAt.clear(); for (const [id, p] of sprites) idAt.set(p.ty * S.n + p.tx, id);
-  for (let j = 0; j < steps.length; j++) {
+  try { for (let j = 0; j < steps.length && !skip; j++) {
     const s = steps[j];
     if (s.k === 'fall') {
       // one gravity pass moves tiles a single row: play a whole run of passes as one drop
@@ -141,22 +144,33 @@ async function animate(steps){
       place(sprites.get(A), s.b); place(sprites.get(B), s.a); idAt.set(s.a, B); idAt.set(s.b, A);
       await settle();
     }
-    if (s.k === 'combo') { flash(s.i, s.kind); await sleep(120) }
-    if (s.k === 'convert') { for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await sleep(450) }
+    if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
+    if (s.k === 'convert') { for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await wait(450) }
     if (s.k === 'wave') {
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
       for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
-      hud(); await sleep(190);
+      hud(); await wait(190);
     }
     if (s.k === 'shuffle') {
-      toast(t('noMoves')); await sleep(600);
+      toast(t('noMoves')); await wait(600);
       for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; place(p, x.i); idAt.set(x.i, x.id) }
       await settle();
     }
-  }
+  } } finally { pace = 1 }
+}
+// Finale at normal speed, roughly (a run of fall passes is one drop, about 350 ms); sped up to fit FINALE_MS.
+const FINALE_MS = 10000, STEP_MS = { wave: 190, convert: 450, fall: 350, combo: 120 };
+const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps[j - 1]?.k === 'fall' ? 0 : STEP_MS[s.k] ?? 0), 0);
+const skipFinale = () => { skip = true };
+async function playFinale(steps){
+  if (steps.length < 2 || RM) return;
+  toast(t('finaleToast')); skip = false;
+  document.addEventListener('pointerdown', skipFinale, true);   // a tap anywhere skips (ignores the input grace)
+  try { await animate(steps, Math.max(1, finaleMs(steps) / FINALE_MS)) }
+  finally { document.removeEventListener('pointerdown', skipFinale, true); skip = false }
 }
 
 /* ---------- moves ---------- */
@@ -164,6 +178,7 @@ async function play(a, b){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
   busy = true;
   const before = S.moves, r = move(S, a, b);
+  const end = r.ok && won(S) ? finale(S) : null;   // the finale runs now: the save holds the end state
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
     if (plog.on && openAttempt()) { const cur = openAttempt(); logMove(plog, entryOf(S, r.steps, cur.moves.length + 1)); cur.t = secs(); savePlays() }
@@ -172,7 +187,7 @@ async function play(a, b){
     const quarter = Math.ceil(S.limit * .25);
     if (before > 3 && S.moves <= 3) alert('crit'); else if (before > quarter && S.moves <= quarter) alert('warn');
   }
-  try { await animate(r.steps) } finally { sync(); hud(); busy = false }
+  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { sync(); hud(); busy = false }
   if (!r.ok) return;
   if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
 }
@@ -183,13 +198,9 @@ function alert(kind){
   clearTimeout(alertT); alertT = setTimeout(() => { el.hidden = true }, 2800);
 }
 function unlockScene(open){ $('#strip').classList.toggle('open', open) }
-async function win(reloaded){
-  busy = true; unlockScene(true);
-  if (!reloaded && !RM) for (let k = 0; k < Math.min(S.moves, 10); k++) {   // flourish: purely visual
-    const h = hash(S.level, S.fails, k); flash(h % (S.n * S.n), h >>> 16 & 1 ? 'h' : 'v', PAL.t[S.types[h % S.k]]); await sleep(120);
-  }
-  busy = false;
-  const text = t('winText', { n: S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
+function win(){
+  unlockScene(true);
+  const text = t('winText', { n: S.spare ?? S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
   showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]], false, true);
 }
 function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1), true]]) }
@@ -348,7 +359,7 @@ function fall(p, dt){
 }
 let last = performance.now();
 function frame(ts){
-  const dt = Math.min(.05, (ts - last) / 1000); last = ts;
+  const dt = Math.min(.05, (ts - last) / 1000) * pace; last = ts;
   if (S) {
     const n = S.n, step = 11 * dt;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, n * cs, n * cs);
@@ -411,8 +422,8 @@ function hud(){
     d.append(icon(goal), String(Math.max(0, goal.need - goal.got))); el.append(d);
   }
   $('#moves').textContent = S.moves;
-  $('#patrol').classList.toggle('warn', S.moves <= Math.ceil(S.limit * .25));
-  $('#patrol').classList.toggle('low', S.moves <= 3);
+  $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
+  $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
 }
 function comms(){
   const lines = [t('comms1'), t('comms2'), t('comms3'), t('comms4'), t('comms5'), t('comms6'), t('comms7'), t('comms8'), t('comms9'), t('comms10'), t('comms11'), t('comms12')];
@@ -562,7 +573,7 @@ cv.onpointercancel = () => press = null;
 readPal(); fit();
 document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
-if (first.S) { S = first.S; logStart(false); start() } else begin(first.level, first.fails);
+if (first.S) { S = first.S; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
