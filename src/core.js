@@ -109,8 +109,16 @@ export function hasMove(S){
 }
 
 /* ---------- refill ---------- */
-// Helpful refill (spec, Fairness): weights only ever add to 1, never against the player.
+// Helpful refill (spec, Fairness): the boosts only ever add to 1. Damped colours (those that would
+// complete a match where the new tile lands) are scaled by DAMP, with the helpful refill on or off.
 export const REFILL = { A: 1.5, B: 0.5, M: 2 };
+export const DAMP = 0.2;
+// The cell a tile spawned at i ends on when it falls straight down: the lowest empty cell below it, or i.
+export function landingCell(S, i){
+  let j = i;
+  while (j + S.n < S.n * S.n && !S.grid[j + S.n] && !S.enc[j + S.n]) j += S.n;
+  return j;
+}
 // 0 while goal progress keeps pace with moves used, up to 1 when far behind. 0 without a limit (bot).
 export function pressure(S){
   if (!S.limit) return 0;
@@ -133,11 +141,15 @@ export function setsUp(S, i, t){
 }
 export function refillWeights(S, i){
   const w = Array(S.k).fill(1);
-  if (!S.nice) return w;
-  const p = pressure(S);
+  const p = S.nice ? pressure(S) : 0, j = landingCell(S, i), old = S.grid[j];
   for (let t = 0; t < S.k; t++) {
-    if (setsUp(S, i, t)) w[t] += REFILL.A + REFILL.M * p;
-    if (S.goals.some(g => g.kind === 'tiles' && g.t === t && g.got < g.need)) w[t] += REFILL.B;
+    if (S.nice) {
+      if (setsUp(S, i, t)) w[t] += REFILL.A + REFILL.M * p;
+      if (S.goals.some(g => g.kind === 'tiles' && g.t === t && g.got < g.need)) w[t] += REFILL.B;
+    }
+    S.grid[j] = { t, s: null };
+    if (lineAt(S, j)) w[t] *= DAMP;
+    S.grid[j] = old;
   }
   return w;
 }
