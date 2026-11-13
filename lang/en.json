@@ -22,7 +22,7 @@
   "restart": "Restart level",
   "restartAsk": "Restart this level? It won’t count as a failed try.",
   "startOver": "Start over",
-  "startOverAsk": "Start over from level 1?",
+  "startOverAsk": "Start over from level 1? Your best level is kept.",
   "yes": "Yes",
   "cancel": "Cancel",
   "best": "Best level: {n}",
@@ -65,5 +65,9 @@
   "comms11": "Shutter on the way out. Open it and we walk.",
   "comms12": "Gate to the yard. The driver’s waiting.",
   "logHandshake": "handshake ok · cipher weak",
-  "logInject": "injecting payload"
+  "logInject": "injecting payload",
+  "pickLevel": "Go to level",
+  "playLevel": "Play level {n}",
+  "levelDown": "One level down",
+  "levelUp": "One level up"
 }

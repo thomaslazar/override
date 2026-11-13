@@ -86,6 +86,8 @@ body{
 #menu .tabs button{flex:1}
 #menu .tabs button.on{background:rgba(125,255,176,.15);color:#c9ffd9}
 #menu .seg{display:flex;gap:6px}
+#menu .pick input{width:6.5em;font:16px var(--mono);text-align:center;background:#06100a;color:var(--ink);border:1px solid rgba(125,255,176,.45);border-radius:0;padding:6px}
+#menu .pick button{min-width:2.6em}
 #menu .seg button.on{background:rgba(125,255,176,.15);color:#c9ffd9}
 .menu-body{display:flex;flex-direction:column;gap:10px;flex:1}
 .menu-body .btn{flex:none;align-self:flex-start}

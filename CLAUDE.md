@@ -163,7 +163,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
-  the confirmations. The menu has tabs Run (best level, Restart level, Start over), Settings
+  the confirmations. The menu has tabs Run (level picker up to the best level, or `MAX_LEVEL` 9999 on
+  a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip shows the obstacle plate (locked; `unlockScene`

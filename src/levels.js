@@ -8,6 +8,12 @@ export const chapterOf = level => {
   const n = Math.floor((level - 1) / CHAPTER) + 1, start = (n - 1) * CHAPTER + 1;
   return { n, start, pos: level - start + 1 };
 };
+export const MAX_LEVEL = 9999;   // the level picker's ceiling on a local build
+// Level picker input: a whole level in 1..max; anything that is not a number keeps the fallback.
+export const clampLevel = (v, max, fallback) => {
+  const n = Math.floor(Number(v));
+  return String(v).trim() === '' || !Number.isFinite(n) ? fallback : Math.min(max, Math.max(1, n));
+};
 export const breather = level => { const { pos } = chapterOf(level); return pos > 1 && pos % 5 === 1 };
 // Ramp over the chapter from its base to 0.85, +0.1 on every 5th level, -0.1 on the level after.
 export function difficulty(level){

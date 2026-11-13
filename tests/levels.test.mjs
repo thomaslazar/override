@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM } from '../src/levels.js';
+import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from '../src/levels.js';
 import { findGroups, hasMove, validSave } from '../src/core.js';
 
 test('chapters are 30 levels', () => {
@@ -111,4 +111,16 @@ test('layout and goals stay the same across fails', () => {
     assert.deepEqual(a.goals, b.goals);
     assert.deepEqual(a.grid.map(t => !!(t && t.lock)), b.grid.map(t => !!(t && t.lock)));
   }
+});
+
+test('level picker clamps to 1..max and falls back on junk', () => {
+  assert.equal(MAX_LEVEL, 9999);
+  assert.equal(clampLevel('7', 12, 3), 7);
+  assert.equal(clampLevel('40', 12, 3), 12, 'never past the best level');
+  assert.equal(clampLevel('0', 12, 3), 1);
+  assert.equal(clampLevel('-5', 12, 3), 1);
+  assert.equal(clampLevel('4.6', 12, 3), 4, 'whole levels only');
+  assert.equal(clampLevel('abc', 12, 3), 3, 'junk keeps the fallback');
+  assert.equal(clampLevel('', 12, 3), 3);
+  assert.equal(clampLevel('12000', MAX_LEVEL, 3), MAX_LEVEL);
 });

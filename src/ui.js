@@ -2,7 +2,7 @@
 import { move, won, lost, fromSave, toSave, hash } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
-import { chapterOf, ENC_FROM, FW_FROM } from './levels.js';
+import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
 
 const $ = s => document.querySelector(s);
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -387,10 +387,23 @@ function renderMenu(){
   const tabs = el('div', null, 'tabs');
   [t('tabRun'), t('tabSettings'), t('tabInfo')].forEach((l, i) => { const b = btn(l, () => { tab = i; renderMenu() }, i === tab ? 'on' : ''); tabs.append(b) });
   const body = el('div', null, 'menu-body');
+  if (tab === 0) {
+    // level picker: up to the best level reached, any level on a local build
+    const max = DEV ? MAX_LEVEL : run.best, inp = el('input'), go = btn('', () => { closeMenu(); begin(clampLevel(inp.value, max, S.level), 0) });
+    Object.assign(inp, { type: 'number', min: 1, max, value: S.level, inputMode: 'numeric' }); inp.setAttribute('aria-label', t('pickLevel'));
+    const show = () => { go.textContent = t('playLevel', { n: clampLevel(inp.value, max, S.level) }) };
+    const step = d => { inp.value = clampLevel(+clampLevel(inp.value, max, S.level) + d, max, S.level); show() };
+    const dn = btn('\u2212', () => step(-1)), up = btn('+', () => step(1));
+    dn.setAttribute('aria-label', t('levelDown')); up.setAttribute('aria-label', t('levelUp'));
+    inp.oninput = show; inp.onchange = () => { inp.value = clampLevel(inp.value, max, S.level); show() };
+    inp.onkeydown = e => { if (e.key === 'Enter') go.click() };
+    const row = el('div', null, 'seg pick'); row.append(dn, inp, up); show();
+    body.append(el('label', t('pickLevel')), row, go);
+  }
   if (tab === 0) body.append(
     el('p', t('best', { n: run.best })),
     btn(t('restart'), () => confirmSheet(t('restartAsk'), () => begin(S.level, S.fails))),
-    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run = { best: 1, fails: 0 }; saveRun(); begin(1, 0) })));
+    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); begin(1, 0) })));
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); comms(); renderMenu() };
