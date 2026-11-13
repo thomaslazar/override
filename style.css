@@ -4,8 +4,7 @@
 :root{
   --bg:#0b0c0e; --screen:#020604; --cell:rgba(255,255,255,.035); --ink:#9fe8b8; --dim:#6f8f7c; --acc:#f2c230; --sel:#e9f0ff;
   --term:#7dffb0; --termGlow:#31ff8a; --amber:#f2a93b;
-  --enc:#10131c; --encInk:#e8a33a; --fw:#ff6a1f; --rain:rgba(190,200,215,.22);
-  --t0:#3dff8a; --t1:#35c2d9; --t2:#ff4fa3; --t3:#f2c230; --t4:#a77cf0; --t5:#ff6a2b; --t6:#e9f0ff;
+  --enc:#10131c; --encInk:#e8a33a; --fw:#ff6a1f;
   --mono:"Share Tech Mono","Hiragino Sans","Noto Sans JP","Noto Sans CJK JP",ui-monospace,monospace;
   color-scheme:dark;
 }
@@ -70,8 +69,8 @@ body{
 #card h2::before{content:"> "}
 #card .btn{align-self:flex-end}
 #card .btn.main{color:#c9ffd9}
-#card .ascL{display:table;margin:4px auto 10px;font:12px/1.1 var(--mono);white-space:pre;text-align:left;color:var(--ink);text-shadow:0 0 5px var(--termGlow)}
-#card .ascW{display:block;margin:0 auto 12px;max-width:100%}
+#card .ascL{display:table;margin:4px auto 14px;font:12px/1.1 var(--mono);white-space:pre;text-align:left;color:var(--ink);text-shadow:0 0 5px var(--termGlow)}
+#card .ascW{display:block;margin:0 auto 16px;max-width:100%}
 #turn{display:none}
 @media (orientation:landscape) and (max-height:500px){#turn{display:flex;position:fixed;inset:0;z-index:9;background:#0b0c0e;color:#eee;align-items:center;justify-content:center}}
 #loading{position:fixed;inset:0;z-index:7;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(0,0,0,.72);color:var(--term);font:18px var(--mono)}

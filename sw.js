@@ -5,7 +5,7 @@
 const CACHE = 'override-3';   // a new name drops the old cache, see activate; only override- caches, the origin is shared with Kiln and Splice
 const SHELL = ['./', 'index.html', 'style.css', 'fonts/barlow-semi-condensed-latin-400.woff2', 'fonts/barlow-semi-condensed-latin-600.woff2',
   'fonts/share-tech-mono-latin-400.woff2',
-  'src/core.js', 'src/levels.js', 'src/bot.js', 'src/worker.js', 'src/ui.js', 'manifest.webmanifest',
+  'src/core.js', 'src/palette.js', 'src/levels.js', 'src/bot.js', 'src/worker.js', 'src/ui.js', 'manifest.webmanifest',
   'lang/languages.json', 'lang/en.json',
   'art/deck.webp', 'art/key-l.webp', 'art/key-r.webp', 'art/lock-closed.webp', 'art/lock-open.webp', 'art/plug.webp', 'art/sticker-42.webp', 'art/sticker-eye.webp', 'art/sticker-skull.webp', 'art/sticker-voidwalk.webp',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];

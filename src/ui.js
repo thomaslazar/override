@@ -1,5 +1,6 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
 import { move, won, lost, fromSave, toSave, hash } from './core.js';
+import { paletteFor } from './palette.js';
 import { chapterOf, ENC_FROM, FW_FROM } from './levels.js';
 
 const $ = s => document.querySelector(s);
@@ -145,7 +146,7 @@ let cs = 40, dpr = 1, PAL = {};
 function readPal(){
   const st = getComputedStyle(document.documentElement);
   for (const k of ['cell', 'ink', 'dim', 'enc', 'encInk', 'fw', 'sel', 'acc', 'screen']) PAL[k] = st.getPropertyValue('--' + k).trim();
-  PAL.t = [...Array(7)].map((_, i) => st.getPropertyValue('--t' + i).trim());
+  PAL.t = paletteFor(store.get('override-palette'));
 }
 function fit(){
   const w = $('#wrap'), size = Math.floor(Math.min(w.clientWidth, w.clientHeight));
@@ -311,6 +312,7 @@ function comms(){
 }
 let toastTimer; function toast(s){ const el = $('#toast'); el.textContent = s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 1600) }
 let dismissable = false;
+let artTimer;
 const closeSheet = () => { $('#sheet').classList.remove('on'); clearInterval(artTimer); grace = performance.now() + 400 };
 const closeMenu = () => { $('#menu').hidden = true; grace = performance.now() + 400 };
 const closeSheets = () => { closeSheet(); closeMenu() };
@@ -330,7 +332,6 @@ function showSheet(title, text, buttons, dismiss, art){
 const PWNED = [' ██████  ██     ██ ███    ██ ███████ ██████  ', ' ██   ██ ██     ██ ████   ██ ██      ██   ██ ', ' ██████  ██  █  ██ ██ ██  ██ █████   ██   ██ ', ' ██      ██ ███ ██ ██  ██ ██ ██      ██   ██ ', ' ██       ███ ███  ██   ████ ███████ ██████  '];
 const PADLOCK = [['', '     .---.', '    / .-. \\', '    | | | |', " .--'-'-'-'--.", ' |    [ ]    |', ' |    ( )    |', " '-----------'"],
   ['     .---.', '    / .-. \\', '    | | |_|', '    | |', " .--'-'------.", ' |    [ ]    |', ' |    (*)    |', " '-----------'"]].map(f => f.join('\n'));
-let artTimer;
 function animateArt(l, w){
   let k = 0; const cols = PWNED[0].length, d = devicePixelRatio || 1, px = 6;   // block letters drawn as pixels: fonts differ in block glyph widths
   w.width = cols * px * d; w.height = PWNED.length * px * 1.4 * d; w.style.width = cols * px + 'px';
@@ -373,7 +374,10 @@ function renderMenu(){
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); comms(); renderMenu() };
-    body.append(el('label', t('language')), sel);
+    body.append(el('label', t('language')), sel, el('label', t('palette')));
+    const cur = store.get('override-palette') === 'colourblind' ? 'colourblind' : 'standard', seg = el('div', null, 'seg');
+    for (const [k, l] of [['standard', t('paletteStandard')], ['colourblind', t('paletteColourblind')]]) seg.append(btn(l, () => { store.set('override-palette', k); readPal(); hud(); renderMenu() }, k === cur ? 'on' : ''));
+    body.append(seg);
   }
   if (tab === 2) {
     const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';
