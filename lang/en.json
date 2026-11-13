@@ -69,5 +69,7 @@
   "pickLevel": "Go to level",
   "playLevel": "Play level {n}",
   "levelDown": "One level down",
-  "levelUp": "One level up"
+  "levelUp": "One level up",
+  "alertWarn": "Patrol closing in",
+  "alertCrit": "Patrol at the door"
 }

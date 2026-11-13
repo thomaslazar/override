@@ -147,14 +147,24 @@ async function animate(steps){
 async function play(a, b){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
   busy = true;
-  const r = move(S, a, b);
+  const before = S.moves, r = move(S, a, b);
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
     if (plog.on && openAttempt()) { const cur = openAttempt(); logMove(plog, entryOf(S, r.steps, cur.moves.length + 1)); cur.t = secs(); savePlays() }
   }
+  if (r.ok && !won(S)) {   // the patrol warnings flash once each, as the count crosses the line (never on the winning move)
+    const quarter = Math.ceil(S.limit * .25);
+    if (before > 3 && S.moves <= 3) alert('crit'); else if (before > quarter && S.moves <= quarter) alert('warn');
+  }
   try { await animate(r.steps) } finally { sync(); hud(); busy = false }
   if (!r.ok) return;
   if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
+}
+let alertT;
+function alert(kind){
+  const el = $('#alert'); el.textContent = kind === 'crit' ? t('alertCrit') : t('alertWarn'); el.dataset.kind = kind;
+  el.hidden = true; void el.offsetWidth; el.hidden = false;   // restart the animation
+  clearTimeout(alertT); alertT = setTimeout(() => { el.hidden = true }, 2800);
 }
 function unlockScene(open){ $('#strip').classList.toggle('open', open) }
 async function win(reloaded){

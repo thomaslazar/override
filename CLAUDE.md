@@ -164,6 +164,9 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
+- Patrol warnings: the move count turns amber at 25 % of the limit and red (pulsing) at 3 or fewer; crossing
+  either line during a move flashes `#alert` once, centred ("Patrol closing in", "Patrol at the door"),
+  never on the winning move and never on load.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (level picker up to the best level, or `MAX_LEVEL` 9999 on
   a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings

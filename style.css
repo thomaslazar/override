@@ -48,7 +48,16 @@ body{
 #patrol small{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
 #patrol b{font:400 24px var(--mono);color:var(--acc);text-shadow:0 0 8px var(--acc)}
 #patrol.warn b{color:#ff9a3c;text-shadow:0 0 8px #ff9a3c}
-#patrol.low b{color:#ff4f4f;text-shadow:0 0 8px #ff4f4f}
+#patrol.low b{color:#ff4f4f;text-shadow:0 0 8px #ff4f4f;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.45}}
+/* patrol warning: flashes once, centred, never blocks taps */
+#alert{position:fixed;left:0;right:0;top:40%;z-index:20;pointer-events:none;text-align:center;padding:14px 0;
+  background:linear-gradient(90deg,transparent,rgba(0,0,0,.78) 20%,rgba(0,0,0,.78) 80%,transparent);
+  font:clamp(17px,6vw,26px) var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#ff9a3c;text-shadow:0 0 18px #ff9a3c;
+  animation:alertflash 2.8s ease-out forwards}
+#alert[data-kind=crit]{color:#ff4f4f;text-shadow:0 0 18px #ff4f4f}
+#alert[hidden]{display:none}
+@keyframes alertflash{0%{opacity:0;transform:scale(1.25)}6%{opacity:1;transform:scale(1)}11%{opacity:.35}16%{opacity:1}85%{opacity:1}100%{opacity:0}}
 #wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 #board{display:block;touch-action:none}
 #soft{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto}
