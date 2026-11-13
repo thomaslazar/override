@@ -1,5 +1,5 @@
-// Override UI: language, theme, worker client, rendering, step animation, input, sheets, saving.
-import { move, won, lost, fromSave, toSave, hash, mulberry32 } from './core.js';
+// Override UI: language, worker client, rendering, step animation, input, sheets, saving.
+import { move, won, lost, fromSave, toSave, hash } from './core.js';
 import { chapterOf, ENC_FROM, FW_FROM } from './levels.js';
 
 const $ = s => document.querySelector(s);
@@ -127,7 +127,7 @@ async function play(a, b){
   if (!r.ok) return;
   if (won(S)) win(); else if (lost(S)) lose();
 }
-function unlockScene(open){ $('#scene').classList.toggle('open', open); $('#lockTxt').textContent = open ? 'OPEN' : 'LOCKED' }
+function unlockScene(open){ $('#strip').classList.toggle('open', open) }
 async function win(reloaded){
   busy = true; unlockScene(true);
   if (!reloaded && !RM) for (let k = 0; k < Math.min(S.moves, 10); k++) {   // flourish: purely visual
@@ -146,12 +146,6 @@ function readPal(){
   const st = getComputedStyle(document.documentElement);
   for (const k of ['cell', 'ink', 'dim', 'enc', 'encInk', 'fw', 'sel', 'acc', 'screen']) PAL[k] = st.getPropertyValue('--' + k).trim();
   PAL.t = [...Array(7)].map((_, i) => st.getPropertyValue('--t' + i).trim());
-  PAL.rain = st.getPropertyValue('--rain').trim();
-}
-function applyTheme(){
-  const v = store.get('override-theme');
-  if (v === 'light' || v === 'dark') document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme;
-  readPal(); if (S) hud();
 }
 function fit(){
   const w = $('#wrap'), size = Math.floor(Math.min(w.clientWidth, w.clientHeight));
@@ -259,23 +253,7 @@ function frame(now){
       g.globalAlpha = 1; return true;
     });
   }
-  rainFrame(dt);
   requestAnimationFrame(frame);
-}
-
-/* ---------- rain ---------- */
-const rc = $('#rain'), rg = rc.getContext('2d'), rnd = mulberry32(hash(7, 7));
-const sizeRain = () => { rc.width = innerWidth; rc.height = innerHeight }; sizeRain();
-const drops = Array.from({ length: 90 }, () => ({ x: rnd(), y: rnd(), v: .6 + rnd() * .5, l: 10 + rnd() * 18 }));
-function rainFrame(dt){
-  if (RM) return;   // reduced motion: no rain
-  const w = rc.width, h = rc.height; rg.clearRect(0, 0, w, h);
-  rg.strokeStyle = PAL.rain; rg.lineWidth = 1; rg.beginPath();
-  for (const d of drops) {
-    d.y += d.v * dt; d.x -= d.v * dt * .08; if (d.y > 1) { d.y = -.05; d.x = rnd() * 1.1 }
-    rg.moveTo(d.x * w, d.y * h); rg.lineTo(d.x * w - d.l * .15, d.y * h + d.l);
-  }
-  rg.stroke();
 }
 
 /* ---------- hud, comms, sheets ---------- */
@@ -288,7 +266,7 @@ function icon(goal){
   g = g2; cs = cs2; return c;
 }
 function hud(){
-  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip');
+  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip'); $('#log2').textContent = t('logHandshake'); $('#log3').textContent = t('logInject');
   $('#who').textContent = t('decker'); $('#turnText').textContent = t('turnPhone');
   $('#levelLabel').textContent = t('level', { c: chapterOf(S.level).n, n: S.level });
   const el = $('#goals'); el.textContent = '';
@@ -344,9 +322,7 @@ function renderMenu(){
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); comms(); renderMenu() };
-    const seg = el('div', null, 'seg'), cur = store.get('override-theme') || 'auto';
-    [['auto', t('themeAuto')], ['light', t('themeLight')], ['dark', t('themeDark')]].forEach(([v, l]) => seg.append(btn(l, () => { store.set('override-theme', v); applyTheme(); renderMenu() }, v === cur ? 'on' : '')));
-    body.append(el('label', t('language')), sel, el('label', t('theme')), seg);
+    body.append(el('label', t('language')), sel);
   }
   if (tab === 2) {
     const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';
@@ -384,12 +360,10 @@ cv.onpointerup = () => {
 cv.onpointercancel = () => press = null;
 
 /* ---------- boot ---------- */
-applyTheme(); fit();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+readPal(); fit();
 const first = load();
 if (first.S) { S = first.S; start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
-addEventListener('resize', sizeRain);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());

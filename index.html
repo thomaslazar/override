@@ -22,25 +22,28 @@
 <meta name="apple-mobile-web-app-title" content="Override">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preload" href="fonts/barlow-semi-condensed-latin-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/share-tech-mono-latin-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
 <script type="module" src="src/ui.js"></script>
 </head>
 <body>
-<canvas id="rain" aria-hidden="true"></canvas>
+<section id="strip" aria-hidden="true"></section>
 <div id="comms"><span class="who" id="who"></span><span id="line"></span></div>
-<section id="scene" aria-hidden="true">
-  <svg id="cable" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M71 86 C71 120 22 70 22 112" fill="none" stroke="#111" stroke-width="6" vector-effect="non-scaling-stroke" stroke-linecap="round"/></svg>
-  <div id="lock"><div id="lockLcd"><span id="lockTxt">LOCKED</span><span id="lockLed"></span></div><div class="keys"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-</section>
+<div id="deckwrap">
 <main id="deck">
-  <span class="screw"></span><span class="screw"></span><span class="screw"></span><span class="screw"></span>
-  <div class="bar"><span id="deckName"></span><span id="levelLabel"></span><span class="pwr"></span></div>
+  <img class="plug" src="art/plug.webp" alt=""><img class="key kl" src="art/key-l.webp" alt=""><img class="key kr" src="art/key-r.webp" alt="">
   <div id="screen">
+    <div id="log"><div><span id="deckName"></span> <span id="levelLabel"></span></div><div id="log2"></div><div id="log3"></div></div>
     <div id="hud"><div id="goals"></div><div id="patrol"><small id="patrolLabel"></small><b id="moves"></b></div></div>
     <div id="wrap"><canvas id="board"></canvas></div>
+    <div id="soft"><button class="soft" id="menuBtn"></button><span id="wip"></span></div>
   </div>
-  <div class="bar"><button class="hw" id="menuBtn"></button><span id="wip"></span></div>
+  <img class="sticker" src="art/sticker-eye.webp" alt="" style="left:50%;top:-38px;height:30px;transform:translateX(-50%) rotate(-3deg)">
+  <img class="sticker" src="art/sticker-skull.webp" alt="" style="left:44px;top:calc(100% + 3px);height:27px;transform:rotate(-14deg)">
+  <img class="sticker" src="art/sticker-voidwalk.webp" alt="" style="left:110px;top:calc(100% + 5px);height:25px;transform:rotate(5deg)">
+  <img class="sticker" src="art/sticker-42.webp" alt="" style="right:60px;top:calc(100% + 4px);height:26px;transform:rotate(11deg)">
 </main>
+</div>
 <div id="toast" role="status"></div>
 <div id="loading"><b id="loadTitle"></b><span id="loadSub"></span></div>
 <div id="sheet"><div id="card"></div></div>
