@@ -151,7 +151,7 @@ async function animate(steps, speed = 1){
     }
     if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
     if (s.k === 'finale') inFinale = true;
-    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - 1); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await wait(450) }
+    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - 1); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(450) }
     if (s.k === 'wave') {
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
