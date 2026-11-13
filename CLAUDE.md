@@ -45,7 +45,7 @@ Read before changing behaviour:
 - `fonts/`: Barlow Semi Condensed (latin 400 and 600) and Share Tech Mono (latin 400, terminal text), woff2, self-hosted, with `OFL.txt`.
 - `art/`: generated WebP images (lock plates, deck frame, plug, keys, stickers). Everything drawn on the board is code. `docs/art.md` has the prompts, cut-out steps and rules. All of `art/` and `fonts/` must be in `SHELL` and the workflow copy; `tests/shell.test.mjs` checks this.
 - `manifest.webmanifest`, `sw.js`, `icons/`: PWA. `sw.js` is network first (revalidates; 3 s
-  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-4`; rename it when `sw.js`
+  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-5`; rename it when `sw.js`
   changes how it caches or `SHELL` changes, so `activate` drops the old cache (only `override-`
   caches). `icons/og.png` (1200 x 630) is the link preview card, rendered from `tools/og.html`; not in `SHELL`.
   App icons (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png` 180, `icon-maskable-512.png`) are rendered
@@ -173,7 +173,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-palette`, `override-4`; the old `override-theme` is ignored, not deleted); the origin is shared with
+  `override-run`, `override-lang`, `override-palette`, `override-5`; the old `override-theme` is ignored, not deleted); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work. Work happens on one branch per plan, merged into `master` locally; no pull
