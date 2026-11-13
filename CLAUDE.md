@@ -53,7 +53,7 @@ Read before changing behaviour:
   bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-5`; rename it when `sw.js`
   changes how it caches or `SHELL` changes, so `activate` drops the old cache (only `override-`
   caches). `icons/og.png` (1200 x 630) is the link preview card, rendered from `tools/og.html`; not in `SHELL`.
-  App icons (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png` 180, `icon-maskable-512.png`) are rendered
+  App icons (a 3 x 3 board with a lit row of three メ; `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` 180, `icon-maskable-512.png`) are rendered
   from `tools/icon.html?size=N` (add `&mask=1` for the maskable one) with `tools/shot.mjs --size NxN --dpr 1`.
 - `.github/workflows/pages.yml`: runs `node --test` on pull requests and pushes; on push to
   `master` it deploys to https://thomaslazar.github.io/override/. New site files must be added

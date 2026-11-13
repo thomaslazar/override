@@ -6,22 +6,32 @@
 </style></head>
 <body><canvas id="c"></canvas>
 <script>
-// App icon: four glowing character tiles on the deck's black screen. ?size=512&mask=1 (maskable: art kept inside the 80 % safe zone).
+// App icon: a 3 x 3 board on the deck's black screen, its middle row a lit match of three メ with a beam through it.
+// ?size=512&mask=1 (maskable: art kept inside the 80 % safe zone).
 const q = new URLSearchParams(location.search), size = +(q.get('size') || 512), mask = q.has('mask');
 const cv = document.getElementById('c'); cv.width = cv.height = size; cv.style.width = cv.style.height = size + 'px';
 const g = cv.getContext('2d');
-const tiles = [['ｱ', '#3dff8a'], ['ﾊ', '#35c2d9'], ['ｦ', '#ff4fa3'], ['7', '#f2c230']];
+const C = { 'ロ': '#3dff8a', 'ハ': '#35c2d9', 'メ': '#ff4fa3', 'ト': '#f2c230', 'Ξ': '#a77cf0', 'ミ': '#ff6a2b', 'ム': '#e9f0ff' };
+const board = ['ロハト', 'メメメ', 'ムΞミ'];
 document.fonts.load(`700 40px "Share Tech Mono"`).then(() => {
   g.fillStyle = '#020604'; g.fillRect(0, 0, size, size);
-  const inner = size * (mask ? .62 : .78), gap = inner * .06, cell = (inner - gap) / 2, o = (size - inner) / 2;
-  tiles.forEach(([ch, c], k) => {
-    const x = o + (k % 2) * (cell + gap), y = o + Math.floor(k / 2) * (cell + gap);
-    g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.roundRect(x, y, cell, cell, cell * .14); g.fill();
-    g.font = `700 ${cell * .72}px "Share Tech Mono","Noto Sans CJK JP","Noto Sans JP",monospace`;
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = c; g.shadowColor = c;
-    for (const b of [cell * .3, cell * .12]) { g.shadowBlur = b; g.fillText(ch, x + cell / 2, y + cell / 2 + cell * .03) }
-    g.shadowBlur = 0;
-  });
+  const inner = size * (mask ? .66 : .84), gap = inner * .04, cell = (inner - 2 * gap) / 3, o = (size - inner) / 2;
+  const at = (r, c) => [o + c * (cell + gap), o + r * (cell + gap)];
+  board.forEach((row, r) => [...row].forEach((ch, c) => {
+    const [x, y] = at(r, c), lit = r === 1, col = C[ch];
+    g.fillStyle = lit ? 'rgba(255,79,163,.16)' : 'rgba(255,255,255,.05)';
+    g.beginPath(); g.roundRect(x, y, cell, cell, cell * .16); g.fill();
+    if (lit) { g.strokeStyle = 'rgba(255,79,163,.55)'; g.lineWidth = cell * .035; g.stroke() }
+    g.font = `700 ${cell * .66}px "Share Tech Mono","Noto Sans CJK JP","Noto Sans JP",monospace`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = lit ? 1 : .42;
+    g.fillStyle = col; g.shadowColor = col;
+    for (const b of lit ? [cell * .45, cell * .18] : [cell * .2]) { g.shadowBlur = b; g.fillText(ch, x + cell / 2, y + cell / 2 + cell * .03) }
+    g.shadowBlur = 0; g.globalAlpha = 1;
+  }));
+  // the beam: a white-hot line along the matched row
+  const [x0, y0] = at(1, 0), yb = y0 + cell / 2, grad = g.createLinearGradient(x0, 0, x0 + inner, 0);
+  grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(.5, 'rgba(255,255,255,.9)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.shadowColor = '#ff4fa3'; g.shadowBlur = cell * .3; g.fillRect(x0 - gap, yb - cell * .02, inner + 2 * gap, cell * .04); g.shadowBlur = 0;
   for (let y = 0; y < size; y += Math.max(2, size / 128)) { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, y, size, Math.max(1, size / 256)) }
 });
 </script></body></html>
