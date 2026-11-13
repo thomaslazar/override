@@ -213,7 +213,7 @@ $('#sheet').addEventListener('pointerdown', () => countUp?.());
 function win(){
   unlockScene(true);
   const prev = bestOf(S.level), end = S.score;
-  bests[S.level] = Math.max(prev ?? 0, end); store.set('override-best', JSON.stringify(bests));
+  bests[S.level] = Math.max(prev ?? 0, end); store.set('override-best', JSON.stringify(bests)); hud();
   const text = t('winText', { n: S.spare ?? S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
   showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]], false, true);
   const rows = el('div', null, 'scores'), row = (label, n, cls) => { const r = el('div', null, cls); r.append(el('span', label), el('i'), el('b', fmt(n))); rows.append(r); return r.lastChild };
@@ -451,7 +451,7 @@ function hud(){
   }
   $('#moves').textContent = shown ? shown.moves : S.moves;
   const best = bestOf(S.level);
-  $('#score').textContent = t('score') + ' ' + fmt(shown ? shown.score : S.score) + (best === null ? '' : ' \u00b7 ' + t('best') + ' ' + fmt(best));
+  $('#score').textContent = best === null ? t('hudScore', { s: fmt(shown ? shown.score : S.score) }) : t('hudScoreBest', { s: fmt(shown ? shown.score : S.score), b: fmt(best) });
   $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
   $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
 }

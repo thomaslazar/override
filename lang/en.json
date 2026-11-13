@@ -10,6 +10,8 @@
   "finaleToast": "Override: flushing the buffers",
   "score": "score",
   "best": "best",
+  "hudScore": "score {s}",
+  "hudScoreBest": "score {s} · best {b}",
   "newBest": "NEW BEST",
   "loadFailed": "Something went wrong. Reload to try again.",
   "reload": "Reload",

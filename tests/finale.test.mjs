@@ -15,12 +15,12 @@ test('finale fires every leftover special and spends spare moves; deterministic'
     return mk(r.map(l => l.join(' ')), { goals: won1, moves: 5 });
   };
   const a = build(), b = build();
-  const ra = finale(a), rb = finale(b);
+  const before = a.score, ra = finale(a), rb = finale(b);
   assert.deepEqual(ra.steps, rb.steps); assert.deepEqual(a, b);
   assert.equal(ra.steps[0].k, 'finale');
   assert.equal(a.spare, 5); assert.equal(a.moves, 0);
   assert.ok(!specials(a));
-  assert.ok(a.score > 0);
+  assert.equal(a.score, before + ra.steps.filter(s => s.k === 'wave').reduce((n, s) => n + s.points, 0));
   assert.ok(ra.steps.some(s => s.k === 'convert'));
 });
 test('nothing to do: only the marker, score unchanged, spare 0', () => {
@@ -35,7 +35,7 @@ test('forty spare moves terminate with moves 0 and no specials', () => {
 });
 test('a spare move with no plain movable tile is skipped', () => {
   const S = mk(rows(3, (r, c) => (r + c) % 2 ? '#1' : 'A!'), { goals: won1, moves: 3 });
-  assert.deepEqual(finale(S).steps, [{ k: 'finale' }]);
+  assert.deepEqual(finale(S).steps, [{ k: 'finale' }, ...Array(3).fill({ k: 'convert', cells: [] })]);
   assert.equal(S.spare, 3); assert.equal(S.moves, 0);
 });
 test('finale refills are not damped', () => {

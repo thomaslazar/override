@@ -309,7 +309,7 @@ export function finale(S){
   for (let k = 0; k < spare; k++) {
     const rnd = rngFor(S.seed, 29, k);
     const plain = []; S.grid.forEach((x, i) => { if (x && !x.lock && !x.s) plain.push(i) });
-    if (!plain.length) continue;
+    if (!plain.length) { steps.push({ k: 'convert', cells: [] }); continue }
     const i = plain[Math.floor(rnd() * plain.length)], s = rnd() < 1 / 3 ? 'b' : rnd() < .5 ? 'h' : 'v';
     S.grid[i].s = s; steps.push({ k: 'convert', cells: [{ i, s }] });
     burst();
@@ -399,7 +399,7 @@ export function validSave(o){
   if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
   if (!Array.isArray(o.enc) || o.enc.length !== nn || !o.enc.every(x => int(x, 0, 3))) return false;
   if (!Array.isArray(o.goals) || !o.goals.length || o.goals.length > 3) return false;
-  return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 9999)
+  return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 1e9)
     && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
 }
 export const toSave = S => JSON.parse(JSON.stringify(S));

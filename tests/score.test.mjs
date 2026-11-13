@@ -31,4 +31,5 @@ test('saves: score and spare optional integers; old saves load with score 0', ()
   assert.equal(validSave({ ...toSave(big()), score: 1.5 }), false);
   assert.equal(validSave({ ...toSave(big()), spare: -1 }), false);
   assert.ok(validSave({ ...toSave(big()), score: 120, spare: 3 }));
+  { const o = toSave(big()); o.goals = o.goals.map(g => ({ ...g, got: 20000 })); assert.ok(validSave(o)) }
 });
