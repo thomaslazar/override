@@ -84,6 +84,8 @@ body{
 .tabs{display:flex;gap:6px}
 #menu .tabs button{flex:1}
 #menu .tabs button.on{background:rgba(125,255,176,.15);color:#c9ffd9}
+#menu .seg{display:flex;gap:6px}
+#menu .seg button.on{background:rgba(125,255,176,.15);color:#c9ffd9}
 .menu-body{display:flex;flex-direction:column;gap:10px;flex:1}
 .menu-body .btn{flex:none;align-self:flex-start}
 #menu>.btn{align-self:center}
