@@ -191,7 +191,7 @@ function fit(){
   dpr = devicePixelRatio || 1; cs = size / (S?.n || 8);
   cv.style.width = cv.style.height = size + 'px'; cv.width = cv.height = Math.round(size * dpr);
 }
-const GLYPHS = ['ｱ', 'ﾊ', 'ｦ', 'Ø', 'Ξ', 'ﾐ', 'Z'];   // one character per glyph slot (types)
+const GLYPHS = ['ﾛ', 'ﾊ', '¥', 'Ø', 'Ξ', 'ﾐ', 'Z'];   // one character per glyph slot (types)
 const MONO = getComputedStyle(document.documentElement).getPropertyValue('--mono');
 const tint = (c, a) => { const n = parseInt(c.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})` };
 const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r) };
