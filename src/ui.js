@@ -1,6 +1,7 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
 import { move, won, lost, fromSave, toSave, hash } from './core.js';
 import { paletteFor } from './palette.js';
+import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM } from './levels.js';
 
 const $ = s => document.querySelector(s);
@@ -48,6 +49,19 @@ let S = null, run = { best: 1, fails: 0 }, busy = false, grace = 0;
 try { const o = JSON.parse(store.get('override-run')); if (Number.isInteger(o?.best) && o.best >= 1 && Number.isInteger(o.fails) && o.fails >= 0) run = o } catch {}
 const saveRun = () => store.set('override-run', JSON.stringify(run));
 const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
+/* ---------- play log ---------- */
+let plog; try { plog = logFrom(JSON.parse(store.get('override-plays'))) } catch { plog = logFrom(null) }
+let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0
+const secs = () => Math.round(base + (Date.now() - t0) / 1000);
+const savePlays = () => { trim(plog, PLAYS_MAX); store.set('override-plays', JSON.stringify(plog)) };
+const openAttempt = () => { const a = plog.attempts.at(-1); return a && a.end === null ? a : null };
+// fresh: a new attempt (level start, restart); else continue the saved one after a reload.
+function logStart(fresh){
+  if (!plog.on || won(S) || lost(S)) return;
+  if (fresh || !resume(plog, S)) startAttempt(plog, attemptOf(S, new Date().toISOString()));
+  base = openAttempt().t; t0 = Date.now(); savePlays();
+}
+function logEnd(end){ if (plog.on) { close(plog, end, S, secs()); savePlays() } }
 function load(){
   let o = null; try { o = JSON.parse(store.get('override-v1')) } catch {}
   const q = DEV && +new URLSearchParams(location.search).get('level');
@@ -66,7 +80,7 @@ async function begin(level, fails){
   const s = await want(level, fails);
   if (!cached) await sleep(Math.max(0, 400 - (performance.now() - t0)));
   hideLoading();
-  S = s; run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save();
+  S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save();
   start();
 }
 function start(){
@@ -123,10 +137,13 @@ async function play(a, b){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
   busy = true;
   const r = move(S, a, b);
-  if (r.ok) save();           // saved before animating: closing mid-cascade loses nothing
+  if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
+    save();
+    if (plog.on && openAttempt()) { const a = openAttempt(); logMove(plog, entryOf(S, r.steps, a.moves.length + 1)); a.t = secs(); savePlays() }
+  }
   try { await animate(r.steps) } finally { sync(); hud(); busy = false }
   if (!r.ok) return;
-  if (won(S)) win(); else if (lost(S)) lose();
+  if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
 }
 function unlockScene(open){ $('#strip').classList.toggle('open', open) }
 async function win(reloaded){
@@ -377,7 +394,16 @@ function renderMenu(){
     body.append(el('label', t('language')), sel, el('label', t('palette')));
     const cur = store.get('override-palette') === 'colourblind' ? 'colourblind' : 'standard', seg = el('div', null, 'seg');
     for (const [k, l] of [['standard', t('paletteStandard')], ['colourblind', t('paletteColourblind')]]) seg.append(btn(l, () => { store.set('override-palette', k); readPal(); hud(); renderMenu() }, k === cur ? 'on' : ''));
-    body.append(seg);
+    body.append(seg, el('label', t('playLog')), el('p', t('playLogText')));
+    const lseg = el('div', null, 'seg');
+    for (const [on, l] of [[false, t('off')], [true, t('on')]]) lseg.append(btn(l, () => {
+      if (on === plog.on) return;
+      if (on && !plog.id) plog.id = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
+      setOn(plog, on); if (on) logStart(true); savePlays(); renderMenu();
+    }, on === plog.on ? 'on' : ''));
+    body.append(lseg);
+    if (plog.on) body.append(el('p', t('playLogCount', { n: plog.attempts.length })), btn(t('playLogDownload'), downloadLog),
+      btn(t('playLogClear'), () => confirmSheet(t('playLogClearAsk'), () => { plog.attempts = []; logStart(true); savePlays() })));
   }
   if (tab === 2) {
     const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';
@@ -386,6 +412,12 @@ function renderMenu(){
   m.append(tabs, body, btn(t('keepPlaying'), closeMenu, 'btn main'));
 }
 $('#menuBtn').onclick = () => { if (busy || !S) return; renderMenu(); $('#menu').hidden = false };
+async function downloadLog(){
+  const ua = navigator.userAgent, device = [/Android|iPhone|iPad|Windows|Mac OS|Linux/.exec(ua)?.[0], /Firefox|Edg|Chrome|Safari/.exec(ua)?.[0]].filter(Boolean).join(' ');
+  const f = fileOf(plog, device, new Date()), file = new File([f.text], f.name, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }) } catch {} return }
+  const a = el('a'); a.href = URL.createObjectURL(file); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 async function share(){
   const url = location.origin + location.pathname;
   if (navigator.share) { try { await navigator.share({ title: 'Override', text: t('shareText'), url }) } catch {} return }
@@ -418,7 +450,7 @@ cv.onpointercancel = () => press = null;
 readPal(); fit();
 document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
-if (first.S) { S = first.S; start() } else begin(first.level, first.fails);
+if (first.S) { S = first.S; logStart(false); start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
