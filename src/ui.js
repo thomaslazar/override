@@ -90,7 +90,8 @@ async function begin(level, fails){
   const pick = pickFor(level); planned.delete(level);
   const t0 = performance.now(), cached = ready.has(keyOf(level, fails, pick));
   if (!cached) showLoading(level);
-  const s = await want(level, fails, pick);
+  const stuck = setTimeout(failed, 20000);   // never hang on the loading card: offer a reload instead
+  const s = await want(level, fails, pick); clearTimeout(stuck);
   if (!cached) await sleep(Math.max(0, 400 - (performance.now() - t0)));
   hideLoading();
   S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save();
