@@ -20,8 +20,10 @@ Read before changing behaviour:
 - Test: `node --test` (not `node --test tests/`).
 - Balance: `node tools/sim.mjs [levels] [runs] [--refill nice]`, e.g. `node tools/sim.mjs 1-30`.
   Levels are `1-60`, `3,25,50` or a mix (default 1, 3, 5, 10 ... 60). Run `r` plays with
-  `fails = r`. Per level it prints board, goals, need, limit, margin, salt, drop and time.
+  `fails = r`. Per level it prints board, goals, need, limit, margin, salt, drop and time, plus target (8 + 14 d),
+  ratio (need / target), w/m (waves per move) and 4+ (share of moves with 4+ waves), and a summary line.
   `--refill nice` also re-solves with the helpful refill on and prints what it saves.
+- Play log report: `node tools/plays.mjs <file> [file ...]` over logs exported from Settings.
 - Browser checks: headless Chromium with `--virtual-time-budget` stalls the worker; use real time.
   `node tools/shot.mjs <url> <out.png> [--size WxH] [--dpr N] [--won] [--eval JS] [--reduced-motion]`
   screenshots a page (its Chromium profile lives under `$HOME/override-shots`, because snap
@@ -36,6 +38,8 @@ Read before changing behaviour:
 - `src/levels.js`: chapters, difficulty, `paramsFor`, `makeAttempt`, pure. Tested in `tests/levels.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in
   `tests/bot.test.mjs`. `tools/sim.mjs`: balance report with it.
+- `src/plays.js`: opt-in play log (pure, tested in `tests/plays.test.mjs`); `tools/plays.mjs`: report over
+  exported logs (`tests/plays-report.test.mjs`).
 - `src/worker.js`: Web Worker that runs `prepare(level, fails)` off the main thread.
 - `src/ui.js`: language, worker client, view model, step animation, drawing (canvas), effects, win art, input, sheets, menu, saving.
 - `src/palette.js`: `PALETTES` (standard and colour-blind tile colours) and `paletteFor`, pure. Tested in `tests/palette.test.mjs`.
@@ -89,13 +93,16 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   the wave's `cleared` and counts for the tiles goal.
 - **gravity**: passes until stable: straight down, spawn in row 0 with `spawnColour`, diagonal
   fill for cells not fed from above (a cell under an encrypted cell or firewalled tile).
-  Roofed pockets stay empty. Encrypted cells and firewalled tiles never move.
+  Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
+  tiles spawned in a gravity call that end up in a line survive with chance `DAMP` (0.2), else are
+  recoloured (seeded) to a colour that makes no line, and their spawn records are patched. Player and
+  bot share it, so the bot-set limits cover it.
 - **refill** (here, not in `levels.js`, to avoid an import cycle): `REFILL = { A: 1.5, B: 0.5, M: 2 }`.
   `pressure(S)` is 0 when goal progress keeps pace with moves used, up to 1 when far behind (0
   without a limit). `setsUp(S, i, t)` is true when colour t at i makes a near pair without a
   direct match (no free cascades). `refillWeights` start at 1; with `nice`, +`A` + `M * pressure`
   for a colour that sets up a pair, +`B` for a colour a tiles goal still needs. Weights only
-  ever add, never take away. `spawnColour` draws from `rngFor(S.seed, 7, S.spawns++)`.
+  ever add; the only thing against the player is the shared settle-time damping (see gravity). `spawnColour` draws from `rngFor(S.seed, 7, S.spawns++)`.
 - **reshuffle**: seeded shuffle of movable tiles until there is no match and a move exists;
   after 200 tries it also redraws plain colours (400 max).
 - **saves**: `validSave` (version `v: 1`), `toSave`, `fromSave`; an invalid save is dropped.
@@ -105,20 +112,22 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - Chapters of `CHAPTER` = 30 levels. `difficulty(level)` ramps over the chapter from a base
   (`min(.25, .05 * (chapter - 1))`) to .85, +.1 on every 5th level, -.1 on the level after
   (`breather`). Encrypted cells from `ENC_FROM` (4), firewalls from `FW_FROM` (7).
-- `paramsFor(level, fails, drop)` gives `{ d, k, n, enc, hp, fw }`: colours 4 (levels 1-3,
-  easy, breathers), 5, or 6 (d > .8), minus one from the 6th fail (min 4); board 7..9 by
+- `paramsFor(level, fails, drop)` gives `{ d, k, n, enc, hp, fw }`: colours 5, or 6 (d > .8), minus
+  one from the 6th fail (min 4, so 4 only by retry easing); board 7..9 by
   difficulty and `hash(level, 1)`; encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
 - `makeAttempt(level, fails, salt, drop)`: layout (encrypted cells in mirrored pairs from row
   2, firewall spots, goals) depends on level, salt and drop; tiles also on fails. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
-  drops from the 6th fail. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
+  drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
+  (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
+  firewall goal. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
   colour, or two at 60% each on harder levels).
 
 ## Bot (`src/bot.js`)
 
 - Constants: `CAP` 80 (moves before giving up), `K` 1.3, `C` 2 (the human factor), `RUNS` 3,
-  `SALTS` 10, `MIN_LIMIT` 10.
+  `SALTS` 10, `MIN_LIMIT` 10. The salt search stops a salt at its first capped run (same results).
 - `pick(S, rnd)` (exported): one-move lookahead. Every legal move in both directions is played
   on a copy whose seed is `hash(991, S.level, S.spawns, S.moves)`, independent of the real
   refill seed, so the bot cannot see future refills. Value: goal progress first (1000 per
@@ -155,7 +164,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (best level, Restart level, Start over), Settings
-  (language, colours standard/colour-blind) and Info (how to play, Share, GitHub, licence, font).
+  (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
+  `override-plays`, opt-in, `src/plays.js`) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS`, one per slot) so colour is never the only cue; specials are `drawWorm`
@@ -173,7 +183,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-palette`, `override-5`; the old `override-theme` is ignored, not deleted); the origin is shared with
+  `override-run`, `override-lang`, `override-palette`, `override-plays`, `override-5`; the old `override-theme` is ignored, not deleted); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work. Work happens on one branch per plan, merged into `master` locally; no pull

@@ -20,7 +20,7 @@ spike settled and the decisions made after it. Where a number is a guess, it say
 2. Endless seeded levels in chapters of 30, with difficulty driven by board size, colour count,
    blockers and goals.
 3. Every level verified beatable by a bot, which also sets the move limit.
-4. Fair play: refills only ever lean the player's way, the board never dies, repeated fails ease
+4. Fair play: refills are damped the same for player and bot (see the balance spec), the board never dies, repeated fails ease
    the level.
 5. The repository set up like the siblings: docs, tests, balance tool, PWA, Pages deploy, link
    preview card.
@@ -145,7 +145,8 @@ count and a salt.
 
 Exact mappings are my call, tuned with the sim and by playtest:
 
-- Colours: 4 below about `d = 0.25` and on breather levels, 6 only above about `d = 0.8`, else 5.
+- Colours: 5, or 6 above about `d = 0.8` (changed by the balance pass, see
+  `2026-11-13-balance-and-play-log-design.md`; 4 only from retry easing on the 6th fail).
 - Board size: seeded, 8 most often; 9 leans to easier levels, 7 to harder ones.
 - Encrypted cells: count and hits grow with `d`; placed in mirrored patterns, at most `N - 2`
   per row so a row is never sealed.
@@ -187,8 +188,10 @@ Each new tile's colour is drawn from the same seeded stream, by weight:
 - `pressure` in 0..1: 0 while goal progress keeps pace with moves used; grows as progress lags
   the share of moves used.
 - Starting weights (my call): `A = 1.5`, `B = 0.5`, `M` up to `2`.
-- Weights never go below 1 for any colour: help only ever adds, nothing is ever weighted against
-  the player.
+- Weights never go below 1 for any colour. Since the balance pass, refills that settle into a line
+  are also damped (`DAMP`, at settle time in gravity), shared by player and bot, and the bot's play
+  sets every limit, so the limit always reflects the refill the player gets. See
+  `2026-11-13-balance-and-play-log-design.md`, "Fairness, restated".
 - The bot uses the neutral refill (`A = B = M = 0`). `tools/sim.mjs --refill nice` plays the bot
   with the player's refill and reports how many moves the help is worth, to tune `K` and the
   weights and to catch help that flattens skill.

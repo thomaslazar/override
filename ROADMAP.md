@@ -143,4 +143,8 @@ These are the genre’s pay-to-win parts, which Override exists to leave out:
 - Move limit factor `K` and constant `C` in `src/bot.js`.
 - Refill weights `REFILL` in `src/core.js`; `node tools/sim.mjs --refill nice` shows what the
   help is worth.
-- Difficulty mappings in `paramsFor` (`src/levels.js`).
+- Difficulty mappings in `paramsFor` (`src/levels.js`): colours are 5, or 6 above d = 0.8.
+- `DAMP` (`src/core.js`, chance a settled refill line survives) and `GOAL` (`src/levels.js`, tile goal
+  factor); tune with `node tools/sim.mjs` (target, ratio, w/m, 4+ columns).
+- Use the play log: turn it on in Settings, play, Download log, run
+  `node tools/plays.mjs <file> [file ...]`.
