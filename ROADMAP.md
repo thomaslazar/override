@@ -57,6 +57,14 @@ the fiction are still working names.
      was cleared. Used sparingly, never on early levels.
    - **Spreading access:** the reverse of trace, a goal that spreads wherever you match next to
      it (“plant access”, from the handover).
+   - **Malware** (an idea from a friend of the owner): ICE that infects your deck when you jack
+     in. Every few moves a fake pop-up ad for an in-game company covers part of the deck screen,
+     like a roofing firm’s “Hot shingles in your neighbourhood!” or a Splice corporation’s
+     product. Closing it means hunting for the tiny `[x]`. A parody of the ad-riddled genre in
+     an ad-free game. Fairness: a pop-up never costs a move, never hides the move counter for
+     long, and never makes a level unbeatable; it only gets in the way. Open: whether pop-ups
+     are pure screen clutter (no rule change, the bot ignores them) or cover board cells until
+     closed, how often they appear, and the ad copy (a pool of seeded lines in `lang/`).
    - Later candidates: conveyor buses that move tiles each turn, tunnels that link two cells,
      nodes that keep producing a blocker.
 
