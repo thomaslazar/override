@@ -101,12 +101,25 @@ function sync(){
   S.grid.forEach((x, i) => { if (x) sprites.set(x.id, { ...x, x: i % S.n, y: Math.floor(i / S.n), tx: i % S.n, ty: Math.floor(i / S.n) }) });
 }
 const place = (sp, i) => { sp.tx = i % S.n; sp.ty = Math.floor(i / S.n) };
-const settled = () => [...sprites.values()].every(p => p.x === p.tx && p.y === p.ty);
+const settled = () => [...sprites.values()].every(p => p.x === p.tx && p.y === p.ty && !p.falling);
 const settle = () => new Promise(res => { const f = () => settled() ? res() : requestAnimationFrame(f); f() });
 const idAt = new Map();   // cell -> sprite id during animation
 async function animate(steps){
   idAt.clear(); for (const [id, p] of sprites) idAt.set(p.ty * S.n + p.tx, id);
-  for (const s of steps) {
+  for (let j = 0; j < steps.length; j++) {
+    const s = steps[j];
+    if (s.k === 'fall') {
+      // one gravity pass moves tiles a single row: play a whole run of passes as one drop
+      const above = new Map();   // column -> new tiles queued above the board in this run
+      for (; j < steps.length && steps[j].k === 'fall'; j++) {
+        for (const m of steps[j].moves) { const sp = sprites.get(m.id); place(sp, m.to); sp.falling = true; if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id) }
+        for (const p of steps[j].spawns) {
+          const x = p.i % S.n, k = (above.get(x) || 0) + 1; above.set(x, k);
+          sprites.set(p.tile.id, { ...p.tile, x, y: -k, tx: x, ty: 0, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
+        }
+      }
+      j--; await settle(); continue;
+    }
     if (s.k === 'swap' || s.k === 'back') {
       const A = idAt.get(s.a), B = idAt.get(s.b);
       place(sprites.get(A), s.b); place(sprites.get(B), s.a); idAt.set(s.a, B); idAt.set(s.b, A);
@@ -121,11 +134,6 @@ async function animate(steps){
       for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sprites.delete(c.id); idAt.delete(c.i) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
       hud(); await sleep(190);
-    }
-    if (s.k === 'fall') {
-      for (const m of s.moves) { place(sprites.get(m.id), m.to); if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id) }
-      for (const p of s.spawns) { const x = p.i % S.n; sprites.set(p.tile.id, { ...p.tile, x, y: -1, tx: x, ty: 0 }); idAt.set(p.i, p.tile.id) }
-      await settle();
     }
     if (s.k === 'shuffle') {
       toast(t('noMoves')); await sleep(600);
@@ -271,6 +279,18 @@ function flashShape(kind, r, c, n, p, col){
   if (kind === 'bw') { R(r - 1, 3); C(c - 1, 3) }
   if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, w);
 }
+// Falling tiles accelerate (GRAV cells/s²), drift sideways for diagonal fills, and hop once on landing.
+const GRAV = 70, HOP = .22;
+function fall(p, dt){
+  p.vy = (p.vy || 0) + GRAV * dt; p.y += p.vy * dt;
+  const left = Math.max(1e-3, p.ty - p.y);
+  p.x += (p.tx - p.x) * Math.min(1, p.vy * dt / left);
+  if (p.y >= p.ty) {
+    p.y = p.ty; p.x = p.tx;
+    if (p.vy > 6 && !p.hopped) { p.vy *= -HOP; p.hopped = true }
+    else { p.vy = 0; p.hopped = p.falling = false }
+  }
+}
 let last = performance.now();
 function frame(ts){
   const dt = Math.min(.05, (ts - last) / 1000); last = ts;
@@ -283,7 +303,8 @@ function frame(ts){
       if (vEnc[i]) drawEnc(c * cs + cs / 2, r * cs + cs / 2, vEnc[i]);
     }
     for (const p of sprites.values()) {
-      if (RM) { p.x = p.tx; p.y = p.ty }
+      if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false }
+      else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
       if (p.y < -0.5) continue;
       drawTile(p, p.x * cs + cs / 2, p.y * cs + cs / 2);
