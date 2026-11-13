@@ -67,7 +67,7 @@ Read before changing behaviour:
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-palette`, `override-plays`, `override-5`; the old `override-theme` is ignored, not deleted); the origin is shared with
+  `override-run`, `override-lang`, `override-palette`, `override-plays`, `override-best`, `override-5`; the old `override-theme` is ignored, not deleted); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work. Work happens on one branch per plan, merged into `master` locally; no pull

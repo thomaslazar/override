@@ -49,6 +49,17 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   ever add; the only thing against the player is the shared settle-time damping (see gravity). `spawnColour` draws from `rngFor(S.seed, 7, S.spawns++)`.
 - **reshuffle**: seeded shuffle of movable tiles until there is no match and a move exists;
   after 200 tries it also redraws plain colours (400 max).
+- **score**: `SCORE = { tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 }`.
+  `pointsOf(step, chain)` sums a wave's cleared tiles, cracks, unlocks, created and fired specials
+  (a fired zero-day at `zero`), times the chain factor: the wave's place in the cascade (1 for the
+  move's first wave), capped at `chainCap`. Each wave step carries `points`; `S.score` is the total
+  (a save without it loads as 0). The score never decides win or loss.
+- **finale**: `finale(S)` (precondition `won(S)`) sets `S.spare` to the moves left and `S.moves` to 0,
+  then returns `{ steps }` starting with a `{ k: 'finale' }` marker: every special on the board fires
+  (a wave, then gravity and cascade, repeated until none is left, 500 rounds max), then each spare
+  move turns a seeded random plain, unlocked tile into a bomb (1/3) or worm (h or v) with a
+  `convert` step and fires the board again. Its gravity is calm (no settle-time damping), so lucky
+  lines are allowed. All of it scores; the result is fixed when the level is won.
 - **saves**: `validSave` (version `v: 1`), `toSave`, `fromSave`; an invalid save is dropped.
 
 
@@ -111,9 +122,26 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
   tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
-  tiles start stacked above the board), shuffle with a toast). `play(a, b)` calls `move`, saves right after it and
-  before animating (closing mid-cascade loses nothing), animates, syncs, then shows the win or
-  loss sheet.
+  tiles start stacked above the board), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
+  `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
+  move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
+  the finale) runs `finale` silently at boot.
+- Finale: `playFinale(steps)` shows the `finaleToast`, then plays the steps sped up so the whole finale takes
+  at most about `FINALE_MS` (10 s; `finaleMs` estimates the normal length from `STEP_MS`). A tap anywhere
+  (document capture `pointerdown`, ignores the grace, stops the event) skips: the animation stops at the next
+  step and `sync()` shows the saved end state. Reduced motion skips the animation.
+- HUD score: `#score` under the goals shows `score n`, plus `· best n` when the level has a best
+  (`fmt` groups digits with a thin space). While a move animates, `shown` holds the HUD's score and
+  moves: it starts at the score before the move and the moves left after it, each wave step adds its
+  `points`, and each finale `convert` step spends one spare move, so the count ends at `S.score` and 0;
+  `sync()` then clears it.
+- Best scores: `override-best` is `{ "<level>": score }`, read once at boot (junk becomes `{}`);
+  `bestOf(level)` is an integer or `null`. `win()` reads the previous best, then stores the higher one.
+- Win rows: below the win text, a grid of `score` (large, glowing, counting up from 0 over 1.2 s, eased),
+  `best` (the previous best; omitted on a first win) with dotted leaders, then `>> NEW BEST <<` (amber,
+  blinking with `alertflash`) when beaten. A tap on the sheet ends the count-up. Reduced motion shows the
+  final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
@@ -138,6 +166,6 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
   animation, effects and cycling (win art static). Tile colours come from `paletteFor`.
 - Saving: `override-v1` holds `S` whole, written after every move. `override-run` is
-  `{ best, fails }`. A save that fails `validSave` but holds an integer `level` restarts that
+  `{ best, fails }`. `override-best` holds the best score per level. A save that fails `validSave` but holds an integer `level` restarts that
   level fresh (keeping a valid `fails`). `?level=N` works off GitHub Pages only (`DEV`).
 - Text is `t(key, {placeholders})` over `lang/en.json`; never put visible text in code.

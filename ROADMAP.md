@@ -68,12 +68,11 @@ the fiction are still working names.
    - Later candidates: conveyor buses that move tiles each turn, tunnels that link two cells,
      nodes that keep producing a blocker.
 
-5. **Level score.** A score per level from what you clear: tiles, specials fired, combos,
+5. **Level score.** Done. A score per level from what you clear: tiles, specials fired, combos,
    blockers broken, with cascades worth more. Shown in the HUD and on the win sheet, best score
-   per level kept. One to three stars by score. Goals still decide win or loss; the score never
-   does.
+   per level kept. Stars were dropped. Goals still decide win or loss; the score never does.
 
-6. **End-of-level payout.** When a level is won with moves to spare, the board plays out: every
+6. **End-of-level payout.** Done as the finale (the payout into funds is the next item). When a level is won with moves to spare, the board plays out: every
    special on the board fires, each spare move turns a random tile into a worm or bomb that
    fires, and tiles keep dropping and cascading until the board stands still. Everything scores.
    - Part of the pure core (`finale(S)`, seeded), so the result is fixed the moment the level
@@ -81,7 +80,6 @@ the fiction are still working names.
    - A tap skips the animation and jumps to the final board and score. Skipping never changes
      the result.
    - Saved before it animates, so closing the app mid-payout loses nothing.
-   - Open: its name (spare time before the patrol turned into a skim of the system?).
 
 7. **Funds.** The level score turns into the in-game currency at the end of each level.
    - Open: the name, the conversion (flat, or weighted to spare moves so playing well pays

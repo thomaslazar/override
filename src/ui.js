@@ -58,6 +58,10 @@ let S = null, run = { best: 1, fails: 0 }, busy = false, grace = 0;
 try { const o = JSON.parse(store.get('override-run')); if (Number.isInteger(o?.best) && o.best >= 1 && Number.isInteger(o.fails) && o.fails >= 0) run = o } catch {}
 const saveRun = () => store.set('override-run', JSON.stringify(run));
 const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
+// Best score per level: { "<level>": score }, read once; junk becomes {}.
+let bests = {}; try { const o = JSON.parse(store.get('override-best')); if (o && typeof o === 'object' && !Array.isArray(o)) bests = o } catch {}
+const bestOf = level => Number.isInteger(bests[level]) && bests[level] >= 0 ? bests[level] : null;
+const fmt = n => String(n).replace(/\B(?=(\d{3})+$)/g, '\u2009');   // thin space every 3 digits
 /* ---------- play log ---------- */
 let plog; try { plog = logFrom(JSON.parse(store.get('override-plays'))) } catch { plog = logFrom(null) }
 let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0 (page visible)
@@ -121,10 +125,11 @@ const settled = () => [...sprites.values()].every(p => p.x === p.tx && p.y === p
 const settle = () => new Promise(res => { const f = () => settled() ? res() : requestAnimationFrame(f); f() });
 const idAt = new Map();   // cell -> sprite id during animation
 // speed: a factor on every wait and on tile motion (the finale plays faster). skip stops at the next step.
-let pace = 1, skip = false;
+let pace = 1, skip = false, shown = null;   // shown: the HUD's score and moves while a move animates
 async function animate(steps, speed = 1){
   const wait = ms => sleep(ms / speed); pace = speed;
   idAt.clear(); for (const [id, p] of sprites) idAt.set(p.ty * S.n + p.tx, id);
+  let inFinale = false;   // in the finale each convert step spends one spare move
   try { for (let j = 0; j < steps.length && !skip; j++) {
     const s = steps[j];
     if (s.k === 'fall') {
@@ -145,13 +150,15 @@ async function animate(steps, speed = 1){
       await settle();
     }
     if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
-    if (s.k === 'convert') { for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await wait(450) }
+    if (s.k === 'finale') inFinale = true;
+    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - 1); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await wait(450) }
     if (s.k === 'wave') {
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
       for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
+      if (shown) shown.score += s.points ?? 0;
       hud(); await wait(190);
     }
     if (s.k === 'shuffle') {
@@ -164,7 +171,7 @@ async function animate(steps, speed = 1){
 // Finale at normal speed, roughly (a run of fall passes is one drop, about 350 ms); sped up to fit FINALE_MS.
 const FINALE_MS = 10000, STEP_MS = { wave: 190, convert: 450, fall: 350, combo: 120 };
 const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps[j - 1]?.k === 'fall' ? 0 : STEP_MS[s.k] ?? 0), 0);
-const skipFinale = () => { skip = true };
+const skipFinale = e => { skip = true; e.stopPropagation(); e.preventDefault() };   // the tap only skips
 async function playFinale(steps){
   if (steps.length < 2 || RM) return;
   toast(t('finaleToast')); skip = false;
@@ -177,17 +184,19 @@ async function playFinale(steps){
 async function play(a, b){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
   busy = true;
-  const before = S.moves, r = move(S, a, b);
+  const before = S.moves, from = S.score, r = move(S, a, b);
+  shown = { score: from, moves: S.moves };   // the HUD ticks from here while the steps play, not from the final state
+  const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1);   // before the finale
   const end = r.ok && won(S) ? finale(S) : null;   // the finale runs now: the save holds the end state
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
-    if (plog.on && openAttempt()) { const cur = openAttempt(); logMove(plog, entryOf(S, r.steps, cur.moves.length + 1)); cur.t = secs(); savePlays() }
+    if (cur) { logMove(plog, entry); cur.t = secs(); savePlays() }
   }
   if (r.ok && !won(S)) {   // the patrol warnings flash once each, as the count crosses the line (never on the winning move)
     const quarter = Math.ceil(S.limit * .25);
     if (before > 3 && S.moves <= 3) alert('crit'); else if (before > quarter && S.moves <= quarter) alert('warn');
   }
-  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { sync(); hud(); busy = false }
+  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { shown = null; sync(); hud(); busy = false }
   if (!r.ok) return;
   if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
 }
@@ -198,10 +207,29 @@ function alert(kind){
   clearTimeout(alertT); alertT = setTimeout(() => { el.hidden = true }, 2800);
 }
 function unlockScene(open){ $('#strip').classList.toggle('open', open) }
+// Win screen: score rows (score counting up, the previous best, NEW BEST when beaten); a tap on the sheet ends the count.
+let countUp = null;
+$('#sheet').addEventListener('pointerdown', () => countUp?.());
 function win(){
   unlockScene(true);
+  const prev = bestOf(S.level), end = S.score;
+  bests[S.level] = Math.max(prev ?? 0, end); store.set('override-best', JSON.stringify(bests));
   const text = t('winText', { n: S.spare ?? S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
   showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]], false, true);
+  const rows = el('div', null, 'scores'), row = (label, n, cls) => { const r = el('div', null, cls); r.append(el('span', label), el('i'), el('b', fmt(n))); rows.append(r); return r.lastChild };
+  const v = row(t('score'), RM ? end : 0, 'now');
+  if (prev !== null) row(t('best'), prev, 'best');
+  $('#card').insertBefore(rows, $('#card .btn'));
+  if (prev !== null && end > prev) $('#card').insertBefore(el('div', t('newBest'), 'newbest'), $('#card .btn'));
+  const stop = () => { countUp = null; v.textContent = fmt(end) };
+  if (RM) return; countUp = stop;
+  const t1 = performance.now(), tick = ts => {
+    if (countUp !== stop) return;
+    const p = Math.max(0, Math.min(1, (ts - t1) / 1200));
+    v.textContent = fmt(Math.round(end * (1 - (1 - p) ** 3)));
+    p < 1 ? requestAnimationFrame(tick) : stop();
+  };
+  requestAnimationFrame(tick);
 }
 function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1), true]]) }
 
@@ -421,7 +449,9 @@ function hud(){
     const d = document.createElement('span'); d.className = 'goal' + (goal.got >= goal.need ? ' done' : '');
     d.append(icon(goal), String(Math.max(0, goal.need - goal.got))); el.append(d);
   }
-  $('#moves').textContent = S.moves;
+  $('#moves').textContent = shown ? shown.moves : S.moves;
+  const best = bestOf(S.level);
+  $('#score').textContent = t('score') + ' ' + fmt(shown ? shown.score : S.score) + (best === null ? '' : ' \u00b7 ' + t('best') + ' ' + fmt(best));
   $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
   $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
 }
@@ -500,7 +530,7 @@ function renderMenu(){
     body.append(el('label', t('pickLevel')), row, go);
   }
   if (tab === 0) body.append(
-    el('p', t('best', { n: run.best })),
+    el('p', t('bestLevel', { n: run.best })),
     btn(t('restart'), () => confirmSheet(t('restartAsk'), () => begin(S.level, S.fails))),
     btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); begin(1, 0) })));
   if (tab === 1) {
