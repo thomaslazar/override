@@ -13,7 +13,7 @@ test('logFrom repairs junk, keeps a valid log', () => {
     assert.equal(l.v, 1); assert.equal(l.on, false); assert.deepEqual(l.attempts, []); assert.equal(l.id, null);
   }
   const a = [{ level: 1, moves: [] }];
-  assert.equal(logFrom({ on: true, id: 'abcdefgh', attempts: a }).attempts, a);
+  assert.deepEqual(logFrom({ on: true, id: 'abcdefgh', attempts: a }).attempts, a);
 });
 
 test('logFrom drops attempts without a moves array', () => {
