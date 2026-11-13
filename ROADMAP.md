@@ -97,9 +97,18 @@ the fiction are still working names.
    - Every level stays beatable without gear, verified by the bot. Gear makes a level easier,
      never possible.
 
-9. **Help for new players.** A short explanation the first time each special, blocker and goal
-   appears, shown on the board. An idle hint exists (the swap wriggles after 10 s when only one
-   or two exist); open whether it should show on any board and be switchable in settings.
+9. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
+   - An intro card the first time something new shows up: each blocker (encrypted cells, firewalls,
+     later ICE, logs, trace, malware), each special (worm, logic bomb, zero-day) the first time one is
+     made, each goal kind, and later mechanics (drops, teleporters). A short terminal window with the
+     piece drawn as on the board, one or two lines of what it does and how to beat it, and OK.
+   - Shown once per player (seen list in a new `override-` key), with a way to see them again from
+     the Info tab. Never costs a move; the board waits under it.
+   - Today only the comms line mentions encrypted cells (level 4) and firewalls (level 7); the cards
+     replace that.
+   - The idle hint exists (the swap wriggles after 10 s when only one or two exist); open whether it
+     should show on any board and be switchable in settings.
+   - Open: whether the first levels also get a guided first move (a pointing hand on a set swap).
 
 10. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
     The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
