@@ -165,6 +165,9 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
+- Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first
+  (`validMoves`) wriggles, the two tiles nudging toward each other; reduced motion outlines them instead. Input,
+  moves, sheets and the menu reset the wait.
 - Patrol warnings: the move count turns amber at 25 % of the limit and red (pulsing) at 3 or fewer; crossing
   either line during a move flashes `#alert` once, centred ("Patrol closing in", "Patrol at the door"),
   never on the winning move and never on load.

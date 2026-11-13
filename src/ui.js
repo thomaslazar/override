@@ -1,5 +1,5 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, won, lost, fromSave, toSave, hash, mulberry32 } from './core.js';
+import { move, won, lost, fromSave, toSave, hash, mulberry32, validMoves } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
@@ -95,6 +95,11 @@ function start(){
 
 /* ---------- view model ---------- */
 let sprites = new Map(), vEnc = [], fx = [], sel = -1;
+// Hint: after HINT_MS without input, if the board has at most HINT_MAX swaps, the first one wriggles
+// (reduced motion: outlined instead). Any input, move, sheet or menu resets the wait.
+const HINT_MS = 10000, HINT_MAX = 2;
+let idleAt = 0, hint;   // hint: undefined = not checked yet, null = none to show, [a, b] = cells
+const idle = () => { idleAt = performance.now(); hint = undefined };
 // Rebuilds the view from S: used at level start and after every move's animation (keeps view and state equal).
 function sync(){
   sprites = new Map(); vEnc = S.enc.slice();
@@ -343,13 +348,18 @@ function frame(ts){
       g.fillStyle = PAL.cell; g.beginPath(); g.roundRect(c * cs + cs * .04, r * cs + cs * .04, cs * .92, cs * .92, cs * .1); g.fill();
       if (vEnc[i]) drawEnc(c * cs + cs / 2, r * cs + cs / 2, vEnc[i]);
     }
+    if (blocked() || won(S) || lost(S)) idle();
+    else if (hint === undefined && ts - idleAt > HINT_MS) { const v = validMoves(S); hint = v.length && v.length <= HINT_MAX ? v[0] : null }
+    const wig = hint ? wiggle(ts) : null;
     for (const p of sprites.values()) {
       if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false }
       else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
       if (p.y < -0.5) continue;
-      drawTile(p, p.x * cs + cs / 2, p.y * cs + cs / 2);
+      const w = wig?.get(p.id);
+      drawTile(p, (p.x + (w?.[0] ?? 0)) * cs + cs / 2, (p.y + (w?.[1] ?? 0)) * cs + cs / 2);
     }
+    if (hint && RM) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.setLineDash([5, 4]); for (const i of hint) g.strokeRect(i % n * cs + 2, Math.floor(i / n) * cs + 2, cs - 4, cs - 4); g.setLineDash([]) }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
       const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : 240); if (p >= 1 || RM) return false;
@@ -510,10 +520,18 @@ async function share(){
 
 /* ---------- input ---------- */
 let press = null;
+// the two hinted tiles nudge toward each other: a 0.6 s wriggle every 1.8 s
+function wiggle(ts){
+  const [a, b] = hint, ph = ((ts - idleAt - HINT_MS) % 1800) / 600, m = new Map();
+  if (RM || ph >= 1 || !S.grid[a] || !S.grid[b]) return m;
+  const amp = .1 * Math.sin(ph * Math.PI * 4) * Math.sin(ph * Math.PI), dx = (b % S.n - a % S.n) * amp, dy = (Math.floor(b / S.n) - Math.floor(a / S.n)) * amp;
+  m.set(S.grid[a].id, [dx, dy]); m.set(S.grid[b].id, [-dx, -dy]);
+  return m;
+}
 const blocked = () => busy || performance.now() < grace || !S || $('#sheet').classList.contains('on') || !$('#menu').hidden;
 const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.clientY - b.top) / cs), c = Math.floor((e.clientX - b.left) / cs); return r >= 0 && c >= 0 && r < S.n && c < S.n ? r * S.n + c : -1 };
 const adjacent = (a, b) => Math.abs(Math.floor(a / S.n) - Math.floor(b / S.n)) + Math.abs(a % S.n - b % S.n) === 1;
-cv.onpointerdown = e => { if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
+cv.onpointerdown = e => { idle(); if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
 cv.onpointermove = e => {
   if (!press || e.pointerId !== press.id) return;
   const dx = e.clientX - press.x, dy = e.clientY - press.y;
