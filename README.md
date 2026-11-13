@@ -24,7 +24,7 @@ together for a bigger effect. Meet every goal before the moves run out.
 ## Fair by design
 
 No ads, no accounts, no tracking, no lives or timers. Progress is saved in your browser.
-Refills lean your way when you’re behind, never against you. Fail a level four times and
+Refills lean your way when you’re behind. Move limits come from a bot playing the very same refills. Fail a level four times and
 each retry gives more moves; keep failing and it drops a colour.
 
 ## Run locally

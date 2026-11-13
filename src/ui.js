@@ -51,8 +51,10 @@ const saveRun = () => store.set('override-run', JSON.stringify(run));
 const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
 /* ---------- play log ---------- */
 let plog; try { plog = logFrom(JSON.parse(store.get('override-plays'))) } catch { plog = logFrom(null) }
-let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0
-const secs = () => Math.round(base + (Date.now() - t0) / 1000);
+let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0 (page visible)
+const secs = () => Math.round(base + (document.hidden ? 0 : (Date.now() - t0) / 1000));
+// pause the clock while the page is hidden: fold elapsed time into base, restart t0 on return
+document.addEventListener('visibilitychange', () => { if (document.hidden) { base += (Date.now() - t0) / 1000 } else t0 = Date.now() });
 const savePlays = () => { trim(plog, PLAYS_MAX); store.set('override-plays', JSON.stringify(plog)) };
 const openAttempt = () => { const a = plog.attempts.at(-1); return a && a.end === null ? a : null };
 // fresh: a new attempt (level start, restart); else continue the saved one after a reload.
@@ -403,8 +405,8 @@ function renderMenu(){
       setOn(plog, on); if (on) logStart(true); savePlays(); renderMenu();
     }, on === plog.on ? 'on' : ''));
     body.append(lseg);
-    if (plog.on) body.append(el('p', t('playLogCount', { n: plog.attempts.length })), btn(t('playLogDownload'), downloadLog),
-      btn(t('playLogClear'), () => confirmSheet(t('playLogClearAsk'), () => { plog.attempts = plog.attempts.filter(x => x === openAttempt()); savePlays() })));
+    if (plog.on) body.append(el('p', t('playLogCount', { n: plog.attempts.length })), btn(t('playLogDownload'), downloadLog));
+    if (plog.attempts.length) body.append(btn(t('playLogClear'), () => confirmSheet(t('playLogClearAsk'), () => { plog.attempts = plog.attempts.filter(x => plog.on && x === openAttempt()); savePlays(); renderMenu() })));
   }
   if (tab === 2) {
     const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';
@@ -414,7 +416,7 @@ function renderMenu(){
 }
 $('#menuBtn').onclick = () => { if (busy || !S) return; renderMenu(); $('#menu').hidden = false };
 async function downloadLog(){
-  const ua = navigator.userAgent, device = [/Android|iPhone|iPad|Windows|Mac OS|Linux/.exec(ua)?.[0], /Firefox|Edg|Chrome|Safari/.exec(ua)?.[0]].filter(Boolean).join(' ');
+  const ua = navigator.userAgent, first = l => l.find(n => ua.includes(n)), device = [first(['Android', 'iPhone', 'iPad', 'Windows', 'Mac OS', 'Linux']), first(['Firefox', 'Edg', 'Chrome', 'Safari'])].filter(Boolean).join(' ');
   const f = fileOf(plog, device, new Date()), file = new File([f.text], f.name, { type: 'application/json' });
   if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }) } catch {} return }
   const a = el('a'); a.href = URL.createObjectURL(file); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);

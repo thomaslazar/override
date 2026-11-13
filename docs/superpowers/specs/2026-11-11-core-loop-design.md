@@ -195,7 +195,7 @@ Each new tile's colour is drawn from the same seeded stream, by weight:
 - The bot uses the neutral refill (`A = B = M = 0`). `tools/sim.mjs --refill nice` plays the bot
   with the player's refill and reports how many moves the help is worth, to tune `K` and the
   weights and to catch help that flattens skill.
-- The game says it plainly (Info): "Refills lean your way when you’re behind. Never against you."
+- The game says it plainly (Info): "Refills lean your way when you’re behind. Move limits come from a bot playing the very same refills."
 
 ## Architecture
 

@@ -94,8 +94,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - **gravity**: passes until stable: straight down, spawn in row 0 with `spawnColour`, diagonal
   fill for cells not fed from above (a cell under an encrypted cell or firewalled tile).
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
-  tiles spawned in a gravity call that end up in a line survive with chance `DAMP` (0.2), else are
-  recoloured (seeded) to a colour that makes no line, and their spawn records are patched. Player and
+  each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
+  else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and
   bot share it, so the bot-set limits cover it.
 - **refill** (here, not in `levels.js`, to avoid an import cycle): `REFILL = { A: 1.5, B: 0.5, M: 2 }`.
   `pressure(S)` is 0 when goal progress keeps pace with moves used, up to 1 when far behind (0

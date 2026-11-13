@@ -67,3 +67,19 @@ test('spawn records carry the final colour of the tile', () => {
     }
   }
 });
+
+test('damp keeps the colour when no colour avoids a line (k=2)', () => {
+  // every cell of column 2 sits between pairs of both colours, so any refill there makes a line
+  let kept = 0;
+  for (let seed = 1; seed <= 100; seed++) {
+    const S = mk(['B B A A A', 'A A B B B', 'B B A A A', 'A A A B B', 'B B B A A'], { k: 2, seed });
+    const r = move(S, 14, 13);
+    if (!r.ok) continue;
+    const spawns = r.steps.filter(s => s.k === 'fall').flatMap(s => s.spawns);
+    for (const { tile } of spawns) {
+      const x = S.grid.find(g => g && g.id === tile.id);
+      if (x) { assert.equal(x.t, tile.t); kept++ }
+    }
+  }
+  assert.ok(kept > 0);
+});
