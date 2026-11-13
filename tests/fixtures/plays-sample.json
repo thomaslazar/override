@@ -1,0 +1,5 @@
+{"v":1,"id":"abcdefgh","device":"test","attempts":[
+{"level":1,"fails":0,"limit":10,"need":8,"end":"won","left":4,"moves":[{"w":1},{"w":2},{"w":4},{"w":1}]},
+{"level":1,"fails":1,"limit":12,"need":8,"end":"lost","left":0,"moves":[{"w":1},{"w":1}]},
+{"level":1,"fails":2,"limit":12,"need":8,"end":"left","left":null,"moves":[{"w":2},{"w":4}]},
+{"level":2,"fails":0,"limit":null,"need":9,"end":"won","left":null,"moves":[{"w":1},{"w":1},{"w":1}]}]}
