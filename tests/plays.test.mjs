@@ -12,8 +12,13 @@ test('logFrom repairs junk, keeps a valid log', () => {
     const l = logFrom(x);
     assert.equal(l.v, 1); assert.equal(l.on, false); assert.deepEqual(l.attempts, []); assert.equal(l.id, null);
   }
-  const a = [{ level: 1 }];
+  const a = [{ level: 1, moves: [] }];
   assert.equal(logFrom({ on: true, id: 'abcdefgh', attempts: a }).attempts, a);
+});
+
+test('logFrom drops attempts without a moves array', () => {
+  const good = { level: 1, moves: [] };
+  assert.deepEqual(logFrom({ attempts: [null, 5, {}, { moves: 1 }, good] }).attempts, [good]);
 });
 
 test('start, two moves, close as won', () => {
@@ -30,7 +35,7 @@ test('resume', () => {
   const l = logFrom(null), a = mk();
   startAttempt(l, a);
   assert.equal(resume(l, mkS(3, 0)), true); assert.equal(a.end, null);
-  assert.equal(resume(l, mkS(3, 1)), false); assert.equal(a.end, 'left');
+  assert.equal(resume(l, mkS(3, 1)), false); assert.equal(a.end, 'left'); assert.equal(a.left, null);
   const b = mk(); startAttempt(l, b);
   assert.equal(resume(l, mkS(4, 0)), false); assert.equal(b.end, 'left');
 });
