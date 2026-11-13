@@ -109,16 +109,10 @@ export function hasMove(S){
 }
 
 /* ---------- refill ---------- */
-// Helpful refill (spec, Fairness): the boosts only ever add to 1. Damped colours (those that would
-// complete a match where the new tile lands) are scaled by DAMP, with the helpful refill on or off.
+// Helpful refill (spec, Fairness): weights only ever add to 1, never against the player.
 export const REFILL = { A: 1.5, B: 0.5, M: 2 };
+// Chance that a free match made by refilled tiles survives (the rest are recoloured once the board settles).
 export const DAMP = 0.2;
-// The cell a tile spawned at i ends on when it falls straight down: the lowest empty cell below it, or i.
-export function landingCell(S, i){
-  let j = i;
-  while (j + S.n < S.n * S.n && !S.grid[j + S.n] && !S.enc[j + S.n]) j += S.n;
-  return j;
-}
 // 0 while goal progress keeps pace with moves used, up to 1 when far behind. 0 without a limit (bot).
 export function pressure(S){
   if (!S.limit) return 0;
@@ -141,15 +135,11 @@ export function setsUp(S, i, t){
 }
 export function refillWeights(S, i){
   const w = Array(S.k).fill(1);
-  const p = S.nice ? pressure(S) : 0, j = landingCell(S, i), old = S.grid[j];
+  if (!S.nice) return w;
+  const p = pressure(S);
   for (let t = 0; t < S.k; t++) {
-    if (S.nice) {
-      if (setsUp(S, i, t)) w[t] += REFILL.A + REFILL.M * p;
-      if (S.goals.some(g => g.kind === 'tiles' && g.t === t && g.got < g.need)) w[t] += REFILL.B;
-    }
-    S.grid[j] = { t, s: null };
-    if (lineAt(S, j)) w[t] *= DAMP;
-    S.grid[j] = old;
+    if (setsUp(S, i, t)) w[t] += REFILL.A + REFILL.M * p;
+    if (S.goals.some(g => g.kind === 'tiles' && g.t === t && g.got < g.need)) w[t] += REFILL.B;
   }
   return w;
 }
@@ -237,13 +227,13 @@ const occupied = (S, i) => S.grid[i] || S.enc[i] ? 1 : 0;
 function shift(S, from, to, step){ const x = S.grid[from]; S.grid[to] = x; S.grid[from] = null; step.moves.push({ id: x.id, from, to }) }
 // Passes until stable: straight down, spawn in row 0, diagonal fill for unfed cells. Roofed pockets stay empty.
 function gravity(S, steps){
-  const n = S.n;
+  const n = S.n, spawned = [];
   for (;;) {
     const step = { k: 'fall', moves: [], spawns: [] };
     for (let r = n - 1; r >= 0; r--) for (let c = 0; c < n; c++) {
       const i = r * n + c;
       if (S.grid[i] || S.enc[i]) continue;
-      if (r === 0) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); continue }
+      if (r === 0) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
       if (movable(S, i - n)) { shift(S, i - n, i, step); continue }
       if (fed(S, i)) continue;
       // prefer a tile that cannot fall straight itself
@@ -251,8 +241,24 @@ function gravity(S, steps){
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
-    if (!step.moves.length && !step.spawns.length) return;
+    if (!step.moves.length && !step.spawns.length) return damp(S, spawned);
     steps.push(step);
+  }
+}
+
+// Settled board: a refilled plain tile that sits in a line survives with chance DAMP, else it takes a
+// colour that makes no line. The spawn record is patched so the animation shows the final colour.
+function damp(S, spawned){
+  for (const [x, rec] of spawned) {
+    const j = S.grid.indexOf(x);
+    if (j < 0 || x.s || !lineAt(S, j)) continue;
+    const rnd = rngFor(S.seed, 9, S.spawns, j);
+    if (rnd() < DAMP) continue;
+    const ok = [];
+    for (let t = 0; t < S.k; t++) { x.t = t; if (!lineAt(S, j)) ok.push(t) }
+    if (ok.length) x.t = ok[Math.floor(rnd() * ok.length)];
+    else x.t = rec.tile.t;
+    rec.tile.t = x.t;
   }
 }
 
