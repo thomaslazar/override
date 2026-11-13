@@ -8,7 +8,7 @@ export function mk(rows, o = {}){
   const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, k: o.k ?? 6, types: [0, 1, 2, 3, 4, 5, 6],
     grid: Array(n * n).fill(null), enc: Array(n * n).fill(0),
     goals: o.goals ?? [{ kind: 'tiles', t: 0, need: 999, got: 0 }],
-    moves: o.moves ?? 30, limit: o.limit ?? 30, need: 0, seed: o.seed ?? 1, spawns: 0, shuffles: 0, ids: 0, nice: o.nice ?? false };
+    moves: o.moves ?? 30, limit: o.limit ?? 30, need: 0, seed: o.seed ?? 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: o.nice ?? false };
   rows.forEach((row, r) => row.trim().split(/\s+/).forEach((tok, c) => {
     const i = r * n + c;
     if (tok === '.') return;

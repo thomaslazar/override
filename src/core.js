@@ -185,10 +185,17 @@ function area(S, i, x){
   const t = x.target ?? randomColour(S, x.id);   // zero-day: the swapped tile's colour, else a random one
   return range(0, n * n).filter(j => S.grid[j] && S.grid[j].s !== 'z' && S.grid[j].t === t);
 }
+export const SCORE = { tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 };
+export function pointsOf(step, chain){
+  const zeros = step.fired.filter(f => f.s === 'z').length;
+  return Math.min(chain, SCORE.chainCap) * (SCORE.tile * step.cleared.length + SCORE.crack * step.cracked.length
+    + SCORE.unlock * step.unlocked.length + SCORE.create * step.created.length
+    + SCORE.fire * (step.fired.length - zeros) + SCORE.zero * zeros);
+}
 function bump(S, kind, t){ for (const g of S.goals) if (g.kind === kind && (kind !== 'tiles' || g.t === t)) g.got++ }
 // One wave: fire specials in `cells` (chains), hit blockers, clear tiles, then place new specials.
 // `matched` holds cells cleared by matching (they crack encrypted neighbours); `fired` holds ids that must not fire.
-function wave(S, cells, matched, creates, fired = new Set()){
+function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
   const step = { k: 'wave', fired: [], cleared: [], cracked: [], unlocked: [], created: [] };
   const queue = [...cells];
   while (queue.length) {
@@ -213,6 +220,7 @@ function wave(S, cells, matched, creates, fired = new Set()){
     if (old) { if (old.s !== 'z') bump(S, 'tiles', old.t); step.cleared.push({ i: c.i, id: old.id }) }
     const x = tile(S, c.t, c.s); S.grid[c.i] = x; step.created.push({ i: c.i, tile: { ...x } });
   }
+  step.points = pointsOf(step, chain); S.score = (S.score ?? 0) + step.points;
   return step;
 }
 
@@ -226,7 +234,7 @@ function fed(S, i){
 const occupied = (S, i) => S.grid[i] || S.enc[i] ? 1 : 0;
 function shift(S, from, to, step){ const x = S.grid[from]; S.grid[to] = x; S.grid[from] = null; step.moves.push({ id: x.id, from, to }) }
 // Passes until stable: straight down, spawn in row 0, diagonal fill for unfed cells. Roofed pockets stay empty.
-function gravity(S, steps){
+function gravity(S, steps, calm = false){
   const n = S.n, spawned = [];
   for (;;) {
     const step = { k: 'fall', moves: [], spawns: [] };
@@ -241,7 +249,7 @@ function gravity(S, steps){
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
-    if (!step.moves.length && !step.spawns.length) return damp(S, spawned);
+    if (!step.moves.length && !step.spawns.length) return calm ? undefined : damp(S, spawned);
     steps.push(step);
   }
 }
@@ -268,7 +276,7 @@ export const won = S => S.goals.every(g => g.got >= g.need);
 export const lost = S => !won(S) && S.moves <= 0;
 
 // `fire` holds cells that join the first wave even without a match (a swapped special).
-function cascade(S, steps, prefer = [], swipe = null, fire = []){
+function cascade(S, steps, prefer = [], swipe = null, fire = [], chain = 1, calm = false){
   for (;;) {
     const gs = findGroups(S);
     if (!gs.length) return;
@@ -278,8 +286,8 @@ function cascade(S, steps, prefer = [], swipe = null, fire = []){
       const s = specialOf(g, swipe);
       if (s) { const i = spotOf(g, s, prefer); creates.push({ i, s, t: s === 'z' ? -1 : S.grid[i].t }) }
     }
-    steps.push(wave(S, cells, matched, creates));
-    gravity(S, steps);
+    steps.push(wave(S, cells, matched, creates, new Set(), chain++));
+    gravity(S, steps, calm);
     prefer = []; swipe = null; fire = [];
   }
 }
@@ -330,7 +338,7 @@ export function move(S, a, b){
   // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
   // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
   if (lone && findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
-  else if (A.s || B.s) { S.moves--; combo(S, A, b, B, a, steps); cascade(S, steps) }
+  else if (A.s || B.s) { S.moves--; combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
   else if (findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe) }
   else { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
   if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
@@ -359,6 +367,8 @@ export function validSave(o){
   if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 7, 9) || !int(o.k, 2, TYPES)) return false;
   if (!int(o.moves, 0, 999) || !int(o.limit, 0, 999) || !int(o.seed, 0, 2 ** 32) || !int(o.ids, 0, 1e9)) return false;
   if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
+  if (o.score !== undefined && !int(o.score, 0, 1e9)) return false;
+  if (o.spare !== undefined && !int(o.spare, 0, 999)) return false;
   if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
   const nn = o.n * o.n;
   if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
@@ -368,4 +378,4 @@ export function validSave(o){
     && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
 }
 export const toSave = S => JSON.parse(JSON.stringify(S));
-export const fromSave = o => validSave(o) ? JSON.parse(JSON.stringify(o)) : null;
+export const fromSave = o => validSave(o) ? { ...JSON.parse(JSON.stringify(o)), score: o.score ?? 0 } : null;

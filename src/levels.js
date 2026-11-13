@@ -48,7 +48,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0){
   for (let j = TYPES - 1; j > 0; j--) { const m = Math.floor(tr() * (j + 1)); [order[j], order[m]] = [order[m], order[j]] }
   const S = { v: 1, level, fails, salt, drop, n, k: p.k, types: order.slice(0, p.k),
     grid: Array(nn).fill(null), enc: Array(nn).fill(0), goals: [], moves: 0, limit: 0, need: 0,
-    deal, seed: hash(level, fails, salt, 1, deal), spawns: 0, shuffles: 0, ids: 0, nice: true };
+    deal, seed: hash(level, fails, salt, 1, deal), spawns: 0, shuffles: 0, ids: 0, score: 0, nice: true };
   // goal kinds first, so only the blockers a goal uses get placed
   const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM); // the tutorial hint needs a firewall
   // encrypted cells: mirrored pairs from row 2 down, at most n - 2 per row
