@@ -97,7 +97,7 @@ async function animate(steps){
     if (s.k === 'combo') { flash(s.i, s.kind); await sleep(120) }
     if (s.k === 'convert') { for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; await sleep(450) }
     if (s.k === 'wave') {
-      for (const f of s.fired) flash(f.i, f.s);
+      for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
       for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sprites.delete(c.id); idAt.delete(c.i) }
@@ -131,7 +131,7 @@ function unlockScene(open){ $('#strip').classList.toggle('open', open) }
 async function win(reloaded){
   busy = true; unlockScene(true);
   if (!reloaded && !RM) for (let k = 0; k < Math.min(S.moves, 10); k++) {   // flourish: purely visual
-    const h = hash(S.level, S.fails, k); flash(h % (S.n * S.n), h >>> 16 & 1 ? 'h' : 'v'); await sleep(120);
+    const h = hash(S.level, S.fails, k); flash(h % (S.n * S.n), h >>> 16 & 1 ? 'h' : 'v', PAL.t[S.types[h % S.k]]); await sleep(120);
   }
   busy = false;
   const text = t('winText', { n: S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
@@ -231,19 +231,28 @@ function drawEnc(cx, cy, hp, size = cs){
   if (hp >= 3) { rr(cx - a + size * .06, cy - a + size * .06, 2 * a - size * .12, 2 * a - size * .12, size * .06); g.stroke() }
   g.restore();
 }
-const flash = (i, kind) => fx.push({ k: 'flash', i, kind, at: performance.now() });
-function flashShape(kind, r, c, n){
+const flash = (i, kind, col) => fx.push({ k: 'flash', i, kind, col, at: performance.now() });
+const GLOW = '#c9ffd9';
+function flashShape(kind, r, c, n, p, col){
   const w = n * cs, R = (r0, rows) => g.fillRect(0, r0 * cs, w, rows * cs), C = (c0, cols) => g.fillRect(c0 * cs, 0, cols * cs, w);
-  if (kind === 'h' || kind === 'ww') R(r, 1);
-  if (kind === 'v' || kind === 'ww') C(c, 1);
+  if (kind === 'h' || kind === 'v') {   // worm: glowing bar, 0.35 cells thick, in the worm's colour
+    g.fillStyle = g.shadowColor = col || GLOW; g.shadowBlur = cs * .3; g.globalAlpha = 1 - p;
+    if (kind === 'h') g.fillRect(0, (r + .5 - .175) * cs, w, cs * .35); else g.fillRect((c + .5 - .175) * cs, 0, cs * .35, w);
+    g.shadowBlur = 0; return;
+  }
+  if (kind === 'b' || kind === 'bb') {   // bomb: square outline growing 1 to 3 (5) cells
+    const h = (1 + ((kind === 'bb' ? 5 : 3) - 1) * p) * cs / 2;
+    g.strokeStyle = GLOW; g.lineWidth = cs * .12; g.globalAlpha = 1 - p;
+    g.strokeRect((c + .5) * cs - h, (r + .5) * cs - h, 2 * h, 2 * h); return;
+  }
+  g.fillStyle = GLOW; g.globalAlpha = (1 - p) * .35;
+  if (kind === 'ww') { R(r, 1); C(c, 1) }
   if (kind === 'bw') { R(r - 1, 3); C(c - 1, 3) }
-  if (kind === 'b') g.fillRect((c - 1) * cs, (r - 1) * cs, cs * 3, cs * 3);
-  if (kind === 'bb') g.fillRect((c - 2) * cs, (r - 2) * cs, cs * 5, cs * 5);
-  if (kind === 'zz') g.fillRect(0, 0, w, w);
+  if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, w);
 }
 let last = performance.now();
-function frame(now){
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
+function frame(ts){
+  const dt = Math.min(.05, (ts - last) / 1000); last = ts;
   if (S) {
     const n = S.n, step = 11 * dt;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, n * cs, n * cs);
@@ -260,13 +269,13 @@ function frame(now){
     }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
-      const p = (now - f.at) / (f.k === 'flash' ? 320 : 240); if (p >= 1 || RM) return false;
+      const p = (ts - f.at) / (f.k === 'flash' ? 320 : 240); if (p >= 1 || RM) return false;
       g.globalAlpha = 1 - p;
       if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .6);
       else {
         const r = Math.floor(f.i / n), c = f.i % n;
         if (f.k === 'crack') { g.strokeStyle = PAL.encInk; g.lineWidth = 3; g.strokeRect(c * cs + 2 - p * 6, r * cs + 2 - p * 6, cs - 4 + p * 12, cs - 4 + p * 12) }
-        if (f.k === 'flash') { g.fillStyle = PAL.ink; g.globalAlpha = (1 - p) * .45; flashShape(f.kind, r, c, n) }
+        if (f.k === 'flash') { flashShape(f.kind, r, c, n, p, f.col) }
       }
       g.globalAlpha = 1; return true;
     });
@@ -379,6 +388,7 @@ cv.onpointercancel = () => press = null;
 
 /* ---------- boot ---------- */
 readPal(); fit();
+document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
 if (first.S) { S = first.S; start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
