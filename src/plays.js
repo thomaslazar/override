@@ -9,7 +9,7 @@ export const attemptOf = (S, at) => ({ level: S.level, fails: S.fails, n: S.n, k
   goals: S.goals.map(g => g.t === undefined ? { kind: g.kind, need: g.need } : { kind: g.kind, t: g.t, need: g.need }),
   limit: S.limit, need: S.need, salt: S.salt, drop: S.drop, at, moves: [], end: null, left: null, t: 0 });
 const open = log => { const a = log.attempts.at(-1); return a && a.end === null ? a : null; };
-export const close = (log, end, S, seconds = 0) => { const a = open(log); if (a) { a.end = end; a.left = S ? S.limit - S.moves : null; a.t = seconds; } };
+export const close = (log, end, S, seconds) => { const a = open(log); if (a) { a.end = end; a.left = S ? S.limit - S.moves : null; if (typeof seconds === 'number') a.t = seconds; } };
 export const startAttempt = (log, attempt) => { close(log, 'left'); log.attempts.push(attempt); };
 export const resume = (log, S) => { const a = open(log); if (a && a.level === S.level && a.fails === S.fails) return true; close(log, 'left'); return false; };
 export const logMove = (log, entry) => open(log)?.moves.push(entry);

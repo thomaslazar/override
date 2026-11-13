@@ -67,3 +67,8 @@ test('fileOf', () => {
   assert.equal(f.name, 'override-plays-2026-11-13.json');
   const o = JSON.parse(f.text); assert.equal(o.v, 1); assert.equal(o.id, 'abcdefgh'); assert.equal(o.device.w, 390); assert.deepEqual(o.attempts, []);
 });
+
+test('closing as left keeps the accumulated seconds', () => {
+  const l = logFrom({ on: true }); startAttempt(l, mk()); l.attempts[0].t = 17; startAttempt(l, mk());
+  assert.equal(l.attempts[0].end, 'left'); assert.equal(l.attempts[0].t, 17);
+});

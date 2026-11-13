@@ -57,7 +57,8 @@ const savePlays = () => { trim(plog, PLAYS_MAX); store.set('override-plays', JSO
 const openAttempt = () => { const a = plog.attempts.at(-1); return a && a.end === null ? a : null };
 // fresh: a new attempt (level start, restart); else continue the saved one after a reload.
 function logStart(fresh){
-  if (!plog.on || won(S) || lost(S)) return;
+  if (!plog.on) return;
+  if (won(S) || lost(S)) { const o = openAttempt(); if (!fresh && o && o.level === S.level && o.fails === S.fails) { base = o.t; t0 = Date.now(); logEnd(won(S) ? 'won' : 'lost') } return }
   if (fresh || !resume(plog, S)) startAttempt(plog, attemptOf(S, new Date().toISOString()));
   base = openAttempt().t; t0 = Date.now(); savePlays();
 }
@@ -139,7 +140,7 @@ async function play(a, b){
   const r = move(S, a, b);
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
-    if (plog.on && openAttempt()) { const a = openAttempt(); logMove(plog, entryOf(S, r.steps, a.moves.length + 1)); a.t = secs(); savePlays() }
+    if (plog.on && openAttempt()) { const cur = openAttempt(); logMove(plog, entryOf(S, r.steps, cur.moves.length + 1)); cur.t = secs(); savePlays() }
   }
   try { await animate(r.steps) } finally { sync(); hud(); busy = false }
   if (!r.ok) return;
@@ -403,7 +404,7 @@ function renderMenu(){
     }, on === plog.on ? 'on' : ''));
     body.append(lseg);
     if (plog.on) body.append(el('p', t('playLogCount', { n: plog.attempts.length })), btn(t('playLogDownload'), downloadLog),
-      btn(t('playLogClear'), () => confirmSheet(t('playLogClearAsk'), () => { plog.attempts = []; logStart(true); savePlays() })));
+      btn(t('playLogClear'), () => confirmSheet(t('playLogClearAsk'), () => { plog.attempts = plog.attempts.filter(x => x === openAttempt()); savePlays() })));
   }
   if (tab === 2) {
     const a = el('a', t('github')); a.href = 'https://github.com/thomaslazar/override'; a.target = '_blank'; a.rel = 'noopener';

@@ -32,7 +32,7 @@
   "paletteColourblind": "Colour-blind",
   "playLog": "Play log",
   "playLogText": "Keeps a record of your moves on this device, to help balance the game. Nothing is sent anywhere.",
-  "playLogCount": "{n} attempts logged",
+  "playLogCount": "Attempts logged: {n}",
   "playLogDownload": "Download log",
   "playLogClear": "Clear log",
   "playLogClearAsk": "Clear the play log?",
