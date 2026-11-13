@@ -135,7 +135,7 @@ async function win(reloaded){
   }
   busy = false;
   const text = t('winText', { n: S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
-  showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]]);
+  showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]], false, true);
 }
 function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1), true]]) }
 
@@ -311,12 +311,13 @@ function comms(){
 }
 let toastTimer; function toast(s){ const el = $('#toast'); el.textContent = s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 1600) }
 let dismissable = false;
-const closeSheet = () => { $('#sheet').classList.remove('on'); grace = performance.now() + 400 };
+const closeSheet = () => { $('#sheet').classList.remove('on'); clearInterval(artTimer); grace = performance.now() + 400 };
 const closeMenu = () => { $('#menu').hidden = true; grace = performance.now() + 400 };
 const closeSheets = () => { closeSheet(); closeMenu() };
 // buttons: [label, fn, main]. dismiss: tap outside the card or Escape closes it (win and loss sheets never dismiss).
-function showSheet(title, text, buttons, dismiss){
-  const card = $('#card'); card.textContent = ''; dismissable = !!dismiss;
+function showSheet(title, text, buttons, dismiss, art){
+  const card = $('#card'); card.textContent = ''; dismissable = !!dismiss; clearInterval(artTimer);
+  if (art) { const l = document.createElement('pre'), w = document.createElement('canvas'); l.className = 'ascL'; w.className = 'ascW'; card.append(l, w); animateArt(l, w) }
   const h = document.createElement('h2'); h.textContent = title; card.append(h);
   if (text) { const p = document.createElement('p'); p.textContent = text; card.append(p) }
   for (const [label, fn, main] of buttons) {
@@ -324,6 +325,29 @@ function showSheet(title, text, buttons, dismiss){
     b.onclick = () => { closeSheet(); fn() }; card.append(b);
   }
   $('#sheet').classList.add('on');
+}
+// win art: an ASCII padlock that clicks open and colour-cycling block letters (art, not text: no translation)
+const PWNED = [' ██████  ██     ██ ███    ██ ███████ ██████  ', ' ██   ██ ██     ██ ████   ██ ██      ██   ██ ', ' ██████  ██  █  ██ ██ ██  ██ █████   ██   ██ ', ' ██      ██ ███ ██ ██  ██ ██ ██      ██   ██ ', ' ██       ███ ███  ██   ████ ███████ ██████  '];
+const PADLOCK = [['', '     .---.', '    / .-. \\', '    | | | |', " .--'-'-'-'--.", ' |    [ ]    |', ' |    ( )    |', " '-----------'"],
+  ['     .---.', '    / .-. \\', '    | | |_|', '    | |', " .--'-'------.", ' |    [ ]    |', ' |    (*)    |', " '-----------'"]].map(f => f.join('\n'));
+let artTimer;
+function animateArt(l, w){
+  let k = 0; const cols = PWNED[0].length, d = devicePixelRatio || 1, px = 6;   // block letters drawn as pixels: fonts differ in block glyph widths
+  w.width = cols * px * d; w.height = PWNED.length * px * 1.4 * d; w.style.width = cols * px + 'px';
+  const x2 = w.getContext('2d'); x2.scale(d, d);
+  const tick = () => {
+    k++; l.textContent = PADLOCK[RM || k % 8 >= 4 ? 1 : 0];
+    x2.clearRect(0, 0, w.width, w.height);
+    PWNED.forEach((row, i) => {
+      const c = PAL.t[(i + k) % 6]; x2.fillStyle = c; x2.shadowColor = c; x2.shadowBlur = 6;
+      for (let x = 0; x < cols; x++) if (row[x] === '█') {
+        x2.globalAlpha = k % 9 === 0 && !RM && hash(k, i, x) % 5 === 0 ? .45 : 1;
+        x2.fillRect(x * px, i * px * 1.4, px - .5, px * 1.4 - .5);
+      }
+    });
+    x2.globalAlpha = 1;
+  };
+  tick(); if (!RM) artTimer = setInterval(tick, 140);
 }
 $('#sheet').onclick = e => { if (e.target === $('#sheet') && dismissable) closeSheet() };
 addEventListener('keydown', e => {
