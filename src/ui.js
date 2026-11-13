@@ -152,66 +152,84 @@ function fit(){
   dpr = devicePixelRatio || 1; cs = size / (S?.n || 8);
   cv.style.width = cv.style.height = size + 'px'; cv.width = cv.height = Math.round(size * dpr);
 }
-function poly(x, y, R, n, rot){ for (let i = 0; i < n; i++) { const a = rot + i * 2 * Math.PI / n; g.lineTo(x + R * Math.cos(a), y + R * Math.sin(a)) } g.closePath() }
-function glyphPath(ty, x, y, R){
-  g.beginPath();
-  if (ty === 0) g.arc(x, y, R * .9, 0, 7);
-  if (ty === 1) g.rect(x - R * .76, y - R * .76, R * 1.52, R * 1.52);
-  if (ty === 2) poly(x, y + R * .15, R * 1.05, 3, -Math.PI / 2);
-  if (ty === 3) poly(x, y, R * 1.02, 4, -Math.PI / 2);
-  if (ty === 4) { const a = R * .33, b = R * .92; [[-a,-b],[a,-b],[a,-a],[b,-a],[b,a],[a,a],[a,b],[-a,b],[-a,a],[-b,a],[-b,-a],[-a,-a]].forEach(([u, v]) => g.lineTo(x + u, y + v)); g.closePath() }
-  if (ty === 5) poly(x, y, R * .95, 6, 0);
-  if (ty === 6) { for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .45 : R * 1.02; g.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)) } g.closePath() }
+const GLYPHS = ['ｱ', 'ﾊ', 'ｦ', '7', 'Ξ', 'ﾐ', 'Z'];   // one character per glyph slot (types)
+const MONO = getComputedStyle(document.documentElement).getPropertyValue('--mono');
+const tint = (c, a) => { const n = parseInt(c.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})` };
+const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r) };
+const now = () => RM ? 0 : performance.now();
+function glyph(ty, cx, cy, sz, a = 1){
+  g.save(); g.globalAlpha *= a; g.font = `700 ${sz}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = PAL.t[ty]; g.shadowColor = PAL.t[ty]; g.shadowBlur = sz * .35; g.fillText(GLYPHS[ty], cx, cy + sz * .04); g.restore();
 }
-function drawFw(cx, cy, a, lw){
-  g.strokeStyle = PAL.fw; g.lineWidth = lw;
-  g.strokeRect(cx - a, cy - a, a * 2, a * 2);
-  for (const d of [-.33, 0, .33]) { g.beginPath(); g.moveTo(cx + d * a * 2, cy - a); g.lineTo(cx + d * a * 2, cy + a); g.stroke() }
+// worm: a data packet along the line it clears, chevrons both ways, dashes running along it
+function drawWorm(ty, cx, cy, sz, v){
+  const c = PAL.t[ty], L = sz * .45, H = sz * .27, T = now();
+  g.save(); g.translate(cx, cy); if (v) g.rotate(Math.PI / 2);
+  rr(-L, -H, 2 * L, 2 * H, H); g.fillStyle = tint(c, .25); g.fill();
+  g.lineWidth = sz * .05; g.strokeStyle = c; g.shadowColor = c; g.shadowBlur = sz * .25; g.stroke();
+  g.lineWidth = sz * .06;
+  for (const d of [-1, 1]) { g.beginPath(); g.moveTo(d * (L - sz * .1), -H * .55); g.lineTo(d * (L + sz * .02), 0); g.lineTo(d * (L - sz * .1), H * .55); g.stroke() }
+  const p = (T / 1000) % 1; g.fillStyle = '#fff';
+  for (const o of [0, .5]) { const x = -L + ((p + o) % 1) * 2 * L; g.fillRect(x - sz * .04, -H - sz * .02, sz * .08, sz * .04) }
+  g.restore(); glyph(ty, cx, cy, sz * .36);
 }
-const edge = R => { g.lineWidth = Math.max(1, R * .1); g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke() };
-const hole = (ty, x, y, R) => { glyphPath(ty, x, y, R); g.fillStyle = PAL.cell; g.fill() };   // colour's shape cut out: colour is never the only cue
-function drawTile(x, cx, cy, sc = 1){
-  const R = cs * .34 * sc;
-  if (x.s === 'z') {                                  // zero-day: dark core, turning ring in the level's colours
-    g.save(); g.translate(cx, cy); g.rotate(RM ? 0 : performance.now() / 1500);
-    for (let i = 0; i < S.k; i++) {
-      g.beginPath(); g.arc(0, 0, R * .92, i * 2 * Math.PI / S.k + .08, (i + 1) * 2 * Math.PI / S.k - .08);
-      g.strokeStyle = PAL.t[S.types[i]]; g.lineWidth = R * .32; g.stroke();
-    }
-    g.restore();
-    g.beginPath(); g.arc(cx, cy, R * .55, 0, 7); g.fillStyle = PAL.ink; g.fill();
-    g.beginPath(); g.arc(cx, cy, R * .2, 0, 7); g.fillStyle = PAL.cell; g.fill();
-  } else if (x.s === 'h' || x.s === 'v') {           // worm: data packet along the line it clears, chevrons both ways
-    const ty = S.types[x.t], L = R * .95, H = R * .5;
-    g.save(); g.translate(cx, cy); if (x.s === 'v') g.rotate(Math.PI / 2);
-    g.beginPath(); g.moveTo(-L - H * .9, 0); g.lineTo(-L, -H); g.lineTo(L, -H); g.lineTo(L + H * .9, 0); g.lineTo(L, H); g.lineTo(-L, H); g.closePath();
-    g.fillStyle = PAL.t[ty]; g.fill(); edge(R);
-    g.strokeStyle = PAL.cell; g.lineWidth = R * .14;
-    for (const d of [-1, 1]) { const o = d * L; g.beginPath(); g.moveTo(o - d * H * .3, -H * .5); g.lineTo(o + d * H * .15, 0); g.lineTo(o - d * H * .3, H * .5); g.stroke() }
-    g.restore(); hole(ty, cx, cy, R * .4);
-  } else if (x.s === 'b') {                           // logic bomb: chip with pins on all sides
-    const ty = S.types[x.t], a = R * .78, p = R * .3;
-    g.fillStyle = PAL.t[ty];
-    for (const d of [-.75, 0, .75]) for (const s of [-1, 1]) {
-      g.fillRect(cx + s * (a + p / 2) - p / 2, cy + d * a - R * .1, p, R * .2);
-      g.fillRect(cx + d * a - R * .1, cy + s * (a + p / 2) - p / 2, R * .2, p);
-    }
-    g.beginPath(); g.roundRect(cx - a, cy - a, a * 2, a * 2, R * .15); g.fill(); edge(R);
-    hole(ty, cx, cy, R * .45);
-  } else {
-    const ty = S.types[x.t];
-    glyphPath(ty, cx, cy, R); g.fillStyle = PAL.t[ty]; g.fill(); edge(R);
+// logic bomb: a chip with 12 pins lighting up in turn, a blinking fuse light
+function drawBomb(ty, cx, cy, sz){
+  const c = PAL.t[ty], a = sz * .3, T = now(), ph = Math.floor(T / 120) % 12;
+  g.save(); g.shadowColor = c; g.shadowBlur = sz * .25;
+  for (let i = 0; i < 12; i++) {
+    const side = Math.floor(i / 3), k = i % 3 - 1, o = a + sz * .07, q = k * a * .6;
+    const [x, y] = [[q, -o], [o, q], [-q, o], [-o, -q]][side], hz = side % 2;
+    g.fillStyle = i === ph ? '#fff' : c;
+    g.fillRect(cx + x - (hz ? sz * .06 : sz * .035), cy + y - (hz ? sz * .035 : sz * .06), hz ? sz * .12 : sz * .07, hz ? sz * .07 : sz * .12);
   }
-  if (x.lock) drawFw(cx, cy, cs * .42, cs * .07);
+  rr(cx - a, cy - a, 2 * a, 2 * a, sz * .05); g.fillStyle = tint(c, .3); g.fill(); g.lineWidth = sz * .05; g.strokeStyle = c; g.stroke();
+  if (Math.floor(T / 500) % 2) { g.fillStyle = '#ff4040'; g.shadowColor = '#ff4040'; g.beginPath(); g.arc(cx + a * .7, cy - a * .7, sz * .05, 0, 7); g.fill() }
+  g.restore(); glyph(ty, cx, cy, sz * .34);
 }
-function drawEnc(cx, cy, hp, size = cs){
-  const a = size * .45;
-  g.fillStyle = PAL.enc; g.beginPath(); g.roundRect(cx - a, cy - a, a * 2, a * 2, size * .08); g.fill();
-  g.save(); g.clip(); g.strokeStyle = PAL.encInk; g.globalAlpha = .35; g.lineWidth = size * .04;
-  for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(cx - a + k * a * .6, cy + a); g.lineTo(cx + a + k * a * .6, cy - a); g.stroke() }
+// zero-day: a turning ring in the level's colours around a white core
+function drawZero(cx, cy, sz){
+  const T = now(); g.save(); g.translate(cx, cy); g.rotate(T / 320);
+  const n = S.k;
+  for (let i = 0; i < n; i++) {
+    const c = PAL.t[S.types[i]]; g.beginPath(); g.arc(0, 0, sz * .36, i * 2 * Math.PI / n + .06, (i + 1) * 2 * Math.PI / n - .06);
+    g.strokeStyle = c; g.lineWidth = sz * .12; g.shadowColor = c; g.shadowBlur = sz * .2; g.stroke();
+  }
+  g.restore(); g.save(); g.beginPath(); g.arc(cx, cy, sz * .22, 0, 7); g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = sz * .4; g.fill();
+  g.shadowBlur = 0; g.fillStyle = '#111'; g.font = `700 ${sz * .26}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('0', cx, cy + sz * .02); g.restore();
+}
+// firewall: a flame frame with cage bars over the tile (the tile stays at full colour)
+function drawFw(cx, cy, sz){
+  const a = sz * .44, T = now();
+  g.save(); g.strokeStyle = PAL.fw; g.shadowColor = '#ff3b00'; g.shadowBlur = sz * .2; g.globalAlpha *= .8 + .2 * Math.sin(T / 90); g.lineWidth = sz * .035;
+  g.beginPath(); for (const k of [-.5, 0, .5]) { g.moveTo(cx + k * a * .9, cy - a * .9); g.lineTo(cx + k * a * .9, cy + a * .9) } g.stroke(); g.restore();
+  g.save(); rr(cx - a, cy - a, 2 * a, 2 * a, sz * .08);
+  const gr = g.createLinearGradient(0, cy - a, 0, cy + a); gr.addColorStop(0, '#ffcc33'); gr.addColorStop(1, '#d42a00');
+  g.strokeStyle = gr; g.lineWidth = sz * .07; g.shadowColor = '#ff4000'; g.shadowBlur = sz * .3; g.stroke();
+  for (let i = 0; i < 4; i++) {
+    const h = sz * (.08 + .06 * Math.abs(Math.sin(T / 120 + i * 1.7))), x = cx - a * .7 + i * a * .47;
+    g.beginPath(); g.moveTo(x, cy - a); g.quadraticCurveTo(x + sz * .04, cy - a - h, x + sz * .08, cy - a); g.fillStyle = '#ffb000'; g.shadowColor = '#ff6000'; g.shadowBlur = sz * .2; g.fill();
+  }
   g.restore();
-  g.fillStyle = PAL.encInk;
-  for (let i = 0; i < hp; i++) g.fillRect(cx - a * .55 + i * a * .4, cy + a * .55, a * .28, a * .22);
+}
+function drawTile(x, cx, cy, sc = 1){
+  const sz = cs * sc;
+  if (x.s === 'z') drawZero(cx, cy, sz);
+  else if (x.s === 'h' || x.s === 'v') drawWorm(S.types[x.t], cx, cy, sz, x.s === 'v');
+  else if (x.s === 'b') drawBomb(S.types[x.t], cx, cy, sz);
+  else glyph(S.types[x.t], cx, cy, sz * .5);
+  if (x.lock) drawFw(cx, cy, sz);
+}
+// encrypted cell: jittering static, the amber outline shows hits left (double, single, dashed)
+function drawEnc(cx, cy, hp, size = cs){
+  const a = size * .44, j = Math.floor(now() / 150), ch = '#%&@$?!*', dens = [0, .25, .5, .8][Math.min(3, hp)];
+  g.save(); rr(cx - a, cy - a, 2 * a, 2 * a, size * .08); g.fillStyle = PAL.enc; g.fill(); g.clip();
+  g.font = `${size * .16}px ${MONO}`; g.fillStyle = 'rgba(140,160,200,.55)';
+  for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) if (((x * 7 + y * 13 + j) % 10) / 10 < dens) g.fillText(ch[(x + y + j) % 8], cx - a + x * a * .4 + 2, cy - a + y * a * .4 + size * .14);
+  g.restore(); g.save(); rr(cx - a, cy - a, 2 * a, 2 * a, size * .08); g.strokeStyle = PAL.encInk; g.lineWidth = size * .04;
+  if (hp === 1) g.setLineDash([size * .08, size * .06]); g.stroke();
+  if (hp >= 3) { rr(cx - a + size * .06, cy - a + size * .06, 2 * a - size * .12, 2 * a - size * .12, size * .06); g.stroke() }
+  g.restore();
 }
 const flash = (i, kind) => fx.push({ k: 'flash', i, kind, at: performance.now() });
 function flashShape(kind, r, c, n){
@@ -260,9 +278,9 @@ function frame(now){
 function icon(goal){
   const c = document.createElement('canvas'), s = 22, d = devicePixelRatio || 1; c.width = c.height = s * d; c.style.width = c.style.height = s + 'px';
   const g2 = g, cs2 = cs; g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); cs = s;
-  if (goal.kind === 'crack') drawEnc(s / 2, s / 2, 0, s);
-  else if (goal.kind === 'firewall') drawFw(s / 2, s / 2, s * .4, 2);
-  else { const ty = S.types[goal.t]; glyphPath(ty, s / 2, s / 2, s * .4); g.fillStyle = PAL.t[ty]; g.fill() }
+  if (goal.kind === 'crack') drawEnc(s / 2, s / 2, 2, s);
+  else if (goal.kind === 'firewall') drawFw(s / 2, s / 2, s);
+  else glyph(S.types[goal.t], s / 2, s / 2, s * .8);
   g = g2; cs = cs2; return c;
 }
 function hud(){
