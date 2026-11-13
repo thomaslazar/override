@@ -1,7 +1,7 @@
 // Balance report: node tools/sim.mjs [levels] [runs] [--refill nice]
 // levels: "1-60", "3,25,50" or a mix; runs: attempts per level (run r plays with fails = r).
 import { prepare, solve, pick, CAP } from '../src/bot.js';
-import { move, won, mulberry32 } from '../src/core.js';
+import { move, won, mulberry32, hash } from '../src/core.js';
 import { chapterOf, difficulty } from '../src/levels.js';
 
 const args = process.argv.slice(2), nice = args.join(' ').includes('--refill nice');
@@ -13,18 +13,18 @@ const runs = +(pos[1] || 1), goal = g => g.kind === 'tiles' ? `t${g.t}:${g.need}
 console.log('level ch  n k goals                          need limit margin salt drop target ratio  w/m   4+    ms' + (nice ? '  nice saved' : ''));
 let saved = 0, count = 0;
 const ratios = [], wpm = [], big = [], times = [], med = a => [...a].sort((x, y) => x - y)[a.length >> 1];
-// replay three bot games (nice off), counting wave steps per move
+// replay three bot games as solve plays them (own refill seed, nice off, no limit), counting wave steps per move
 const cascades = S => {
   let moves = 0, waves = 0, many = 0;
   for (let k = 0; k < 3; k++) {
-    const C = structuredClone(S), rnd = mulberry32(k); C.nice = false;
-    for (let m = 0; m < CAP && !won(C); m++) {
+    const C = structuredClone(S), rnd = mulberry32(k); C.nice = false; C.seed = hash(S.seed, k, 17); C.moves = CAP; C.limit = 0;
+    while (C.moves > 0 && !won(C)) {
       const p = pick(C, rnd); if (!p) break;
       const r = move(C, p[0], p[1]); if (!r.ok) break;
       const w = r.steps.filter(s => s.k === 'wave').length; moves++; waves += w; if (w >= 4) many++;
     }
   }
-  return [waves / moves, 100 * many / moves];
+  return moves ? [waves / moves, 100 * many / moves] : [0, 0];
 };
 for (const l of levels) for (let r = 0; r < runs; r++) {
   const t0 = Date.now(), S = prepare(l, r), ms = Date.now() - t0;
