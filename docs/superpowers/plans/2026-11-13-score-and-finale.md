@@ -157,7 +157,7 @@ A zero-day fired in a burst has no target: `area` already picks a random colour 
 
 **Interfaces:**
 - Consumes: `finale(S)` (Task 2), wave steps' `points` and `S.score` (Task 1).
-- Produces for Task 4: `S.spare` and `S.score` final when `win()` runs; `animate(steps, speed)` accepts a speed factor. Score display is Task 4.s; leave the HUD as is.
+- Produces for Task 4: `S.spare` and `S.score` final when `win()` runs; `animate(steps, speed)` accepts a speed factor. Score display is Task 4's; leave the HUD as is.
 
 - [ ] **Step 1: Write the failing test** in `tests/plays.test.mjs`: closing an open attempt as `'won'` with an `S` that has `score: 1234, spare: 3` sets `attempt.score === 1234` and `attempt.spare === 3`; closing as `'lost'` sets neither.
 
