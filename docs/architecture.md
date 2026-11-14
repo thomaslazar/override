@@ -90,6 +90,22 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   colour, or two at 60% each on harder levels).
 
 
+## Templates (`src/layouts.js`)
+
+- `TEMPLATES`: whole boards drawn as rows of space-separated tokens (`.` live, `o` hole, `#` block,
+  `z` blocker zone, `S` spawner, `S0`..`S2` drop spawner, `iA`/`eA` teleporter pair, `X` drop point,
+  `D0`..`D2` starting drop tile) with `name`, a difficulty band `dMin`..`dMax`, `tags` and `mirror`
+  (not symmetric, may be flipped). Any `S` means only marked cells spawn, so such a template marks
+  its top row too. Stage 1 has shapes (notch, pillars, diamond, hourglass, frame) and walled or split
+  boards (split, wall, pocket).
+- `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
+  out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
+  cell without a feature.
+- `check(layout)` lists problems: size outside 7..9, a spawner on a dead cell, a live cell that an
+  empty board never fills by `gravity` (straight or diagonal), no legal move after `fillBoard`.
+  A test runs it over every template, both mirrors.
+
+
 ## Bot (`src/bot.js`)
 
 - Constants: `CAP` 80 (moves before giving up), `K` 1.3, `C` 2 (the human factor), `RUNS` 3,
