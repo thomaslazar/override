@@ -292,7 +292,8 @@ function cascade(S, steps, prefer = [], swipe = null, fire = [], chain = 1, calm
   }
 }
 /* ---------- finale ---------- */
-// After a win: fire every special left, then turn each spare move into a random special and fire it.
+export const FINALE_BATCH = 8;   // spare moves turned special and fired together per round
+// After a win: fire every special left, then turn spare moves into random specials, up to FINALE_BATCH at a time, and fire them.
 // Refills are not damped (calm), so lucky lines are allowed. Precondition: won(S).
 export function finale(S){
   const spare = S.moves; S.spare = spare; S.moves = 0;
@@ -306,12 +307,16 @@ export function finale(S){
     }
   };
   burst();
-  for (let k = 0; k < spare; k++) {
-    const rnd = rngFor(S.seed, 29, k);
+  // Spare moves go in rounds of up to FINALE_BATCH: that many tiles turn special at once, then fire together.
+  for (let k = 0, left = spare; left > 0; k++) {
+    const rnd = rngFor(S.seed, 29, k), n = Math.min(FINALE_BATCH, left); left -= n;
     const plain = []; S.grid.forEach((x, i) => { if (x && !x.lock && !x.s) plain.push(i) });
-    if (!plain.length) { steps.push({ k: 'convert', cells: [] }); continue }
-    const i = plain[Math.floor(rnd() * plain.length)], s = rnd() < 1 / 3 ? 'b' : rnd() < .5 ? 'h' : 'v';
-    S.grid[i].s = s; steps.push({ k: 'convert', cells: [{ i, s }] });
+    const cells = [];
+    while (cells.length < n && plain.length) {
+      const i = plain.splice(Math.floor(rnd() * plain.length), 1)[0], s = rnd() < 1 / 3 ? 'b' : rnd() < .5 ? 'h' : 'v';
+      S.grid[i].s = s; cells.push({ i, s });
+    }
+    steps.push({ k: 'convert', cells, spent: n });
     burst();
   }
   return { steps };

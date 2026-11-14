@@ -33,9 +33,16 @@ test('forty spare moves terminate with moves 0 and no specials', () => {
   finale(S);
   assert.equal(S.moves, 0); assert.equal(S.spare, 40); assert.ok(!specials(S));
 });
-test('a spare move with no plain movable tile is skipped', () => {
+test('spare moves convert in rounds of FINALE_BATCH tiles at once', () => {
+  const S = mk(plain(8), { goals: won1, moves: 20 });
+  const conv = finale(S).steps.filter(s => s.k === 'convert');
+  assert.deepEqual(conv.map(s => s.spent), [8, 8, 4]);
+  assert.equal(conv[0].cells.length, 8);
+  assert.equal(new Set(conv[0].cells.map(c => c.i)).size, 8);
+});
+test('spare moves with no plain movable tile are skipped', () => {
   const S = mk(rows(3, (r, c) => (r + c) % 2 ? '#1' : 'A!'), { goals: won1, moves: 3 });
-  assert.deepEqual(finale(S).steps, [{ k: 'finale' }, ...Array(3).fill({ k: 'convert', cells: [] })]);
+  assert.deepEqual(finale(S).steps, [{ k: 'finale' }, { k: 'convert', cells: [], spent: 3 }]);
   assert.equal(S.spare, 3); assert.equal(S.moves, 0);
 });
 test('finale refills are not damped', () => {

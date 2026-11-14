@@ -129,7 +129,7 @@ let pace = 1, skip = false, shown = null;   // shown: the HUD's score and moves 
 async function animate(steps, speed = 1){
   const wait = ms => sleep(ms / speed); pace = speed;
   idAt.clear(); for (const [id, p] of sprites) idAt.set(p.ty * S.n + p.tx, id);
-  let inFinale = false;   // in the finale each convert step spends one spare move
+  let inFinale = false;   // in the finale each convert step spends s.spent spare moves
   try { for (let j = 0; j < steps.length && !skip; j++) {
     const s = steps[j];
     if (s.k === 'fall') {
@@ -151,7 +151,7 @@ async function animate(steps, speed = 1){
     }
     if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
     if (s.k === 'finale') inFinale = true;
-    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - 1); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(450) }
+    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - (s.spent ?? 1)); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(450) }
     if (s.k === 'wave') {
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
