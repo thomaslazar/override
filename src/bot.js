@@ -51,6 +51,7 @@ export const DEALS = 12, KEEP = 10;
 // The first salt, drop and fallback whose RUNS runs all finish; `run(S, k)` plays run k (solve by default).
 export function search(level, run = solve){
   for (let fb = 0; fb <= 2; fb++) {
+    if (fb === 1 && boardFor(level, 1).name === boardFor(level, 0).name) continue;   // the lower band gave the same template
     const square = boardFor(level, fb).kind === 'square', most = square ? 1 : .5, salts = square ? SALTS : TEMPLATE_SALTS;
     for (let drop = 0; drop <= most; drop = Math.round((drop + .1) * 10) / 10) for (let salt = 0; salt < salts; salt++) {
       const S = makeAttempt(level, 0, salt, drop, 0, fb);

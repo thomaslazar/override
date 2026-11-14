@@ -5,10 +5,11 @@ import { dead, gravity, fillBoard, rngFor } from './core.js';
 // 'S0'..'S2' spawner for that drop kind only, 'iA'..'iH' / 'eA'..'eH' teleporter ingress / egress of
 // pair A..H, 'X' drop point, 'D0'..'D2' live cell starting with that drop tile.
 // With any 'S' only marked cells spawn, so a template with one marks its top row too.
-// `mirror`: the template is not left-right symmetric and may be flipped for variety.
-const T = (name, dMin, dMax, tags, mirror, ...rows) => ({ name, dMin, dMax, tags, mirror, rows });
+// `mirror`: the template is not left-right symmetric and may be flipped for variety. `effort`: factor on the
+// level's blocker counts and tile goals, for boards with few cascades (tuned with tools/sim.mjs to need ~ 8 + 14 d).
+const T = (name, dMin, dMax, tags, mirror, effort, ...rows) => ({ name, dMin, dMax, tags, mirror, effort, rows });
 export const TEMPLATES = [
-  T('notch', 0, 0.4, ['shape'], false,
+  T('notch', 0, 0.4, ['shape'], false, 0.6,
     'o o . . . o o',
     'o . . . . . o',
     '. . . . . . .',
@@ -16,7 +17,7 @@ export const TEMPLATES = [
     '. . . . . . .',
     'o . . . . . o',
     'o o . . . o o'),
-  T('pillars', 0.1, 0.6, ['shape'], false,
+  T('pillars', 0.1, 0.6, ['shape'], false, 0.85,
     '. . . . . . . . .',
     '. . . . . . . . .',
     '. . . . . . . . .',
@@ -26,7 +27,7 @@ export const TEMPLATES = [
     '. . . . . . . . .',
     '. . . . . . . . .',
     '. . . . . . . . .'),
-  T('diamond', 0.2, 0.7, ['shape'], false,
+  T('diamond', 0.2, 0.7, ['shape'], false, 1,
     'o o o . . . o o o',
     'o o . . . . . o o',
     'o . . . . . . . o',
@@ -36,7 +37,7 @@ export const TEMPLATES = [
     'o . . . . . . . o',
     'o o . . . . . o o',
     'o o o . . . o o o'),
-  T('hourglass', 0.3, 0.8, ['shape'], false,
+  T('hourglass', 0.3, 0.8, ['shape'], false, 0.7,
     '. . . . . . . . .',
     'o . . . . . . . o',
     'o o . . . . . o o',
@@ -46,7 +47,7 @@ export const TEMPLATES = [
     'o o . . . . . o o',
     'o . . . . . . . o',
     '. . . . . . . . .'),
-  T('frame', 0.3, 0.9, ['shape'], false,
+  T('frame', 0.3, 0.9, ['shape'], false, 1,
     'o S S S S S S S o',
     'S z z z z z z z S',
     '. z . . . . . z .',
@@ -56,7 +57,7 @@ export const TEMPLATES = [
     '. z . S S S . z .',
     '. z z z z z z z .',
     'o . . . . . . . o'),
-  T('split', 0.4, 1, ['split'], false,
+  T('split', 0.4, 1, ['split'], false, 0.5,
     '. . . . # . . . .',
     '. . . . # . . . .',
     '. . . . # . . . .',
@@ -66,7 +67,7 @@ export const TEMPLATES = [
     '. . . . # . . . .',
     '. . . . # . . . .',
     '. . . . # . . . .'),
-  T('wall', 0.5, 1, ['walled', 'split'], false,
+  T('wall', 0.5, 1, ['walled', 'split'], false, 0.4,
     'S S S S S S S S',
     '. . . . . . . .',
     '. . . . . . . .',
@@ -75,7 +76,7 @@ export const TEMPLATES = [
     '. . . . . . . .',
     '. . . . . . . .',
     '. . . . . . . .'),
-  T('pocket', 0.6, 1, ['walled'], true,
+  T('pocket', 0.6, 1, ['walled'], true, 0.4,
     'S S S S S S S S S',
     '. . . . . . . . .',
     '. . . . . . . . .',

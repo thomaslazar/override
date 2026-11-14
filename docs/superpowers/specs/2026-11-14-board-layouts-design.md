@@ -249,3 +249,12 @@ only when the owner is content with all three.
 - Bot: wins every template in the sim within the cap; square limits unchanged for a sample.
 - Saves: new fields round-trip, old saves load.
 - Browser: one board of each kind at 402 x 706 and 375 x 548.
+
+## Builder notes
+
+- Encrypted cells in a small blocker zone (under 2n cells, a walled pocket) take one hit. With multi-hit
+  cells such a pocket made levels far too long: few matches reach it, so the pocket stalled the level.
+- Each template carries an `effort` factor on its blocker counts and tile goals. Walled and split boards
+  (wall, pocket, split) give few cascades and a small board (notch) has few cells, so without it their
+  levels ran 1.5 to 3 times the effort target `8 + 14 d`. A template level with only a few blockers
+  (fewer than n) always gets a tile goal too, so it is never near free.

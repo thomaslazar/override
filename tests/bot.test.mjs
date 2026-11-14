@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { solve, pick, limitFor, prepare, search, CAP } from '../src/bot.js';
-import { makeAttempt, boardFor } from '../src/levels.js';
+import { makeAttempt, boardFor, difficulty } from '../src/levels.js';
 import { validSave, rngFor } from '../src/core.js';
 
 test('limit eases from the 4th fail, capped at +40%', () => {
@@ -74,7 +74,8 @@ test('bot wins template levels on their own template', () => {
     const S = prepare(l);
     assert.equal(boardFor(l).kind, 'template', `level ${l}`);
     assert.equal(S.board, boardFor(l).name, `level ${l}`);
-    assert.ok(S.need < CAP, `level ${l} need ${S.need}`);
+    // finished, and near the effort target 8 + 14 d (spikes may run over)
+    assert.ok(Number.isFinite(S.need) && S.need <= 1.5 * (8 + 14 * difficulty(l)), `level ${l} need ${S.need}`);
   }
 });
 

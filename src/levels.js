@@ -81,7 +81,8 @@ export const GOAL = 1.2; // tile goal size factor, tuned by playtest
 // and drop; tiles on the deal (one of the level's seeded boards) and the colour count (fails ease it from the 6th).
 export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb = 0){
   const p = paramsFor(level, fails, drop), board = boardFor(level, fb);
-  const L = board.kind === 'template' ? parse(TEMPLATES.find(t => t.name === board.name), board.mirror) : null;
+  const tpl = board.kind === 'template' ? TEMPLATES.find(t => t.name === board.name) : null, L = tpl && parse(tpl, board.mirror);
+  const effort = tpl ? tpl.effort : 1;
   const n = L ? L.n : p.n, nn = n * n, lr = rngFor(level, salt, 2);
   const order = Array.from({ length: TYPES }, (_, i) => i), tr = rngFor(level, 4);
   for (let j = TYPES - 1; j > 0; j--) { const m = Math.floor(tr() * (j + 1)); [order[j], order[m]] = [order[m], order[j]] }
@@ -99,7 +100,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
     // stalls); counts scaled from paramsFor's n * n square to the template's live cells; in a small zone
     // (a walled pocket, under 2n cells) encrypted cells take one hit, as few matches reach it
     const zone = L.zone.filter(i => !isSpawner(S, i)), room = Math.floor(zone.length / 3);
-    const live = L.cell ? L.cell.filter(x => !x).length : nn, scale = live / (p.n * p.n);
+    const live = L.cell ? L.cell.filter(x => !x).length : nn, scale = effort * live / (p.n * p.n);
     const enc = Math.min(Math.round(p.enc * scale), room), fw = Math.round(p.fw * scale), hp = zone.length < 2 * n ? 1 : p.hp;
     for (let j = zone.length - 1; j > 0; j--) { const m = Math.floor(lr() * (j + 1)); [zone[j], zone[m]] = [zone[m], zone[j]] }
     for (let j = 0, placed = 0; wantCrack && placed < enc && j < zone.length; j++) {
@@ -146,10 +147,11 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const cracks = S.enc.filter(Boolean).length;
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
   if (fwSpots.length) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
-  if (S.goals.length < 2 || gr() < .5) {
+  // a template level with only a few blockers always gets a tile goal too, so it is never near free
+  if (S.goals.length < 2 || gr() < .5 || L && cracks + fwSpots.length < n) {
     // goals ignore fails: size from the fails-0 colour count, colours from those that survive easing
     const kBase = paramsFor(level, 0, drop).k, kGoal = Math.max(4, kBase - 1);
-    const need = Math.round(GOAL * (15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
+    const need = Math.round(effort * GOAL * (15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
     if (p.d > .5 && S.goals.length < 2 && gr() < .4) {
       const u = (t + 1 + Math.floor(gr() * (kGoal - 1))) % kGoal;
       S.goals.push({ kind: 'tiles', t, need: Math.round(need * .6), got: 0 }, { kind: 'tiles', t: u, need: Math.round(need * .6), got: 0 });

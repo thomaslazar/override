@@ -98,7 +98,10 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   blockers draw exactly as before. On a template blockers go only on zone cells that are not
   spawners, in a shuffled order, at most n - 2 encrypted per row and at most a third of the zone in all
   (a packed pocket stalls). The counts from `paramsFor` are scaled from its `n * n` square to the
-  template's live cells. In a small zone (under `2n` cells, a walled pocket) encrypted cells take one
+  template's live cells and by the template's `effort`, which also scales the tile goals: boards with
+  few cascades (wall, pocket, split) or few cells (notch) get less to do, tuned with the sim to the
+  effort target `8 + 14 d`. A template level whose blockers number under `n` always gets a tile goal.
+  In a small zone (under `2n` cells, a walled pocket) encrypted cells take one
   hit: few matches reach such a zone, and the bot only values a crack once it breaks. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
@@ -111,8 +114,8 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
 
 - `TEMPLATES`: whole boards drawn as rows of space-separated tokens (`.` live, `o` hole, `#` block,
   `z` blocker zone, `S` spawner, `S0`..`S2` drop spawner, `iA`/`eA` teleporter pair, `X` drop point,
-  `D0`..`D2` starting drop tile) with `name`, a difficulty band `dMin`..`dMax`, `tags` and `mirror`
-  (not symmetric, may be flipped). Any `S` means only marked cells spawn, so such a template marks
+  `D0`..`D2` starting drop tile) with `name`, a difficulty band `dMin`..`dMax`, `tags`, `mirror`
+  (not symmetric, may be flipped) and `effort` (factor on blocker counts and tile goals). Any `S` means only marked cells spawn, so such a template marks
   its top row too. Stage 1 has shapes (notch, pillars, diamond, hourglass, frame) and walled or split
   boards (split, wall, pocket).
 - `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
@@ -138,7 +141,7 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
 - `search(level, run)` (exported, `run` defaults to `solve`): on the level's own board (`fb` 0) tries salts on deal 0,
   then lowers difficulty by `drop` steps of 0.1 (to 0.5 on a template, 1 on a square), until all `RUNS` bot runs
   finish (layout and goals). A template that never does falls back to a lower-band template (`fb` 1), then a square
-  (`fb` 2). In the 1 to 60 sim every template level keeps its own template.
+  (`fb` 2).
 - `prepare(level, fails, pick)`: the first call for a level runs `search`. Then the bot plays `DEALS` (12) seeded tile boards
   (deals) of that layout once each; the easiest and the hardest are dropped, the median sets `need` for every attempt
   of the level, and up to `KEEP` (10) deals are kept. `{salt, drop, fb, need, deals}` is memoised (last 8 levels). An

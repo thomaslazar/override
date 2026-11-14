@@ -96,13 +96,13 @@ test('blockers only with their goal, at least one goal', () => {
   }
 });
 
-test('single-colour tiles goal is GOAL times the base size', () => {
+test('single-colour tiles goal is GOAL times the base size, times the template effort', () => {
   let seen = 0;
   for (let l = 1; l <= 60; l++) {
     const S = makeAttempt(l, 0, 0), tg = S.goals.filter(g => g.kind === 'tiles');
     if (tg.length !== 1) continue;
-    const p = paramsFor(l, 0, 0);
-    assert.equal(tg[0].need, Math.round(GOAL * (15 + 25 * p.d) * 5 / p.k));
+    const p = paramsFor(l, 0, 0), effort = TEMPLATES.find(t => t.name === S.board)?.effort ?? 1;
+    assert.equal(tg[0].need, Math.round(effort * GOAL * (15 + 25 * p.d) * 5 / p.k), `level ${l}`);
     seen++;
   }
   assert.ok(seen > 5);
