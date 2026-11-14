@@ -137,6 +137,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   moves: it starts at the score before the move and the moves left after it, each wave step adds its
   `points`, and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0; in the finale a drop waits at most 150 ms, so the next round
   converts and fires while tiles still fall (state is unchanged, only the look overlaps);
+  the round's specials light up 50 ms apart and blast 60 ms apart, each cleared tile popping with its
+  nearest special;
   `sync()` then clears it.
 - Best scores: `override-best` is `{ "<level>": score }`, read once at boot (junk becomes `{}`);
   `bestOf(level)` is an integer or `null`. `win()` reads the previous best, then stores the higher one.

@@ -152,15 +152,24 @@ async function animate(steps, speed = 1){
     }
     if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
     if (s.k === 'finale') inFinale = true;
-    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - (s.spent ?? 1)); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(inFinale ? 250 : 450) }
+    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - (s.spent ?? 1)); hud() } if (inFinale) for (const c of s.cells) { sprites.get(idAt.get(c.i)).s = c.s; await wait(50) }   // they light up one by one
+      else { for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(450) } }
     if (s.k === 'wave') {
-      for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
+      const fire = f => { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) };
+      const pop = c => { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) };
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
-      for (const c of s.cleared) { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) }
+      if (inFinale && s.fired.length > 1) {
+        // the finale's blasts go off one after the other: each cleared tile pops with the nearest special
+        const at = i => [Math.floor(i / S.n), i % S.n], near = (a, b) => { const [r, c] = at(a), [q, d] = at(b); return Math.max(Math.abs(r - q), Math.abs(c - d)) };
+        const groups = s.fired.map(f => ({ f, c: [] }));
+        for (const c of s.cleared) groups.reduce((g, x) => near(c.i, x.f.i) < near(c.i, g.f.i) ? x : g).c.push(c);
+        for (let g = 0; g < groups.length && !skip; g++) { if (g) await wait(60); fire(groups[g].f); groups[g].c.forEach(pop) }
+        if (skip) return;
+      } else { s.fired.forEach(fire); s.cleared.forEach(pop) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
       if (shown) shown.score += s.points ?? 0;
-      hud(); await wait(190);
+      hud(); await wait(inFinale ? 120 : 190);
     }
     if (s.k === 'shuffle') {
       toast(t('noMoves')); await wait(600);
@@ -170,8 +179,9 @@ async function animate(steps, speed = 1){
   } } finally { pace = 1 }
 }
 // Finale at normal speed, roughly (a run of fall passes is one drop, cut short at 150 ms); sped up to fit FINALE_MS.
-const FINALE_MS = 10000, STEP_MS = { wave: 190, convert: 250, fall: 150, combo: 120 };
-const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps[j - 1]?.k === 'fall' ? 0 : STEP_MS[s.k] ?? 0), 0);
+const FINALE_MS = 10000, STEP_MS = { fall: 150, combo: 120 };
+const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps[j - 1]?.k === 'fall' ? 0
+  : s.k === 'wave' ? 120 + 60 * Math.max(0, s.fired.length - 1) : s.k === 'convert' ? 50 * s.cells.length : STEP_MS[s.k] ?? 0), 0);
 const skipFinale = e => { skip = true; e.stopPropagation(); e.preventDefault() };   // the tap only skips
 async function playFinale(steps){
   if (steps.length < 2 || RM) return;
