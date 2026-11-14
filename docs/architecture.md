@@ -80,9 +80,25 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   one from the 6th fail (min 4, so 4 only by retry easing); board 7..9 by
   difficulty and `hash(level, 1)`; encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
-- `makeAttempt(level, fails, salt, drop, deal)`: layout (encrypted cells in mirrored pairs from row
-  2, firewall spots, goals) depends on level, salt and drop; tiles on `deal`, not on fails, so a deal is
-  the same board on every retry until easing drops a colour. Goals use the
+- `boardFor(level, fb, tags)` picks the board from `level` only (stream `rngFor(level, 31)`, so the
+  older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
+  Square only before `SHAPES_FROM` (11, a breather, always a template); after it a template with
+  chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
+  Templates tagged `teleport` wait for `TP_FROM` (16), `drop` for `DROP_FROM` (21). Every 5th level
+  prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
+  band (smaller `dMin`), or the easiest one; `fb` 2: square.
+- `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
+  template sets `n` (over `paramsFor`'s), `S.cell` and `S.spawn`. `S.board` is the template name,
+  `square:<pattern>` for a square with blockers, or `square`. Blockers (encrypted cells, firewall
+  spots) and goals depend on level, salt and drop; tiles on `deal`, not on fails, so a deal is
+  the same board on every retry until easing drops a colour. Square blocker patterns (encrypted
+  cells in mirrored pairs from row 2, at most n - 2 per row): `pairs` is the old random placement,
+  `ring`, `wall` (a middle row), `cross` and `diagonal` (an X) fill the cells nearest the shape
+  first, with jitter from the layout stream; firewalls are random from row 1. Square levels without
+  blockers draw exactly as before. On a template blockers go only on zone cells that are not
+  spawners, in a shuffled order, at most n - 2 encrypted per row and at most half the zone in all
+  (a packed pocket stalls); the counts from `paramsFor` hold
+  where the zone has room. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a

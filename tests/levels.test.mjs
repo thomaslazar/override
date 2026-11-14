@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from '../src/levels.js';
-import { findGroups, hasMove, validSave } from '../src/core.js';
+import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM } from '../src/levels.js';
+import { findGroups, hasMove, validSave, isSpawner } from '../src/core.js';
+import { parse, TEMPLATES } from '../src/layouts.js';
 
 test('chapters are 30 levels', () => {
   assert.deepEqual(chapterOf(1), { n: 1, start: 1, pos: 1 });
@@ -62,9 +63,10 @@ test('layout and goals stay across deals and retries; tiles follow the deal', ()
   assert.deepEqual(tiles(a), tiles(c));   // same deal, same board (fails below 6 do not change it)
 });
 
-test('encrypted cells are mirrored and never seal a row', () => {
+test('encrypted cells on square boards are mirrored and never seal a row', () => {
   for (let l = 4; l <= 120; l++) {
     const S = makeAttempt(l), n = S.n;
+    if (S.cell || S.spawn) continue;
     for (let r = 0; r < n; r++) {
       const row = S.enc.slice(r * n, r * n + n);
       assert.ok(row.filter(Boolean).length <= n - 2, `level ${l} row ${r}`);
@@ -125,4 +127,75 @@ test('level picker clamps to 1..max and falls back on junk', () => {
   assert.equal(clampLevel('abc', 12, 3), 3, 'junk keeps the fallback');
   assert.equal(clampLevel('', 12, 3), 3);
   assert.equal(clampLevel('12000', MAX_LEVEL, 3), MAX_LEVEL);
+});
+
+test('square levels without blockers unchanged', () => {
+  // recorded from master before boards existed
+  const master = {
+    1: ['0020133124303041320433032130212044043011103200100033244232031342', { kind: 'tiles', t: 1, need: 18, got: 0 }],
+    2: ['2202130123302434004142042232323304412331422102143103430211014132', { kind: 'tiles', t: 3, need: 19, got: 0 }],
+    3: ['2334211241002234102003142403122010112341014301131143324204243030', { kind: 'tiles', t: 2, need: 20, got: 0 }],
+  };
+  for (const [l, [grid, goal]] of Object.entries(master)) {
+    const S = makeAttempt(+l);
+    assert.equal(S.grid.map(x => x.t).join(''), grid, `level ${l}`);
+    assert.deepEqual(S.goals, [goal]);
+  }
+});
+
+test('no templates before SHAPES_FROM; the first template level is a breather', () => {
+  for (let l = 1; l < SHAPES_FROM; l++) assert.equal(boardFor(l).kind, 'square', `level ${l}`);
+  assert.equal(boardFor(SHAPES_FROM).kind, 'template');
+  assert.ok(breather(SHAPES_FROM));
+  for (let l = 1; l <= 300; l++) assert.equal(boardFor(l, 2).kind, 'square');
+});
+
+test('templates mix in, more towards the end of a chapter', () => {
+  const share = (a, b) => { let t = 0; for (let l = a; l <= b; l++) t += boardFor(l).kind === 'template'; return t / (b - a + 1) };
+  const early = share(31, 45) + share(61, 75) + share(91, 105), late = share(46, 60) + share(76, 90) + share(106, 120);
+  assert.ok(early > .3 && late > early, `early ${early / 3} late ${late / 3}`);
+});
+
+test('board depends on level only', () => {
+  const l = SHAPES_FROM, a = makeAttempt(l), b = makeAttempt(l, 3, 2, 0.1, 4);
+  assert.match(a.board, /^[a-z]+$/);
+  for (const k of ['board', 'n', 'cell', 'spawn']) assert.deepEqual(b[k], a[k], k);
+  assert.ok(validSave(a) && hasMove(a) && findGroups(a).length === 0);
+});
+
+test('lower-band fallback picks an easier template', () => {
+  for (let l = SHAPES_FROM; l <= 120; l++) {
+    const b = boardFor(l);
+    if (b.kind !== 'template') continue;
+    const f = boardFor(l, 1), band = name => TEMPLATES.find(t => t.name === name).dMin;
+    assert.equal(f.kind, 'template');
+    assert.ok(band(f.name) < band(b.name) || band(f.name) === Math.min(...TEMPLATES.map(t => t.dMin)), `level ${l}`);
+    assert.equal(makeAttempt(l, 0, 0, 0, 0, 2).board.startsWith('square'), true);
+  }
+});
+
+test('blockers stay in zones', () => {
+  let seen = 0;
+  for (let l = SHAPES_FROM; l <= 120; l++) {
+    if (boardFor(l).kind !== 'template') continue;
+    const S = makeAttempt(l), b = boardFor(l), t = TEMPLATES.find(x => x.name === b.name), zone = parse(t, b.mirror).zone;
+    for (let i = 0; i < S.n * S.n; i++) {
+      if (!S.enc[i] && !S.grid[i]?.lock) continue;
+      seen++;
+      assert.ok(zone.includes(i) && !isSpawner(S, i), `level ${l} cell ${i}`);
+    }
+    assert.ok(validSave(S) && hasMove(S), `level ${l}`);
+  }
+  assert.ok(seen > 20);
+});
+
+test('patterns on squares', () => {
+  const seen = new Set();
+  for (let l = ENC_FROM; l <= 120; l++) {
+    const S = makeAttempt(l);
+    if (S.cell || S.spawn || !S.goals.some(g => g.kind !== 'tiles')) continue;
+    assert.match(S.board, /^square:(ring|wall|cross|diagonal|pairs)$/, `level ${l}`);
+    seen.add(S.board);
+  }
+  assert.equal(seen.size, 5);
 });
