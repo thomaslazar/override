@@ -1,6 +1,6 @@
 # Override board layouts, teleporters and drop goals: design
 
-Date: 2026-11-14. Status: draft for the owner; builder-check calls marked below. Branch `feat/board-layouts`. Replaces roadmap items 1
+Date: 2026-11-14. Status: approved in principle by the owner (2026-11-14); builder-check calls marked below. Branch `feat/board-layouts`. Replaces roadmap items 1
 (board layouts), 2 (drop goal) and 3 (teleporters and islands) with one feature. Extends the core
 loop spec; everything there still holds unless this file says so.
 
@@ -190,7 +190,9 @@ square board (old saves keep working).
 - Teleporters: a marked pair, ingress mark on the bottom edge, egress mark on the top edge, with the
   same glyph or letter and colour on both, so a pair is readable without colour too.
 - Drop points: a mark on the bottom edge of the cell (an arrow out of the board).
-- Drop tiles: own pieces with a glyph; a short effect when one leaves.
+- Drop tiles (owner): visually distinct from every tile you can pop. Not the rounded coloured tile
+  with a katakana glyph: a different silhouette (for example a drawn object such as a drive or
+  keycard, or a framed hardware piece), its own look per kind; a short effect when one leaves.
 - HUD goals: one counter per drop kind with its piece.
 - The fall animation already plays gravity passes; a tile going through a teleporter disappears down
   at the ingress and drops in at the egress.
