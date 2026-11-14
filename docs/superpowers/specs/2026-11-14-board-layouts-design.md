@@ -119,7 +119,7 @@ square board (old saves keep working).
 - Reshuffle: drop tiles, dead cells and features stay where they are; only coloured movable tiles
   shuffle.
 - Finale: drop tiles are untouched; a won level's drops simply stay.
-- Score: a drop tile leaving scores `SCORE.exit` (start at 200, tune), times the wave chain like
+- Score: a drop tile leaving scores `SCORE.exit` (start at 200, tune), flat (no chain factor; planner call), unlike
   other points.
 
 ### Templates (`src/layouts.js`, new, pure)
