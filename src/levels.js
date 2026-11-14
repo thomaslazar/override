@@ -95,18 +95,21 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const fwSpots = [];
   const inRow = r => S.enc.slice(r * n, r * n + n).filter(Boolean).length;
   if (L) {
-    // templates: blockers only on zone cells, never on a spawner, at most half of them (a packed zone
-    // stalls); the zone in the layout stream's order
-    const zone = L.zone.filter(i => !isSpawner(S, i)), room = zone.length >> 1;
+    // templates: blockers only on zone cells, never on a spawner, at most a third of them (a packed zone
+    // stalls); counts scaled from paramsFor's n * n square to the template's live cells; in a small zone
+    // (a walled pocket, under 2n cells) encrypted cells take one hit, as few matches reach it
+    const zone = L.zone.filter(i => !isSpawner(S, i)), room = Math.floor(zone.length / 3);
+    const live = L.cell ? L.cell.filter(x => !x).length : nn, scale = live / (p.n * p.n);
+    const enc = Math.min(Math.round(p.enc * scale), room), fw = Math.round(p.fw * scale), hp = zone.length < 2 * n ? 1 : p.hp;
     for (let j = zone.length - 1; j > 0; j--) { const m = Math.floor(lr() * (j + 1)); [zone[j], zone[m]] = [zone[m], zone[j]] }
-    for (let j = 0, placed = 0; wantCrack && placed < Math.min(p.enc, room) && j < zone.length; j++) {
+    for (let j = 0, placed = 0; wantCrack && placed < enc && j < zone.length; j++) {
       const i = zone[j];
       if (inRow(Math.floor(i / n)) + 1 > n - 2) continue;
-      S.enc[i] = 1 + Math.floor(lr() * p.hp);
+      S.enc[i] = 1 + Math.floor(lr() * hp);
       placed++;
     }
     const fwRoom = room - S.enc.filter(Boolean).length;
-    for (const i of zone) if (wantFw && fwSpots.length < Math.min(p.fw, fwRoom) && !S.enc[i]) fwSpots.push(i);
+    for (const i of zone) if (wantFw && fwSpots.length < Math.min(fw, fwRoom) && !S.enc[i]) fwSpots.push(i);
   } else if (board.pattern === 'pairs') {
     // encrypted cells: random mirrored pairs from row 2 down, at most n - 2 per row
     for (let placed = 0, guard = 0; wantCrack && placed < p.enc && guard < 500; guard++) {

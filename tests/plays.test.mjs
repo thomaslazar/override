@@ -81,3 +81,8 @@ test('a won close records score and spare, a lost one neither', () => {
   close(l, 'lost', { ...mkS(), score: 50 }, 9);
   assert.equal(b.score, undefined); assert.equal(b.spare, undefined);
 });
+
+test('attempt records board', () => {
+  assert.equal(attemptOf({ ...mkS(), board: 'pocket' }, 'T').board, 'pocket');
+  assert.equal(attemptOf(mkS(), 'T').board, 'square');
+});

@@ -15,3 +15,10 @@ test('report on the sample log', () => {
   assert.equal(b.used, 3);             // unlimited: logged moves
   assert.equal(t.attempts, 4);
 });
+
+test('report by board: old logs count as square', () => {
+  const log = JSON.parse(readFileSync(new URL('./fixtures/plays-sample.json', import.meta.url), 'utf8'));
+  log.attempts[0].board = 'pocket';
+  const rows = report([log], 'board');
+  assert.deepEqual(rows.map(r => [r.level, r.attempts]), [['pocket', 1], ['square', 3], ['all', 4]]);
+});

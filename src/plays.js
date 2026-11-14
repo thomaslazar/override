@@ -5,7 +5,7 @@ export const logFrom = o => {
   return { v: PLAYS_V, on: l.on === true, id: typeof l.id === 'string' && l.id.length >= 8 && l.id.length <= 32 ? l.id : null,
     attempts: Array.isArray(l.attempts) ? l.attempts.filter(a => a && typeof a === 'object' && Array.isArray(a.moves)) : [] };
 };
-export const attemptOf = (S, at) => ({ level: S.level, fails: S.fails, n: S.n, k: S.k,
+export const attemptOf = (S, at) => ({ level: S.level, fails: S.fails, board: S.board ?? 'square', n: S.n, k: S.k,
   goals: S.goals.map(g => g.t === undefined ? { kind: g.kind, need: g.need } : { kind: g.kind, t: g.t, need: g.need }),
   limit: S.limit, need: S.need, salt: S.salt, drop: S.drop, deal: S.deal ?? 0, at, moves: [], end: null, left: null, t: 0 });
 const open = log => { const a = log.attempts.at(-1); return a && a.end === null ? a : null; };

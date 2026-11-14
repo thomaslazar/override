@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { solve, pick, limitFor, prepare, CAP } from '../src/bot.js';
-import { makeAttempt } from '../src/levels.js';
+import { solve, pick, limitFor, prepare, search, CAP } from '../src/bot.js';
+import { makeAttempt, boardFor } from '../src/levels.js';
 import { validSave, rngFor } from '../src/core.js';
 
 test('limit eases from the 4th fail, capped at +40%', () => {
@@ -67,4 +67,26 @@ test('every deal of a level gets the same move limit and its own board', () => {
     assert.equal(limits.size, 1, `level ${l} limits`);
     assert.ok(boards.size >= 8, `level ${l} boards ${boards.size}`);
   }
+});
+
+test('bot wins template levels on their own template', () => {
+  for (const l of [11, 19, 25, 30, 58]) {
+    const S = prepare(l);
+    assert.equal(boardFor(l).kind, 'template', `level ${l}`);
+    assert.equal(S.board, boardFor(l).name, `level ${l}`);
+    assert.ok(S.need < CAP, `level ${l} need ${S.need}`);
+  }
+});
+
+test('fallback order: drop on the own template up to 0.5, then a lower template, then a square', () => {
+  const tried = [];
+  const f = search(25, S => { tried.push(`${S.board} ${S.drop}`); return Infinity });
+  const seen = [...new Set(tried)], own = boardFor(25).name, low = boardFor(25, 1).name;
+  assert.equal(seen[0], `${own} 0`);
+  assert.equal(seen.indexOf(`${own} 0.5`) + 1, seen.indexOf(`${low} 0`));
+  assert.ok(!seen.includes(`${own} 0.6`) && !seen.includes(`${low} 0.6`));
+  assert.ok(seen.indexOf(`${low} 0.5`) < seen.findIndex(x => x.startsWith('square')));
+  assert.equal(f.fb, 2);
+  // a passing run stops at the first board
+  assert.equal(search(25, () => 20).fb, 0);
 });

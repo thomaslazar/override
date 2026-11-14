@@ -96,9 +96,10 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   `ring`, `wall` (a middle row), `cross` and `diagonal` (an X) fill the cells nearest the shape
   first, with jitter from the layout stream; firewalls are random from row 1. Square levels without
   blockers draw exactly as before. On a template blockers go only on zone cells that are not
-  spawners, in a shuffled order, at most n - 2 encrypted per row and at most half the zone in all
-  (a packed pocket stalls); the counts from `paramsFor` hold
-  where the zone has room. Goals use the
+  spawners, in a shuffled order, at most n - 2 encrypted per row and at most a third of the zone in all
+  (a packed pocket stalls). The counts from `paramsFor` are scaled from its `n * n` square to the
+  template's live cells. In a small zone (under `2n` cells, a walled pocket) encrypted cells take one
+  hit: few matches reach such a zone, and the bot only values a crack once it breaks. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
@@ -125,19 +126,23 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
 ## Bot (`src/bot.js`)
 
 - Constants: `CAP` 80 (moves before giving up), `K` 1.3, `C` 2 (the human factor), `RUNS` 3,
-  `SALTS` 10, `MIN_LIMIT` 10. The salt search stops a salt at its first capped run (same results).
+  `SALTS` 10 (per drop on a square), `TEMPLATE_SALTS` 3 (per drop on a template), `MIN_LIMIT` 10. The salt search stops a salt at its first capped run (same results).
 - `pick(S, rnd)` (exported): one-move lookahead. Every legal move in both directions is played
   on a copy whose seed is `hash(991, S.level, S.spawns, S.moves)`, independent of the real
   refill seed, so the bot cannot see future refills. Value: goal progress first (1000 per
   goal), +15 per special on the board, +.5 per tile spawned, plus a tiny random tie-break.
-- `solve(S, seed, nice)` plays a copy to a win with no limit (`Infinity` at `CAP`).
+- `solve(S, seed, nice)` plays a copy to a win with no limit (`Infinity` at `CAP`). Copies share the static
+  board arrays (`cell`, `spawn`, `tp`, `exit`) and copy `drops`.
 - `limitFor(need, fails)` = `max(MIN_LIMIT, ceil(need * K + C))`, then +10% per fail from the
   4th, capped at +40%.
-- `prepare(level, fails, pick)`: the first call for a level tries salts 0..9 on deal 0, then lowers difficulty by `drop`
-  steps of 0.1, until all `RUNS` bot runs finish (layout and goals). Then the bot plays `DEALS` (12) seeded tile boards
+- `search(level, run)` (exported, `run` defaults to `solve`): on the level's own board (`fb` 0) tries salts on deal 0,
+  then lowers difficulty by `drop` steps of 0.1 (to 0.5 on a template, 1 on a square), until all `RUNS` bot runs
+  finish (layout and goals). A template that never does falls back to a lower-band template (`fb` 1), then a square
+  (`fb` 2). In the 1 to 60 sim every template level keeps its own template.
+- `prepare(level, fails, pick)`: the first call for a level runs `search`. Then the bot plays `DEALS` (12) seeded tile boards
   (deals) of that layout once each; the easiest and the hardest are dropped, the median sets `need` for every attempt
-  of the level, and up to `KEEP` (10) deals are kept. `{salt, drop, need, deals}` is memoised (last 8 levels). An
-  attempt plays `deals[pick % deals.length]` with `limitFor(need, fails)`, so the move count only changes by the fail
+  of the level, and up to `KEEP` (10) deals are kept. `{salt, drop, fb, need, deals}` is memoised (last 8 levels). An
+  attempt plays `deals[pick % deals.length]` on board `fb` with `limitFor(need, fails)`, so the move count only changes by the fail
   easing. The bot plays with `nice` off.
 
 
