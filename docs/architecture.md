@@ -13,6 +13,10 @@ null, index `r * n + c`), `enc` (encrypted hits left per cell), `goals`, `moves`
 `need`, `seed`, `salt`, `drop`, `deal` (which seeded board), `pick` (set by the UI), counters `spawns`, `shuffles`, `ids`, and `nice` (helpful refill on for the
 player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`'v'` (worm),
 `'b'` (logic bomb) or `'z'` (zero-day, `t === -1`); `lock` is a firewall.
+Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
+`2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
+without `spawn` means every live top-row cell). A dead cell never holds a tile, never fills and is
+never matched; blasts pass over it. `validSave` checks both when present (a dead cell must be empty).
 
 - **random**: `mulberry32`, `hash`, `rngFor`. No `Math.random` anywhere in `src/`.
 - **matching**: `findGroups` merges horizontal and vertical runs of 3+ that share a cell into
@@ -35,8 +39,11 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   not cleared), clears the rest and counts goals, then places the new specials. A special
   created on a cell whose firewalled tile was only unlocked consumes that tile: it appears in
   the wave's `cleared` and counts for the tiles goal.
-- **gravity**: passes until stable: straight down, spawn in row 0 with `spawnColour`, diagonal
-  fill for cells not fed from above (a cell under an encrypted cell or firewalled tile).
+- **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
+  `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
+  unless `fed` (going up via `above` reaches a spawner without a dead cell, encrypted cell or
+  firewalled tile; capped at `n * n` steps against cycles). Dead cells count as occupied when
+  choosing a diagonal source.
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
   each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
   else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and

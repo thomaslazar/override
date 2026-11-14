@@ -18,6 +18,12 @@ export const rc = (S, i) => [Math.floor(i / S.n), i % S.n];
 export const at = (S, r, c) => r >= 0 && c >= 0 && r < S.n && c < S.n ? r * S.n + c : -1;
 export const nbrs = (S, i) => { const [r, c] = rc(S, i); return [at(S, r - 1, c), at(S, r + 1, c), at(S, r, c - 1), at(S, r, c + 1)].filter(j => j >= 0) };
 export const tile = (S, t, s = null) => ({ id: S.ids++, t, s, lock: false });
+// Static cells (S.cell: 0 live, 1 hole, 2 block; absent: all live). A dead cell never holds a tile.
+export const dead = (S, i) => !!S.cell?.[i];
+// The cell gravity pulls from, or -1.
+export const above = (S, i) => i < S.n ? -1 : i - S.n;
+// The spawner at i ({ i, d }) or null. Without S.spawn every live top-row cell spawns any kind.
+export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? null : i < S.n && !dead(S, i) ? { i, d: -1 } : null;
 export const movable = (S, i) => { const x = S.grid[i]; return !!x && !x.lock };
 // The colour a cell matches with, or -1 (empty, encrypted, outside, zero-day).
 export const colourAt = (S, r, c) => { const i = at(S, r, c), x = i < 0 ? null : S.grid[i]; return x && x.s !== 'z' ? x.t : -1 };
@@ -155,7 +161,7 @@ export function fillBoard(S, rnd){
   do {
     for (let i = 0; i < S.n * S.n; i++) {
       S.grid[i] = null;
-      if (S.enc[i]) continue;
+      if (S.enc[i] || dead(S, i)) continue;
       const [r, c] = rc(S, i);
       let t;
       do t = Math.floor(rnd() * S.k);
@@ -227,24 +233,29 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
 }
 
 /* ---------- gravity ---------- */
-// A cell is fed when nothing fixed (encrypted cell, firewalled tile) is above it in its column.
+// A cell is fed when going up (`above`) reaches a spawner without passing anything fixed
+// (dead cell, encrypted cell, firewalled tile). The step cap guards against cycles.
 function fed(S, i){
-  const [r, c] = rc(S, i);
-  for (let k = r - 1; k >= 0; k--) { const j = k * S.n + c; if (S.enc[j] || S.grid[j]?.lock) return false }
-  return true;
+  for (let j = above(S, i), k = 0; j >= 0 && k < S.grid.length; j = above(S, j), k++) {
+    if (dead(S, j) || S.enc[j] || S.grid[j]?.lock) return false;
+    if (isSpawner(S, j)) return true;
+  }
+  return false;
 }
-const occupied = (S, i) => S.grid[i] || S.enc[i] ? 1 : 0;
+const occupied = (S, i) => S.grid[i] || S.enc[i] || dead(S, i) ? 1 : 0;
 function shift(S, from, to, step){ const x = S.grid[from]; S.grid[to] = x; S.grid[from] = null; step.moves.push({ id: x.id, from, to }) }
-// Passes until stable: straight down, spawn in row 0, diagonal fill for unfed cells. Roofed pockets stay empty.
-function gravity(S, steps, calm = false){
+// Passes until stable: straight down from `above`, else spawn at a spawner, else diagonal fill for unfed cells.
+// Roofed pockets stay empty; dead cells never fill.
+export function gravity(S, steps, calm = false){
   const n = S.n, spawned = [];
   for (;;) {
     const step = { k: 'fall', moves: [], spawns: [] };
     for (let r = n - 1; r >= 0; r--) for (let c = 0; c < n; c++) {
       const i = r * n + c;
-      if (S.grid[i] || S.enc[i]) continue;
-      if (r === 0) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
-      if (movable(S, i - n)) { shift(S, i - n, i, step); continue }
+      if (S.grid[i] || S.enc[i] || dead(S, i)) continue;
+      const a = above(S, i);
+      if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
+      if (isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
       if (fed(S, i)) continue;
       // prefer a tile that cannot fall straight itself
       const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc))
@@ -405,6 +416,8 @@ export function validSave(o){
   const nn = o.n * o.n;
   if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
   if (!Array.isArray(o.enc) || o.enc.length !== nn || !o.enc.every(x => int(x, 0, 3))) return false;
+  if (o.cell !== undefined && (!Array.isArray(o.cell) || o.cell.length !== nn || !o.cell.every((x, i) => int(x, 0, 2) && (!x || (o.grid[i] === null && !o.enc[i]))))) return false;
+  if (o.spawn !== undefined && (!Array.isArray(o.spawn) || !o.spawn.every(x => x && int(x.i, 0, nn - 1) && int(x.d, -1, 2)))) return false;
   if (!Array.isArray(o.goals) || !o.goals.length || o.goals.length > 3) return false;
   return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 1e9)
     && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
