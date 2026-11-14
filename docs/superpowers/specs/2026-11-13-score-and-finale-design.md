@@ -109,8 +109,7 @@ base for it.
   example `score 1 240 · best 10 920`). Placement is the builder's, checked on 375 x 548 and
   402 x 706 (it must not crowd the goals or the patrol count).
 - During `animate`, each wave step's `points` tick the HUD score.
-- Finale animation: a toast at the marker step (copy in `lang`, e.g. "Override: flushing the
-  buffers"), then the steps play with a speed-up so the whole finale takes at most about 10 s
+- Finale animation (the toast was dropped in testing 2026-11-14: it overlapped the win screen): the steps play with a speed-up so the whole finale takes at most about 10 s
   (every step still plays, faster). Reduced motion: no animation, straight to the end.
 - Skip: during the finale, a tap anywhere on the board (or the page) stops the animation, `sync()`s
   to the saved end state, and goes to the win screen. The skip ignores the input grace. A tap on the

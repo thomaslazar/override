@@ -7,7 +7,6 @@
   "loadingSub": "Patching in",
   "winTitle": "Door’s open",
   "winText": "Moves to spare: {n}.",
-  "finaleToast": "Override: flushing the buffers",
   "score": "score",
   "best": "best",
   "hudScore": "score {s}",

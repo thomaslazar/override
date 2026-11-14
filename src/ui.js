@@ -185,7 +185,7 @@ const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps
 const skipFinale = e => { skip = true; e.stopPropagation(); e.preventDefault() };   // the tap only skips
 async function playFinale(steps){
   if (steps.length < 2 || RM) return;
-  toast(t('finaleToast')); skip = false;
+  skip = false;
   document.addEventListener('pointerdown', skipFinale, true);   // a tap anywhere skips (ignores the input grace)
   try { await animate(steps, Math.max(1, finaleMs(steps) / FINALE_MS)); if (!skip) await settle() }
   finally { document.removeEventListener('pointerdown', skipFinale, true); skip = false }

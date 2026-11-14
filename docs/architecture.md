@@ -128,7 +128,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
   the finale) runs `finale` silently at boot.
-- Finale: `playFinale(steps)` shows the `finaleToast`, then plays the steps sped up so the whole finale takes
+- Finale: `playFinale(steps)` plays the steps sped up so the whole finale takes
   at most about `FINALE_MS` (10 s; `finaleMs` estimates the normal length from `STEP_MS`). A tap anywhere
   (document capture `pointerdown`, ignores the grace, stops the event) skips: the animation stops at the next
   step and `sync()` shows the saved end state. Reduced motion skips the animation.
