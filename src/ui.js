@@ -1,5 +1,5 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves } from './core.js';
+import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
@@ -134,12 +134,12 @@ async function animate(steps, speed = 1){
     const s = steps[j];
     if (s.k === 'fall') {
       // one gravity pass moves tiles a single row: play a whole run of passes as one drop
-      const above = new Map();   // column -> new tiles queued above the board in this run
+      const above = new Map();   // spawner cell -> new tiles queued above it in this run
       for (; j < steps.length && steps[j].k === 'fall'; j++) {
         for (const m of steps[j].moves) { const sp = sprites.get(m.id); place(sp, m.to); sp.falling = true; if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id) }
         for (const p of steps[j].spawns) {
-          const x = p.i % S.n, k = (above.get(x) || 0) + 1; above.set(x, k);
-          sprites.set(p.tile.id, { ...p.tile, x, y: -k, tx: x, ty: 0, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
+          const x = p.i % S.n, y = Math.floor(p.i / S.n), k = (above.get(p.i) || 0) + 1; above.set(p.i, k);
+          sprites.set(p.tile.id, { ...p.tile, x, y: y - k, tx: x, ty: y, top: y, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
         }
       }
       // in the finale the next step starts while tiles still drop (chaotic on purpose)
@@ -336,6 +336,19 @@ function drawEnc(cx, cy, hp, size = cs){
   if (hp >= 3) { rr(cx - a + size * .06, cy - a + size * .06, 2 * a - size * .12, 2 * a - size * .12, size * .06); g.stroke() }
   g.restore();
 }
+// block: a dark riveted steel plate with hazard hatching, flush with the cell (no glow: it is not a tile)
+function drawBlock(cx, cy){
+  const a = cs * .46;
+  g.save(); rr(cx - a, cy - a, 2 * a, 2 * a, cs * .06); g.fillStyle = '#1b1f24'; g.fill(); g.clip();
+  g.strokeStyle = 'rgba(160,170,180,.13)'; g.lineWidth = cs * .07; g.beginPath();
+  for (let k = -2; k <= 2; k++) { g.moveTo(cx - a + k * a * .6, cy + a); g.lineTo(cx + a + k * a * .6, cy - a) } g.stroke();
+  g.restore(); g.save(); rr(cx - a, cy - a, 2 * a, 2 * a, cs * .06); g.strokeStyle = '#4a525c'; g.lineWidth = cs * .04; g.stroke();
+  g.fillStyle = '#69737e'; for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.arc(cx + x * a * .72, cy + y * a * .72, cs * .045, 0, 7); g.fill() }
+  g.restore();
+}
+// spawner mark: a small down chevron on the cell's top edge, only where the spawners are not the plain top row
+const spawnMark = (cx, y) => { const w = cs * .12; g.save(); g.fillStyle = PAL.dim; g.beginPath(); g.moveTo(cx - w, y); g.lineTo(cx + w, y); g.lineTo(cx, y + w * .8); g.fill(); g.restore() };
+const marked = i => S.spawn?.some(x => x.i === i && (i >= S.n || x.d !== -1));
 const flash = (i, kind, col) => { fx.push({ k: 'flash', i, kind, col, at: performance.now() }); boom(i, kind, col) };
 /* ---------- particles and shake (visual only) ---------- */
 // Tuning: BOOM sets how wild blasts look; sparks fly in cells/s, fall with SPARK_G, live 250 to 650 ms.
@@ -352,7 +365,7 @@ function sparks(x, y, col, count, speed, spread = 2 * Math.PI, dir = 0){
 function boom(i, kind, col){
   const n = S.n, r = Math.floor(i / n), c = i % n, cx = c + .5, cy = r + .5, cl = col || GLOW;
   if (kind === 'h' || kind === 'v') {   // worm: sparks shower off the whole line, kicked sideways
-    for (let k = 0; k < n; k++) { const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
+    for (let k = 0; k < n; k++) { if (dead(S, kind === 'h' ? r * n + k : k * n + c)) continue; const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
     kick(4);
   } else if (kind === 'b') { sparks(cx, cy, cl, 34, 11); kick(8) }
   else if (kind === 'bb' || kind === 'bw' || kind === 'ww') { sparks(cx, cy, cl, 50, 14); kick(11) }
@@ -405,9 +418,12 @@ function frame(ts){
     const sp = RM ? 1 : Math.min(1, (ts - shake.at) / 260);
     if (sp < 1) { const a = shake.amp * (1 - sp) ** 2; g.translate((fxRnd() - .5) * 2 * a, (fxRnd() - .5) * 2 * a) }
     for (let i = 0; i < n * n; i++) {
-      const r = Math.floor(i / n), c = i % n;
+      const r = Math.floor(i / n), c = i % n, d = S.cell?.[i];
+      if (d === 1) continue;   // hole: outside the board, no background
+      if (d === 2) { drawBlock(c * cs + cs / 2, r * cs + cs / 2); continue }
       g.fillStyle = PAL.cell; g.beginPath(); g.roundRect(c * cs + cs * .04, r * cs + cs * .04, cs * .92, cs * .92, cs * .1); g.fill();
       if (vEnc[i]) drawEnc(c * cs + cs / 2, r * cs + cs / 2, vEnc[i]);
+      if (marked(i)) spawnMark(c * cs + cs / 2, r * cs + cs * .04);
     }
     if (blocked() || won(S) || lost(S)) idle();
     else if (hint === undefined && ts - idleAt > HINT_MS) { const v = validMoves(S); hint = v.length && v.length <= HINT_MAX ? v[0] : null }
@@ -416,7 +432,7 @@ function frame(ts){
       if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false }
       else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
-      if (p.y < -0.5) continue;
+      if (p.y < (p.top ?? 0) - .5) continue;   // still above its spawner
       const w = wig?.get(p.id);
       drawTile(p, (p.x + (w?.[0] ?? 0)) * cs + cs / 2, (p.y + (w?.[1] ?? 0)) * cs + cs / 2);
     }
@@ -592,7 +608,7 @@ function wiggle(ts){
   return m;
 }
 const blocked = () => busy || performance.now() < grace || !S || $('#sheet').classList.contains('on') || !$('#menu').hidden;
-const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.clientY - b.top) / cs), c = Math.floor((e.clientX - b.left) / cs); return r >= 0 && c >= 0 && r < S.n && c < S.n ? r * S.n + c : -1 };
+const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.clientY - b.top) / cs), c = Math.floor((e.clientX - b.left) / cs); return r >= 0 && c >= 0 && r < S.n && c < S.n && !dead(S, r * S.n + c) ? r * S.n + c : -1 };
 const adjacent = (a, b) => Math.abs(Math.floor(a / S.n) - Math.floor(b / S.n)) + Math.abs(a % S.n - b % S.n) === 1;
 cv.onpointerdown = e => { idle(); if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
 cv.onpointermove = e => {
@@ -601,7 +617,7 @@ cv.onpointermove = e => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < cs * .35) return;
   const r = Math.floor(press.p / S.n) + (Math.abs(dx) > Math.abs(dy) ? 0 : Math.sign(dy)), c = press.p % S.n + (Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0);
   const a = press.p; press = null; sel = -1;
-  if (r >= 0 && c >= 0 && r < S.n && c < S.n) play(a, r * S.n + c);
+  if (r >= 0 && c >= 0 && r < S.n && c < S.n && !dead(S, r * S.n + c)) play(a, r * S.n + c);
 };
 cv.onpointerup = () => {
   if (!press) return; const p = press.p; press = null;

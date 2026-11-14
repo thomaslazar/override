@@ -170,7 +170,7 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
   tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
-  tiles start stacked above the board), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  tiles start stacked above their spawner and stay hidden until they pass its row, `top`), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
@@ -194,7 +194,8 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   blinking with `alertflash`) when beaten. A tap on the sheet ends the count-up. Reduced motion shows the
   final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
-  then an adjacent tile, also swaps. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
+  then an adjacent tile, also swaps. Dead cells take no input (`cellAt` returns -1, a drag onto one
+  does nothing); worm sparks skip them. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first
   (`validMoves`) wriggles, the two tiles nudging toward each other; reduced motion outlines them instead. Input,
@@ -212,7 +213,10 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
   (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
   level's colours); blockers are `drawEnc` (static slab, amber outline for hits left) and
-  `drawFw` (flames and cage bars). Effects: worm streak, bomb shockwave, area flash, crack.
+  `drawFw` (flames and cage bars). Dead cells: a hole gets no cell background, so the board's
+  edge follows the shape; a block is `drawBlock` (a dark riveted steel plate with faint hatching, no
+  glow). `spawnMark` draws a small down chevron on the top edge of a spawner only where spawners differ
+  from the plain top row (`S.spawn` entries below row 0 or limited to a drop kind). Effects: worm streak, bomb shockwave, area flash, crack.
   Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
   animation, effects and cycling (win art static). Tile colours come from `paletteFor`.

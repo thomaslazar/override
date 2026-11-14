@@ -6,48 +6,23 @@ the fiction are still working names.
 
 ## Next, in order
 
-1. **Board layouts.** Levels stop being plain squares. Layout is the genre’s biggest
-   difficulty lever and the biggest gap today.
-   - Shapes: void cells for holes, notches, missing corners, rings, diagonal cuts.
-   - Templates: a library of 15 to 25 hand-drawn layouts (string grids with tags such as
-     `walled`, `funnel`, `split`), rotated and mirrored for variety. `makeAttempt` picks one by
-     difficulty band and seed and fills it with goals, blockers and tiles as today. King keeps
-     layouts hand-made too and uses bots only to test them.
-   - Blockers placed by the template (a walled centre, a funnel, a bottleneck) instead of only
-     in random mirrored pairs.
-   - Spawn points: tiles drop in only from marked cells, not the whole top row; every region
-     stays fed so no part of the board goes dead.
-   - The bot falls back to a simpler template when no seed passes; `tools/sim.mjs` prints the
-     template name. A test checks every template has a legal move and every region is fed.
-   - Open: whether some levels are fully hand-made.
+1. **Board layouts, drops and teleporters.** Spec: `docs/superpowers/specs/2026-11-14-board-layouts-design.md`.
+   Levels stop being plain squares; built in three stages on `feat/board-layouts`.
+   - Stage 1, geometry and spawners: done. Holes and unbreakable blocks, spawners anywhere,
+     blocker patterns on square boards (ring, wall, cross, diagonal), the first shape and
+     geometry templates (notch, pillars, diamond, hourglass, frame, split, wall, pocket), bot and
+     sim support, drawing.
+   - Stage 2, teleporters: an ingress and an egress anywhere; whatever falls out of the ingress
+     comes in at the egress. Matches and blasts never reach across. Teleporter templates (snake,
+     feeder, crossover, mid-board egress).
+   - Stage 3, drop goal: drop tiles (drives, keys, a planted device) come from spawners and leave
+     at drop points. They never match and cannot be destroyed; they swap only when the swap makes a
+     match for the other tile. Never more on the board than the goals still need. Drop templates
+     (corner run, mirrored funnel).
+   - Research: `docs/research/2026-11-11-level-layouts.md`; 50 real levels transcribed and 26
+     template candidates: `docs/research/2026-11-11-layout-gallery.md`.
 
-2. **Drop goal.** Items (data drives, keys, a planted device) start high or come from a
-   dispenser and must be brought to an exit, where they leave the board. Exits are the bottom
-   row of their column or marked cells. They do not match and cannot be destroyed; clearing
-   tiles below lets them fall. A drop can be swapped with a neighbouring tile when the swap
-   makes a match for that tile, so drops also move up and sideways, not only down. Never more
-   on the board than the goal still needs. The bot needs a sense of how far each drop is from
-   its exit, or it won’t finish these levels.
-
-3. **Teleporters and islands.**
-   - Teleporters: an ingress and an egress, placed anywhere on the board. Whatever falls out
-     of the bottom of the ingress cell comes in at the top of the egress cell. One way only.
-     Tiles, drops and specials pass through; a worm’s blast and matches do not reach across.
-     Drawn as a marked pair, with a glyph as well as colour.
-   - Teleporter layouts are part of the template library. Examples:
-     - Snake: each column’s bottom leads to the top of the next column, so a drop starting top
-       left travels the whole board to an exit on the far side.
-     - Feeder: an island with no spawn point gets its tiles from another part of the board.
-     - Crossover: the left half drains into the right half, or the bottom of one island into
-       the top of another, so drops change sides or levels.
-     - Mid-board egress: tiles come in below a wall instead of from the top.
-   - Islands: parts of the board cut off from the rest, each fed by its own spawn point or a
-     teleporter exit. Set pieces like a three-column island holding the drops, walled in by
-     ICE that only specials break.
-   - Research on how the genre lays out levels: `docs/research/2026-11-11-level-layouts.md`;
-     50 real levels transcribed and 26 template candidates: `docs/research/2026-11-11-layout-gallery.md`.
-
-4. **More blockers.** The genre’s usual set, in the fiction:
+2. **More blockers.** The genre’s usual set, in the fiction:
    - **ICE:** a hardened cell that matches next to it do not touch; only worms, bombs and
      zero-days break it. One to three layers. The wall around a set piece.
    - **Logs** (a mark under a tile, cleared by a match on top of it, one or two layers) with a
@@ -68,26 +43,27 @@ the fiction are still working names.
    - Later candidates: conveyor buses that move tiles each turn, tunnels that link two cells,
      nodes that keep producing a blocker.
 
-5. **Level score.** Done. A score per level from what you clear: tiles, specials fired, combos,
+3. **Level score.** Done. A score per level from what you clear: tiles, specials fired, combos,
    blockers broken, with cascades worth more. Shown in the HUD and on the win sheet, best score
    per level kept. Stars were dropped. Goals still decide win or loss; the score never does.
 
-6. **End-of-level payout.** Done as the finale (the payout into funds is the next item). When a level is won with moves to spare, the board plays out: every
-   special on the board fires, each spare move turns a random tile into a worm or bomb that
-   fires, and tiles keep dropping and cascading until the board stands still. Everything scores.
+4. **End-of-level payout.** Done as the finale (the payout into funds is the next item). When a level is won with moves to spare, the board plays out: every
+   special on the board fires, then spare moves go in rounds of 5: each round turns that many
+   random tiles into worms or bombs that fire together, and tiles keep dropping and cascading until
+   the board stands still. Everything scores.
    - Part of the pure core (`finale(S)`, seeded), so the result is fixed the moment the level
      is won. The UI only animates its steps.
    - A tap skips the animation and jumps to the final board and score. Skipping never changes
      the result.
    - Saved before it animates, so closing the app mid-payout loses nothing.
 
-7. **Funds.** The level score turns into the in-game currency at the end of each level.
+5. **Funds.** The level score turns into the in-game currency at the end of each level.
    - Open: the name, the conversion (flat, or weighted to spare moves so playing well pays
      more than grinding), whether replaying a won level pays, a per-level cap so funds can’t be
      farmed.
    - Earned only by playing, never bought.
 
-8. **Gear and shop.** What funds buy.
+6. **Gear and shop.** What funds buy.
    - Gear taken into a level: start with a worm, bomb or zero-day on the board, or a few extra
      moves.
    - Tools used during a level: break one cell, swap any two tiles without a match, reshuffle.
@@ -95,7 +71,7 @@ the fiction are still working names.
    - Every level stays beatable without gear, verified by the bot. Gear makes a level easier,
      never possible.
 
-9. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
+7. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
    - An intro card the first time something new shows up: each blocker (encrypted cells, firewalls,
      later ICE, logs, trace, malware), each special (worm, logic bomb, zero-day) the first time one is
      made, each goal kind, and later mechanics (drops, teleporters). A short terminal window with the
@@ -108,23 +84,23 @@ the fiction are still working names.
      should show on any board and be switchable in settings.
    - Open: whether the first levels also get a guided first move (a pointing hand on a set swap).
 
-10. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
+8. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
     The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
 
-11. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
+9. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
     ASCII style, picked at random per win: REKT, OWNED, ROOTED, ACCESS GRANTED, GG and similar,
     each with its own small ASCII picture next to the padlock (an open door, a skull, a terminal).
     Decoration, not translated, static under reduced motion like PWNED.
 
-12. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
+10. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
     open plate in the same framing as the maglock (`docs/art.md`).
 
-13. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
+11. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
     progress; crew members on comms with names; backgrounds that change with the obstacle
     (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
     last level of a run.
 
-14. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
+12. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
     for matches, specials and the payout; mute in settings.
 
 ## Later
@@ -134,6 +110,12 @@ the fiction are still working names.
   special, fewer blockers), like intel in Splice.
 - **German and other translations.** The language system is in place; add `de.json`.
 - **Statistics:** levels won, best scores, specials made.
+- **Drop point per kind:** a drop point that takes only one drop kind, so two kinds must reach
+  different exits.
+- **Blocks stop blasts:** blocks that stop worm and bomb blasts instead of letting them pass over,
+  so a wall shields what is behind it.
+- **Layered generation (B):** boards combined from small libraries (shape, flow of spawners,
+  teleporters and drops, blocker pattern), validated, for far more variety than whole templates.
 
 ## Not doing
 
