@@ -96,7 +96,7 @@ look, translations beyond English, an "easier retries" switch.
 ### Blockers
 
 - **Encrypted cell:** occupies a cell, holds no tile, does not fall. Has 1 to 3 hits. Loses one
-  hit per wave when a matched cell is next to it (4-neighbourhood) or a blast covers it, at most
+  hit per wave when a matched cell or a tile a zero-day clears is next to it (4-neighbourhood) or a blast covers it, at most
   one hit per wave. At 0 it becomes an empty cell and tiles fall in.
 - **Firewall:** a lock on a tile. The tile cannot be swapped and does not fall. A match through
   the tile or a blast covering it removes the lock; the tile stays.

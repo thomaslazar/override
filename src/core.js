@@ -197,16 +197,18 @@ function bump(S, kind, t){ for (const g of S.goals) if (g.kind === kind && (kind
 // `matched` holds cells cleared by matching (they crack encrypted neighbours); `fired` holds ids that must not fire.
 function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
   const step = { k: 'wave', fired: [], cleared: [], cracked: [], unlocked: [], created: [] };
-  const queue = [...cells];
+  const queue = [...cells], near = new Set(matched);   // near: cleared like a match, so they crack their neighbours
   while (queue.length) {
     const i = queue.pop(), x = S.grid[i];
     if (!x || !x.s || fired.has(x.id)) continue;
     fired.add(x.id); step.fired.push({ i, s: x.s });
-    for (const j of area(S, i, x)) if (!cells.has(j)) { cells.add(j); queue.push(j) }
+    const a = area(S, i, x);
+    if (x.s === 'z') a.forEach(j => near.add(j));   // a zero-day's tiles count as matched
+    for (const j of a) if (!cells.has(j)) { cells.add(j); queue.push(j) }
   }
   const hit = new Set();
   for (const i of cells) if (S.enc[i]) hit.add(i);
-  for (const i of matched) for (const j of nbrs(S, i)) if (S.enc[j]) hit.add(j);
+  for (const i of near) for (const j of nbrs(S, i)) if (S.enc[j]) hit.add(j);
   for (const i of hit) { S.enc[i]--; step.cracked.push({ i, hp: S.enc[i] }); if (!S.enc[i]) bump(S, 'crack') }
   for (const i of cells) {
     const x = S.grid[i];

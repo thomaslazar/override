@@ -120,6 +120,12 @@ test('zero-day swapped with a tile clears that colour', () => {
   assert.ok(S.goals[0].got >= cs);
 });
 
+test('zero-day cracks encrypted cells next to the tiles it clears, once each', () => {
+  const S = mk(['C B C D', 'E Z C B', 'C D E F', '#2 C F A']);
+  move(S, idx(S, 1, 1), idx(S, 1, 2));
+  assert.equal(S.enc[idx(S, 3, 0)], 1);   // two cleared C neighbours, one hit
+});
+
 const comboCase = (rows, a, b) => { const S = mk(rows); const r = move(S, a, b); return { S, ...r, cleared: new Set(wave(r.steps).cleared.map(x => x.i)) } };
 
 test('worm + worm clears a cross at the landing cell', () => {

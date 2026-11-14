@@ -31,7 +31,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   bombs, then fires them, `zz` clears the board. Zero-day with a plain tile clears that colour.
   A zero-day fired by a blast clears a random colour still on the board (seeded by its id).
 - **wave**: fires specials in a chain (each id once), cracks encrypted cells (hits from a fired
-  area, plus matched neighbours), unlocks firewalled tiles (a firewalled tile hit is unlocked,
+  area, plus neighbours of matched cells and of a zero-day's tiles), unlocks firewalled tiles (a firewalled tile hit is unlocked,
   not cleared), clears the rest and counts goals, then places the new specials. A special
   created on a cell whose firewalled tile was only unlocked consumes that tile: it appears in
   the wave's `cleared` and counts for the tiles goal.
