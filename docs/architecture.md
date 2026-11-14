@@ -57,7 +57,7 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 - **finale**: `finale(S)` (precondition `won(S)`) sets `S.spare` to the moves left and `S.moves` to 0,
   then returns `{ steps }` starting with a `{ k: 'finale' }` marker: every special on the board fires
   (a wave, then gravity and cascade, repeated until none is left, 500 rounds max), then the spare
-  moves go in rounds of up to `FINALE_BATCH` (8): each round turns that many distinct seeded random
+  moves go in rounds of up to `FINALE_BATCH` (5): each round turns that many distinct seeded random
   plain, unlocked tiles into bombs (1/3) or worms (h or v) with one `convert` step (`spent` = the
   moves it uses) and fires the board again. Its gravity is calm (no settle-time damping), so lucky
   lines are allowed. All of it scores; the result is fixed when the level is won.
@@ -133,9 +133,10 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
   (document capture `pointerdown`, ignores the grace, stops the event) skips: the animation stops at the next
   step and `sync()` shows the saved end state. Reduced motion skips the animation.
 - HUD score: `#score` under the goals shows `score n`, plus `· best n` when the level has a best
-  (`fmt` groups digits with a thin space). While a move animates, `shown` holds the HUD's score and
+  (plain digits, no grouping). While a move animates, `shown` holds the HUD's score and
   moves: it starts at the score before the move and the moves left after it, each wave step adds its
-  `points`, and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0;
+  `points`, and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0; in the finale a drop waits at most 150 ms, so the next round
+  converts and fires while tiles still fall (state is unchanged, only the look overlaps);
   `sync()` then clears it.
 - Best scores: `override-best` is `{ "<level>": score }`, read once at boot (junk becomes `{}`);
   `bestOf(level)` is an integer or `null`. `win()` reads the previous best, then stores the higher one.

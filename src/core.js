@@ -292,7 +292,7 @@ function cascade(S, steps, prefer = [], swipe = null, fire = [], chain = 1, calm
   }
 }
 /* ---------- finale ---------- */
-export const FINALE_BATCH = 8;   // spare moves turned special and fired together per round
+export const FINALE_BATCH = 5;   // spare moves turned special and fired together per round
 // After a win: fire every special left, then turn spare moves into random specials, up to FINALE_BATCH at a time, and fire them.
 // Refills are not damped (calm), so lucky lines are allowed. Precondition: won(S).
 export function finale(S){

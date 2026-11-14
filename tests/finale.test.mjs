@@ -36,9 +36,9 @@ test('forty spare moves terminate with moves 0 and no specials', () => {
 test('spare moves convert in rounds of FINALE_BATCH tiles at once', () => {
   const S = mk(plain(8), { goals: won1, moves: 20 });
   const conv = finale(S).steps.filter(s => s.k === 'convert');
-  assert.deepEqual(conv.map(s => s.spent), [8, 8, 4]);
-  assert.equal(conv[0].cells.length, 8);
-  assert.equal(new Set(conv[0].cells.map(c => c.i)).size, 8);
+  assert.deepEqual(conv.map(s => s.spent), [5, 5, 5, 5]);
+  assert.equal(conv[0].cells.length, 5);
+  assert.equal(new Set(conv[0].cells.map(c => c.i)).size, 5);
 });
 test('spare moves with no plain movable tile are skipped', () => {
   const S = mk(rows(3, (r, c) => (r + c) % 2 ? '#1' : 'A!'), { goals: won1, moves: 3 });

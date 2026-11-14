@@ -85,7 +85,7 @@ base for it.
 - No reshuffle during the finale. Goal counters keep counting (harmless; the level is won).
 - A level won with no spare moves and no specials gets just the marker step (no show).
 - Changed in testing (owner, 2026-11-14: 20+ spare moves took ages one at a time): spare moves go in
-  rounds of up to 8 (`FINALE_BATCH`). Each round turns up to 8 distinct plain tiles special in one
+  rounds of up to 5 (`FINALE_BATCH`). Each round turns up to 5 distinct plain tiles special in one
   `convert` step (`spent` = moves used, the HUD drops by it) and fires them together, then cascades.
   Seed per round: `rngFor(S.seed, 29, round)`. A round with no plain tile is skipped whole.
 

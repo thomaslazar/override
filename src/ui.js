@@ -61,7 +61,7 @@ const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
 // Best score per level: { "<level>": score }, read once; junk becomes {}.
 let bests = {}; try { const o = JSON.parse(store.get('override-best')); if (o && typeof o === 'object' && !Array.isArray(o)) bests = o } catch {}
 const bestOf = level => Number.isInteger(bests[level]) && bests[level] >= 0 ? bests[level] : null;
-const fmt = n => String(n).replace(/\B(?=(\d{3})+$)/g, '\u2009');   // thin space every 3 digits
+const fmt = n => String(n);
 /* ---------- play log ---------- */
 let plog; try { plog = logFrom(JSON.parse(store.get('override-plays'))) } catch { plog = logFrom(null) }
 let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0 (page visible)
@@ -142,7 +142,8 @@ async function animate(steps, speed = 1){
           sprites.set(p.tile.id, { ...p.tile, x, y: -k, tx: x, ty: 0, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
         }
       }
-      j--; await settle(); continue;
+      // in the finale the next step starts while tiles still drop (chaotic on purpose)
+      j--; await (inFinale ? Promise.race([settle(), wait(150)]) : settle()); continue;
     }
     if (s.k === 'swap' || s.k === 'back') {
       const A = idAt.get(s.a), B = idAt.get(s.b);
@@ -151,7 +152,7 @@ async function animate(steps, speed = 1){
     }
     if (s.k === 'combo') { flash(s.i, s.kind); await wait(120) }
     if (s.k === 'finale') inFinale = true;
-    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - (s.spent ?? 1)); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(450) }
+    if (s.k === 'convert') { if (inFinale && shown) { shown.moves = Math.max(0, shown.moves - (s.spent ?? 1)); hud() } for (const c of s.cells) sprites.get(idAt.get(c.i)).s = c.s; if (s.cells.length) await wait(inFinale ? 250 : 450) }
     if (s.k === 'wave') {
       for (const f of s.fired) { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
@@ -168,15 +169,15 @@ async function animate(steps, speed = 1){
     }
   } } finally { pace = 1 }
 }
-// Finale at normal speed, roughly (a run of fall passes is one drop, about 350 ms); sped up to fit FINALE_MS.
-const FINALE_MS = 10000, STEP_MS = { wave: 190, convert: 450, fall: 350, combo: 120 };
+// Finale at normal speed, roughly (a run of fall passes is one drop, cut short at 150 ms); sped up to fit FINALE_MS.
+const FINALE_MS = 10000, STEP_MS = { wave: 190, convert: 250, fall: 150, combo: 120 };
 const finaleMs = steps => steps.reduce((x, s, j) => x + (s.k === 'fall' && steps[j - 1]?.k === 'fall' ? 0 : STEP_MS[s.k] ?? 0), 0);
 const skipFinale = e => { skip = true; e.stopPropagation(); e.preventDefault() };   // the tap only skips
 async function playFinale(steps){
   if (steps.length < 2 || RM) return;
   toast(t('finaleToast')); skip = false;
   document.addEventListener('pointerdown', skipFinale, true);   // a tap anywhere skips (ignores the input grace)
-  try { await animate(steps, Math.max(1, finaleMs(steps) / FINALE_MS)) }
+  try { await animate(steps, Math.max(1, finaleMs(steps) / FINALE_MS)); if (!skip) await settle() }
   finally { document.removeEventListener('pointerdown', skipFinale, true); skip = false }
 }
 
