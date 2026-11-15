@@ -710,7 +710,9 @@ cv.onpointermove = e => {
 };
 cv.onpointerup = () => {
   if (!press) return; const p = press.p; press = null;
+  const x = S.grid[p];
   if (sel >= 0 && adjacent(sel, p)) { const s = sel; sel = -1; play(s, p) }
+  else if (sel === p && x?.s && x.s !== 'z' && !x.lock) { sel = -1; play(p, p) }   // a second tap fires a worm or bomb
   else sel = sel === p ? -1 : p;
 };
 cv.onpointercancel = () => press = null;

@@ -117,17 +117,17 @@ export const TEMPLATES = [
     'z z z z # . . . .',
     '. . . . # . . . .',
     'iA iB iC iD # . . . .'),
-  // drops: drop tiles come from the spawners and leave at the drop points (X); a drop resting on a bottom
-  // cell that is not a drop point needs a swap that makes a match, so drops mostly reach X by gravity
-  { ...T('chute', 0.3, 0.8, ['drop'], false, 1.1,
+  // drops: drop tiles come from the spawners and leave at the drop points (X). On the chute most columns
+  // end short of a drop point, so a drop needs swaps sideways along the bottom (or a worm or bomb swap)
+  { ...T('chute', 0.3, 0.8, ['drop'], false, 0.75,
     'S S S S S S S S',
     '. . . . . . . .',
-    '. . . . . . . .',
     '. . z z z z . .',
     '. . z z z z . .',
     '. . z z z z . .',
     '. . . . . . . .',
-    'X X X X X X X X'), every: 6 },
+    '. . . . . . . .',
+    '# . X . . X . #'), every: 3 },
   // corner run: the snake with a drop point at its end, so a drop runs through every column
   { ...T('corner', 0.4, 1, ['drop', 'snake', 'teleport'], true, 0.8,
     'S eA eB eC eD eE eF',

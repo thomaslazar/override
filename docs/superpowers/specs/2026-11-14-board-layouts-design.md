@@ -168,6 +168,14 @@ square board (old saves keep working).
   the pool has others; a mirrored template alternates sides on each use. A board split in halves
   (split, wall) has an odd size so the split sits in the middle (wall is 9 x 9 now). Holes are drawn
   as faint hatching, so off-board areas read as such and not as empty black.
+- Changed in testing (owner, 2026-11-15, second round): templates are the majority now, about 1 in 2
+  rising to 4 in 5 over a chapter (square boards only have five patterns and felt like the same few
+  boards). A level whose pick would repeat one of the last two template boards gets a square board
+  instead. A worm or bomb swapped with a drop fires (a zero-day still needs a match). A worm or bomb
+  can be fired in place by tapping it twice (selected, then tapped again); it costs a move; a
+  zero-day cannot. A drop leaves the moment it lands on a drop point, not when the whole board has
+  settled. The chute was too easy (every drop fell straight in) and drops came too rarely: its bottom
+  row now has blocks in the corners and two drop points, so drops need sideways swaps, every 3.
 - Blocker patterns on squares: ring, wall row, cross, diagonal, random mirrored pairs (today), by
   level. Builder-check call: patterns apply to every square level with blockers, so those levels
   get new boards and the bot sets new limits for them; square levels without blockers keep their

@@ -32,10 +32,12 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   5+ run makes a zero-day, an L or T (a horizontal and a vertical run) a bomb, a run of 4 a
   worm along the swipe (or its own direction). `spotOf` puts it on a swapped cell, else the
   crossing (bomb), else the middle of the longest run. `swapLegal` needs a match, or a special.
-  A swap with a drop is legal only when the other tile lands in a line (a special too); drop with drop never.
-- **move**: `move(S, a, b)` returns `{ ok, steps }`. Steps are `swap`, `back`, `combo`,
+  A swap with a drop is legal when the other tile lands in a line, or is a worm or bomb (it fires); a zero-day
+  needs the line; drop with drop never.
+- **move**: `move(S, a, b)` returns `{ ok, steps }`. `a === b` taps a worm or bomb: it fires in place for one
+  move (a `wave` from that cell, gravity, cascade at chain 2); a zero-day, a locked or a plain tile is not ok. Steps are `swap`, `back`, `combo`,
   `convert`, `wave`, `fall`, `exit`, `shuffle` (contract in the plan). Flow: swap; a legal swap with a drop
-  resolves as the other tile's match (no combo); a lone worm or bomb
+  resolves as the other tile's match (no combo), or fires the worm or bomb like a lone special swap; a lone worm or bomb
   swapped into a match joins that match's first wave (so the special it makes survives); any
   other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
@@ -58,7 +60,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
   Per settle it caches `above`, the spawner test and fed per cell (they cannot change while tiles
   fall), which keeps long teleporter chains (the snake) cheap. Drops fall like tiles (diagonal slides too).
-  When a pass settles (and gravity is not calm), every drop on a drop point leaves: an
+  After every pass that moved something, and again when a pass settles (gravity not calm), every drop on a
+  drop point leaves, so a drop goes the moment it lands: an
   `{ k: 'exit', i, id, d, points }` step, its goal counts, `SCORE.exit` added flat (no chain factor),
   then gravity goes on and refills the cell. A spawner spawns a drop instead of a tile when one is due
   (`dropDue`: by `S.drops`, of a kind the spawner allows, the first drop goal that still needs more than
@@ -102,7 +105,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 - `boardFor(level, fb, tags)` picks the board from `level` only (stream `rngFor(level, 31)`, so the
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
   Square only before `SHAPES_FROM` (11, a breather, always a template); after it a template with
-  chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
+  chance .5 rising to .8 over the chapter, from those whose band holds `difficulty(level)`.
   Templates tagged `teleport` wait for `TP_FROM` (16, a breather, always a teleporter template), `drop` for `DROP_FROM` (21, a breather, always a drop template). Every 5th level
   prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
   band (smaller `dMin`), or the easiest one, among templates with the same drop-ness (a fallback never
@@ -110,6 +113,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `RECENT` (5) template boards is skipped while the pool has others, and a flippable template flips
   side on each use. This needs the earlier levels' own boards, so `boardFor` fills a module cache
   `picks` in level order (fb 0, default tags) and reads it.
+  A pick that would still repeat one of the last two template boards (a thin pool at low difficulty) gives a
+  square board instead (not on spikes, `TP_FROM` or `DROP_FROM`).
 - `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
   template sets `n` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). A template with
   drop points also sets `S.exit`, `S.drops = { every, wait }` (`every` from the template; `wait` starts at
@@ -152,7 +157,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   column's bottom ported to the next column's top, so tiles snake across the board; flippable) and
   `relay` (split by a block column; the second half has no spawner and is fed by four pairs from the
   bottom of the first; flippable). Drop templates (tag `drop`, with `X` drop points) carry `every`, their drop
-  schedule: `chute` (an open board, the whole bottom row drop points, every 6), `corner` (the corner run: the
+  schedule: `chute` (an open board whose bottom row has blocks in the corners and only two drop points, so most drops need
+  swaps sideways, every 3), `corner` (the corner run: the
   snake with a drop point bottom right, every 0; flippable), `funnel` (the mirrored funnel: a corner run on each
   side of a block column, kind 0 from the top left, kind 1 from the top right, both ending on drop points by the
   middle, every 3) and `sluice` (a block row with gaps above a bottom row of drop points, every 0). A drop
@@ -250,7 +256,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   blinking with `alertflash`) when beaten. A tap on the sheet ends the count-up. Reduced motion shows the
   final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
-  then an adjacent tile, also swaps. Dead cells take no input (`cellAt` returns -1, a drag onto one
+  then an adjacent tile, also swaps. Tapping a selected worm or bomb again fires it (`move(S, i, i)`). Dead cells take no input (`cellAt` returns -1, a drag onto one
   does nothing); worm sparks skip them. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first

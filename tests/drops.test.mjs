@@ -53,7 +53,7 @@ test('swap rule: drop with drop never swaps', () => {
   assert.equal(move(S, 12, 13).ok, false);
 });
 
-test('swap rule: a special swaps with a drop only into a match, and no combo fires', () => {
+test('swap rule: a worm or bomb swapped with a drop fires (no combo); a zero-day needs a match', () => {
   const S = swapBoard({ '1,2': 'Fh' });
   assert.ok(swapLegal(S, 7, 12));
   const { ok, steps } = move(S, 7, 12);
@@ -61,13 +61,38 @@ test('swap rule: a special swaps with a drop only into a match, and no combo fir
   assert.ok(!steps.some(s => s.k === 'combo'));
   assert.ok(steps.find(s => s.k === 'wave').fired.some(f => f.s === 'h'));
   assert.equal(dropsOn(S).length, 1);
-  for (const sp of ['Ch', 'Cb', 'Z']) {
-    const T = swapBoard({ '3,2': sp });   // the special lands at (2,2): no line
-    assert.equal(swapLegal(T, 17, 12), false, sp);
+  for (const sp of ['Ch', 'Cb']) {
+    const T = swapBoard({ '3,2': sp });   // the special lands at (2,2): no line, it fires anyway
+    assert.ok(swapLegal(T, 17, 12), sp);
     const r = move(T, 17, 12);
-    assert.equal(r.ok, false, sp);
-    assert.ok(!r.steps.some(s => s.k === 'combo' || s.k === 'wave'), sp);
+    assert.ok(r.ok, sp);
+    assert.equal(T.moves, 29, sp);
+    assert.ok(!r.steps.some(s => s.k === 'combo'), sp);
+    assert.equal(r.steps.find(s => s.k === 'wave').fired[0].s, sp[1], sp);
+    assert.equal(dropsOn(T).length, 1, sp);
   }
+  const T = swapBoard({ '3,2': 'Z' });
+  assert.equal(swapLegal(T, 17, 12), false);
+  const r = move(T, 17, 12);
+  assert.equal(r.ok, false);
+  assert.ok(!r.steps.some(s => s.k === 'combo' || s.k === 'wave'));
+});
+
+test('a second tap fires a worm or bomb in place for one move; zero-days, locked and plain tiles do not', () => {
+  for (const sp of ['Ah', 'Av', 'Ab']) {
+    const S = mk(board(5, { '2,2': sp }));
+    const r = move(S, 12, 12);
+    assert.ok(r.ok, sp);
+    assert.equal(S.moves, 29, sp);
+    assert.deepEqual(r.steps[0].fired, [{ i: 12, s: sp[1] }], sp);
+  }
+  for (const tok of ['Z', 'Ah!', 'A']) {
+    const S = mk(board(5, { '2,2': tok }));
+    assert.equal(move(S, 12, 12).ok, false, tok);
+    assert.equal(S.moves, 30, tok);
+  }
+  const S = mk(board(5, { '2,2': 'Ah' }), { moves: 0 });
+  assert.equal(move(S, 12, 12).ok, false);
 });
 
 test('no wave clears a drop', () => {
@@ -197,4 +222,14 @@ test('validSave accepts drops, drop points, schedule and drop goals', () => {
     { drops: { every: -1, wait: 0 } }, { drops: { every: 3 } }, { drops: 3 },
     { goals: [dropGoal(3, 1)] }, { goals: [{ kind: 'drop', need: 1, got: 0 }] }])
     assert.equal(validSave({ ...o, ...bad }), false, JSON.stringify(bad).slice(0, 80));
+});
+
+test('a drop leaves as soon as it lands on a drop point, while the rest still falls', () => {
+  const S = mk(board(5, { '3,0': 'D0', '4,0': '.X', '0,4': '.', '1,4': '.', '2,4': '.', '3,4': '.' }), { goals: [dropGoal(0, 1)] });
+  const steps = [];
+  gravity(S, steps);
+  const ex = steps.findIndex(s => s.k === 'exit');
+  assert.equal(ex, 1, steps.map(s => s.k).join());
+  assert.ok(steps.slice(ex).some(s => s.k === 'fall'));
+  assert.equal(S.goals[0].got, 1);
 });

@@ -105,7 +105,9 @@ export function swapLegal(S, a, b){
   if (!movable(S, a) || !movable(S, b)) return false;
   const A = S.grid[a], B = S.grid[b], dA = isDrop(A), dB = isDrop(B);
   if (dA && dB) return false;
-  if (A.s && !dB || B.s && !dA) return true;
+  // a worm or bomb swapped with a drop fires; a zero-day has no colour to take from a drop
+  if (dA || dB) { if ((dA ? B : A).s && (dA ? B : A).s !== 'z') return true }
+  else if (A.s || B.s) return true;
   S.grid[a] = B; S.grid[b] = A;
   // with a drop only the other tile counts (a special too: it must land in a match)
   const ok = dA ? lineAt(S, a) : dB ? lineAt(S, b) : lineAt(S, a) || lineAt(S, b);
@@ -289,10 +291,11 @@ export function gravity(S, steps, calm = false){
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
     if (!step.moves.length && !step.spawns.length) {
-      if (!calm && exits(S, steps)) continue;   // settled: drops on drop points leave, then their cells refill
+      if (!calm && exits(S, steps)) continue;   // a drop swapped onto a drop point leaves too, then its cell refills
       return calm ? undefined : damp(S, spawned);
     }
     steps.push(step);
+    if (!calm) exits(S, steps);   // a drop leaves as soon as it lands on a drop point
   }
   return calm ? undefined : damp(S, spawned);
 }
@@ -426,9 +429,21 @@ function combo(S, A, pa, B, pb, steps){
 }
 // A move is spent: one fewer left, one more towards the next scheduled drop.
 const spend = S => { S.moves--; if (S.drops) S.drops.wait++ };
-// The player drags the tile at `a` onto `b`. Resolves everything; returns the steps for the UI.
+// A worm or bomb fired in place (a double tap): costs a move like a swap. Zero-days need a swap.
+function tap(S, i){
+  const steps = [], x = S.grid[i];
+  if (!x || x.lock || !x.s || x.s === 'z') return { ok: false, steps };
+  spend(S); steps.push(wave(S, new Set([i]), new Set(), [])); gravity(S, steps); cascade(S, steps, [], null, [], 2);
+  return { ok: true, steps };
+}
+// The player drags the tile at `a` onto `b` (a === b fires the special at a). Resolves everything; returns the steps for the UI.
 export function move(S, a, b){
   const steps = [];
+  if (a === b && S.moves > 0 && !won(S)) {
+    const r = tap(S, a);
+    if (r.ok && !won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, r.steps);
+    return r;
+  }
   if (S.moves <= 0 || won(S) || !nextTo(S, a, b) || !movable(S, a) || !movable(S, b)) return { ok: false, steps };
   const A = S.grid[a], B = S.grid[b], drop = isDrop(A) || isDrop(B);
   // a swap with a drop goes only when the other tile lands in a match (then it resolves as that match, no combo)
@@ -438,7 +453,7 @@ export function move(S, a, b){
   const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z';
   // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
   // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
-  if (drop) { spend(S); cascade(S, steps, [b, a], swipe) }
+  if (drop && !A.s && !B.s) { spend(S); cascade(S, steps, [b, a], swipe) }
   else if (lone && findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
   else if (A.s || B.s) { spend(S); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
   else if (findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe) }

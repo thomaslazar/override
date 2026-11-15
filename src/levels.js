@@ -60,8 +60,8 @@ export function boardFor(level, fb = 0, tags){
 function pickBoard(level, fb, tags){
   const r = rngFor(level, 31), square = { kind: 'square', pattern: PATTERNS[Math.floor(r() * PATTERNS.length)] };
   const { pos } = chapterOf(level), d = difficulty(level), roll = r(), pick = r(), low = r(), mirror = r() < .5;
-  // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one, TP_FROM a teleporter one, DROP_FROM a drop one
-  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && level !== TP_FROM && level !== DROP_FROM && roll >= .25 + .25 * (pos - 1) / (CHAPTER - 1))) return square;
+  // about 1 in 2 rising to 4 in 5 over a chapter; the first template level always gets one, TP_FROM a teleporter one, DROP_FROM a drop one
+  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && level !== TP_FROM && level !== DROP_FROM && roll >= .5 + .3 * (pos - 1) / (CHAPTER - 1))) return square;
   const open = TEMPLATES.filter(t => !(t.tags.includes('teleport') && level < TP_FROM) && !(t.tags.includes('drop') && level < DROP_FROM));
   let pool = open.filter(t => d >= t.dMin && d <= t.dMax);
   tags ??= level === TP_FROM ? ['teleport'] : level === DROP_FROM ? ['drop'] : pos % 5 === 0 ? SPIKE_TAGS : [];
@@ -72,6 +72,8 @@ function pickBoard(level, fb, tags){
   for (let l = level - 1; l >= SHAPES_FROM && before.length < 60; l--) if (picks[l].kind === 'template') before.push(picks[l]);
   const recent = before.slice(0, Math.min(RECENT, pool.length - 1)).map(b => b.name), fresh = pool.filter(t => !recent.includes(t.name));
   let t = fresh[Math.floor(pick * fresh.length)];
+  // a thin pool (low difficulty) would repeat one of the last two template boards: a square board instead
+  if (fb === 0 && pos % 5 && level !== TP_FROM && level !== DROP_FROM && before.slice(0, 2).some(b => b.name === t.name)) return square;
   if (fb === 1) {
     // same drop-ness, so a fallback never adds or removes a drop goal
     const kin = open.filter(x => x.tags.includes('drop') === t.tags.includes('drop')), lower = kin.filter(x => x.dMin < t.dMin);
