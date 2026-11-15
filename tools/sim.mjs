@@ -9,7 +9,7 @@ const pos = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--refi
 const levels = (pos[0] || '1,3,5,10,15,20,25,30,31,45,60').split(',').flatMap(p => {
   const [a, b] = p.split('-').map(Number); return b ? Array.from({ length: b - a + 1 }, (_, i) => a + i) : [a];
 });
-const runs = +(pos[1] || 1), goal = g => g.kind === 'tiles' ? `t${g.t}:${g.need}` : `${g.kind}:${g.need}`;
+const runs = +(pos[1] || 1), goal = g => g.kind === 'tiles' ? `t${g.t}:${g.need}` : g.kind === 'drop' ? `drop${g.d}:${g.need}` : `${g.kind}:${g.need}`;
 console.log('level ch board            n k goals                          need limit margin salt drop target ratio  w/m   4+    ms' + (nice ? '  nice saved' : ''));
 let saved = 0, count = 0;
 const ratios = [], wpm = [], big = [], times = [], med = a => [...a].sort((x, y) => x - y)[a.length >> 1];

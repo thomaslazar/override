@@ -36,6 +36,7 @@ export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? nul
 export const movable = (S, i) => { const x = S.grid[i]; return !!x && !x.lock };
 // A drop tile ({ t: -1, s: null, d }) never matches, is never cleared and leaves at a drop point (S.exit).
 export const isDrop = x => x?.d !== undefined;
+export const dropTile = (S, d) => ({ ...tile(S, -1), d });
 // The colour a cell matches with, or -1 (empty, encrypted, outside, zero-day, drop).
 export const colourAt = (S, r, c) => { const i = at(S, r, c), x = i < 0 ? null : S.grid[i]; return x && x.s !== 'z' ? x.t : -1 };
 
@@ -275,7 +276,7 @@ export function gravity(S, steps, calm = false){
       const a = up[i] ??= above(S, i);
       if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
       if (spawns[i] ??= !!isSpawner(S, i)) {
-        const d = dropDue(S, i), x = d >= 0 ? { ...tile(S, -1), d } : tile(S, spawnColour(S, i));
+        const d = dropDue(S, i), x = d >= 0 ? dropTile(S, d) : tile(S, spawnColour(S, i));
         S.grid[i] = x; step.spawns.push({ i, tile: { ...x } });
         if (d < 0) spawned.push([x, step.spawns[step.spawns.length - 1]]);
         continue;

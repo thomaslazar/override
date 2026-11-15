@@ -1,4 +1,4 @@
-import { tile } from '../src/core.js';
+import { tile, dropTile } from '../src/core.js';
 
 // Builds a state from rows of space-separated tokens:
 // 'A'..'F' colour 0..5, suffix 'h' | 'v' | 'b' makes that special, suffix '!' locks it (firewall),
@@ -22,7 +22,7 @@ export function mk(rows, o = {}){
     if (tok === '.') return;
     if (tok[0] === '#') { S.enc[i] = +tok.slice(1) || 1; return }
     if (tok === 'Z') { S.grid[i] = tile(S, -1, 'z'); return }
-    if (/^D[0-2]$/.test(tok)) { S.grid[i] = { ...tile(S, -1), d: +tok[1] }; return }
+    if (/^D[0-2]$/.test(tok)) { S.grid[i] = dropTile(S, +tok[1]); return }
     const m = tok.match(/^([A-F])([hvb])?(!)?$/);
     if (!m) throw new Error('bad token ' + tok);
     const x = tile(S, m[1].charCodeAt(0) - 65, m[2] || null);

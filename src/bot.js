@@ -1,5 +1,6 @@
 // Greedy bot over the core API. Pure. Sets each attempt's move limit (spec, Move limit from the bot).
-import { move, validMoves, won, hash, rngFor } from './core.js';
+import { move, validMoves, won, hash, rngFor, isDrop, DROP_KINDS } from './core.js';
+import { exitDistance } from './layouts.js';
 import { makeAttempt, boardFor } from './levels.js';
 
 export const CAP = 80, K = 1.3, C = 2, RUNS = 3, SALTS = 10, TEMPLATE_SALTS = 3;   // salts per drop on a square, on a template
@@ -7,10 +8,22 @@ export const CAP = 80, K = 1.3, C = 2, RUNS = 3, SALTS = 10, TEMPLATE_SALTS = 3;
 // static board arrays (cell, spawn, tp, exit) stay shared.
 const copy = S => ({ ...S, types: [...S.types], grid: S.grid.map(x => x && { ...x }), enc: [...S.enc], goals: S.goals.map(g => ({ ...g })),
   ...S.drops && { drops: { ...S.drops } } });
-// Goal progress first, then specials on the board, then tiles cleared (new ids).
+// Per board (keyed by its shared S.exit): steps from each cell to a drop point, and the farthest finite one.
+const dists = new WeakMap();
+function exitDist(S){
+  if (!dists.has(S.exit)) { const d = exitDistance(S, S.n); dists.set(S.exit, { d, far: Math.max(...d.filter(Number.isFinite)) }) }
+  return dists.get(S.exit);
+}
+// Goal progress first, then specials on the board, then tiles cleared (new ids). A drop on the board counts
+// towards its goal by how near it is to a drop point (a step closer is worth more than a plain clear).
 function value(S){
   let v = won(S) ? 1e6 : 0;
-  for (const g of S.goals) v += 1000 * Math.min(g.got, g.need) / g.need;
+  const near = Array(DROP_KINDS).fill(0);
+  if (S.exit) {
+    const { d, far } = exitDist(S);
+    S.grid.forEach((x, i) => { if (isDrop(x) && d[i] <= far) near[x.d] += 1 - d[i] / (far + 1) });
+  }
+  for (const g of S.goals) v += 1000 * Math.min(g.got + (g.kind === 'drop' ? near[g.d] : 0), g.need) / g.need;
   for (const x of S.grid) if (x && x.s) v += 15;
   return v + S.ids * .5;
 }

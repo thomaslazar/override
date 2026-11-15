@@ -1,5 +1,5 @@
 // Board templates: whole boards drawn as text, parsed into S fields and validated. Pure.
-import { dead, gravity, fillBoard, rngFor, above, isSpawner } from './core.js';
+import { dead, gravity, fillBoard, rngFor, above, isSpawner, nbrs } from './core.js';
 
 // Rows of space-separated tokens: '.' live, 'o' hole, '#' block, 'z' live blocker zone, 'S' spawner,
 // 'S0'..'S2' spawner for that drop kind only, 'iA'..'iH' / 'eA'..'eH' teleporter ingress / egress of
@@ -7,6 +7,7 @@ import { dead, gravity, fillBoard, rngFor, above, isSpawner } from './core.js';
 // With any 'S' only marked cells spawn, so a template with one marks its top row too.
 // `mirror`: the template is not left-right symmetric and may be flipped for variety. `effort`: factor on the
 // level's blocker counts and tile goals, for boards with few cascades (tuned with tools/sim.mjs to need ~ 8 + 14 d).
+// Drop templates (tag 'drop', with drop points) add `every`: their drop schedule (S.drops.every; 0 = the next once none is on the board).
 const T = (name, dMin, dMax, tags, mirror, effort, ...rows) => ({ name, dMin, dMax, tags, mirror, effort, rows });
 export const TEMPLATES = [
   T('notch', 0, 0.4, ['shape'], false, 0.6,
@@ -116,6 +117,48 @@ export const TEMPLATES = [
     'z z z z # . . . .',
     '. . . . # . . . .',
     'iA iB iC iD # . . . .'),
+  // drops: drop tiles come from the spawners and leave at the drop points (X); a drop resting on a bottom
+  // cell that is not a drop point needs a swap that makes a match, so drops mostly reach X by gravity
+  { ...T('chute', 0.3, 0.8, ['drop'], false, 1.1,
+    'S S S S S S S S',
+    '. . . . . . . .',
+    '. . . . . . . .',
+    '. . z z z z . .',
+    '. . z z z z . .',
+    '. . z z z z . .',
+    '. . . . . . . .',
+    'X X X X X X X X'), every: 6 },
+  // corner run: the snake with a drop point at its end, so a drop runs through every column
+  { ...T('corner', 0.4, 1, ['drop', 'snake', 'teleport'], true, 0.8,
+    'S eA eB eC eD eE eF',
+    '. . . . . . .',
+    'z z z . . . .',
+    'z z z . . . .',
+    'z z z . . . .',
+    '. . . . . . .',
+    'iA iB iC iD iE iF X'), every: 0 },
+  // mirrored funnel: a corner run on each side, from a spawner in the top corner to a drop point by the middle
+  { ...T('funnel', 0.5, 1, ['drop', 'funnel', 'teleport', 'split'], false, 1,
+    'S0 eA eB eC # eF eE eD S1',
+    '. . . . # . . . .',
+    '. . . . # . . . .',
+    '. z z . # . z z .',
+    '. z z . # . z z .',
+    '. z z . # . z z .',
+    '. . . . # . . . .',
+    '. . . . # . . . .',
+    'iA iB iC X # X iF iE iD'), every: 3 },
+  // sluice: drops resting on the wall need a swap into a gap
+  { ...T('sluice', 0.6, 1, ['drop', 'walled'], false, 0.7,
+    'S S S S S S S S S',
+    '. . . . . . . . .',
+    '. . . . . . . . .',
+    '. . . . . . . . .',
+    '. # # . # . # # .',
+    '. . . . . . . . .',
+    '. z z z z z z z .',
+    '. z z z z z z z .',
+    'X X X X X X X X X'), every: 0 },
 ];
 
 // The template's static S fields. `zone`: cells where blockers may go (the 'z' cells, or every live
@@ -151,7 +194,8 @@ export function parse(t, mirror = false){
 
 // Problems with a parsed layout, empty when it is fair: size, teleporter pairs complete, on live cells,
 // one pair per cell, no egress that also spawns (it is fed only by its ingress), no gravity loop through
-// a teleporter (filling an empty board does not show one), every live cell gets a tile from an empty
+// a teleporter (filling an empty board does not show one), every spawner and starting drop reaches a drop
+// point (on a board with drop points), every live cell gets a tile from an empty
 // board by gravity (straight or diagonal), and a filled board has a legal move.
 export function check(L){
   const { n } = L, out = [];
@@ -172,6 +216,12 @@ export function check(L){
     for (let k = 0; j >= 0 && j !== e && k < n * n; k++) j = above(S, j);
     if (j === e) out.push(`egress ${e} is in a gravity loop`);
   }
+  if (L.exit?.length) {
+    const dist = exitDistance(L);
+    for (let i = 0; i < n * n; i++) if (isSpawner(S, i) && dist[i] === Infinity) out.push(`spawner ${i} never reaches a drop point`);
+    for (const { i } of L.drops ?? []) if (dist[i] === Infinity) out.push(`drop ${i} never reaches a drop point`);
+  }
+  // S has no drops schedule, so no drop spawns while it settles
   gravity(S, [], true);
   for (let i = 0; i < n * n; i++) if (!dead(S, i) && !S.grid[i]) out.push(`cell ${Math.floor(i / n)},${i % n} never gets a tile`);
   if (out.length) return out;
@@ -180,4 +230,21 @@ export function check(L){
   let draws = 0;
   try { fillBoard(S, () => { if (++draws > 1e5) throw 0; return rnd() }) } catch { out.push('no legal move after filling') }
   return out;
+}
+
+// Cost from each cell to the nearest drop point (Infinity: none): 1 per cell a drop falls (through teleporters),
+// `swap` per swap with a live neighbour (sideways, up or down; it needs a match, so it costs more than a fall).
+// Cheapest paths back from the drop points; a board has at most 81 cells, so a plain scan for the next cell does.
+export function exitDistance(L, swap = 1){
+  const S = { n: L.n, cell: L.cell, tp: L.tp }, nn = L.n * L.n, dist = Array(nn).fill(Infinity), done = Array(nn).fill(false);
+  for (const i of L.exit ?? []) dist[i] = 0;
+  for (;;) {
+    let v = -1;
+    for (let i = 0; i < nn; i++) if (!done[i] && dist[i] < Infinity && (v < 0 || dist[i] < dist[v])) v = i;
+    if (v < 0) return dist;
+    done[v] = true;
+    const a = above(S, v);
+    for (const u of nbrs(S, v)) if (!dead(S, u)) dist[u] = Math.min(dist[u], dist[v] + (u === a ? 1 : swap));
+    if (a >= 0 && !dead(S, a)) dist[a] = Math.min(dist[a], dist[v] + 1);
+  }
 }

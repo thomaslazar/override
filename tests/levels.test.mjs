@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM, TP_FROM } from '../src/levels.js';
+import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM, TP_FROM, DROP_FROM } from '../src/levels.js';
 import { findGroups, hasMove, validSave, isSpawner } from '../src/core.js';
 import { parse, TEMPLATES } from '../src/layouts.js';
 
@@ -222,4 +222,34 @@ test('no teleporter templates before TP_FROM; TP_FROM is a breather with one', (
     seen++;
   }
   assert.ok(seen >= 5, `${seen} teleporter levels`);
+});
+
+test('drop goals only from DROP_FROM, on drop templates; DROP_FROM is a breather with one', () => {
+  const dropBoard = l => { const b = boardFor(l); return b.kind === 'template' && TEMPLATES.find(t => t.name === b.name).tags.includes('drop') };
+  for (let l = 1; l < DROP_FROM; l++) assert.ok(!makeAttempt(l).goals.some(g => g.kind === 'drop') && !dropBoard(l), `level ${l}`);
+  assert.ok(breather(DROP_FROM) && dropBoard(DROP_FROM));
+  let seen = 0;
+  for (let l = DROP_FROM; l <= 150; l++) {
+    const S = makeAttempt(l), drops = S.goals.filter(g => g.kind === 'drop');
+    assert.equal(drops.length > 0, dropBoard(l), `level ${l}`);
+    if (!drops.length) { assert.ok(!S.exit && !S.drops, `level ${l}`); continue }
+    seen++;
+    assert.ok(S.exit.length && Number.isInteger(S.drops.every) && S.drops.wait === S.drops.every, `level ${l}`);
+    assert.ok(drops.every(g => g.need >= 1 && g.need <= 4 && g.got === 0), `level ${l}`);
+    assert.equal(new Set(drops.map(g => g.d)).size, drops.length, `level ${l}`);
+    assert.ok(S.goals.length <= 3 && validSave(S) && hasMove(S), `level ${l}`);
+    for (const s of S.spawn ?? []) if (s.d >= 0) assert.ok(drops.some(g => g.d === s.d), `level ${l} spawner kind ${s.d}`);
+  }
+  assert.ok(seen >= 5, `${seen} drop levels`);
+});
+
+test('a template\'s starting drops are placed', () => {
+  // no library template starts with drops; place one on a copy of chute
+  const t = TEMPLATES.find(x => x.name === 'chute'), saved = t.rows[1];
+  t.rows[1] = '. . . D2 . . . .';
+  try {
+    const l = DROP_FROM, S = makeAttempt(l);
+    assert.deepEqual(S.grid[11], { id: S.grid[11].id, t: -1, s: null, lock: false, d: 2 });
+    assert.ok(S.goals.some(g => g.kind === 'drop' && g.d === 2) && S.drops.wait === 0 && validSave(S));
+  } finally { t.rows[1] = saved }
 });

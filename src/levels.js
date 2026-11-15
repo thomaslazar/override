@@ -1,5 +1,5 @@
 // Level generation. Pure and seeded: an attempt follows from level, fails, salt and drop.
-import { hash, rngFor, fillBoard, hasMove, reshuffle, isSpawner, TYPES } from './core.js';
+import { hash, rngFor, fillBoard, hasMove, reshuffle, isSpawner, dropTile, TYPES, DROP_KINDS } from './core.js';
 import { TEMPLATES, parse } from './layouts.js';
 
 /* ---------- chapters & difficulty ---------- */
@@ -60,11 +60,11 @@ export function boardFor(level, fb = 0, tags){
 function pickBoard(level, fb, tags){
   const r = rngFor(level, 31), square = { kind: 'square', pattern: PATTERNS[Math.floor(r() * PATTERNS.length)] };
   const { pos } = chapterOf(level), d = difficulty(level), roll = r(), pick = r(), low = r(), mirror = r() < .5;
-  // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one, TP_FROM a teleporter one
-  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && level !== TP_FROM && roll >= .25 + .25 * (pos - 1) / (CHAPTER - 1))) return square;
+  // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one, TP_FROM a teleporter one, DROP_FROM a drop one
+  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && level !== TP_FROM && level !== DROP_FROM && roll >= .25 + .25 * (pos - 1) / (CHAPTER - 1))) return square;
   const open = TEMPLATES.filter(t => !(t.tags.includes('teleport') && level < TP_FROM) && !(t.tags.includes('drop') && level < DROP_FROM));
   let pool = open.filter(t => d >= t.dMin && d <= t.dMax);
-  tags ??= level === TP_FROM ? ['teleport'] : pos % 5 === 0 ? SPIKE_TAGS : [];
+  tags ??= level === TP_FROM ? ['teleport'] : level === DROP_FROM ? ['drop'] : pos % 5 === 0 ? SPIKE_TAGS : [];
   const tagged = pool.filter(t => t.tags.some(x => tags.includes(x)));
   if (tagged.length) pool = tagged;
   if (!pool.length) return square;
@@ -107,8 +107,17 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   if (L?.cell) S.cell = L.cell;
   if (L?.spawn) S.spawn = L.spawn;
   if (L?.tp.length) S.tp = L.tp;
-  // goal kinds first, so only the blockers a goal uses get placed
-  const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM); // the tutorial hint needs a firewall
+  // a board with drop points has a drop goal per kind: the kinds its spawners and starting drops name, else
+  // one kind (two from d 0.7) by level; 1 to 4 drops by difficulty and the template's effort, shared by the kinds (at least 1 each)
+  let kinds = [];
+  if (L?.exit.length) {
+    S.exit = L.exit;
+    S.drops = { every: tpl.every, wait: L.drops.length ? 0 : tpl.every };   // with none placed, a drop comes at the first refill
+    kinds = [...new Set([...L.spawn ?? [], ...L.drops].map(x => x.d).filter(d => d >= 0))].sort();
+    if (!kinds.length) kinds = Array.from({ length: p.d >= .7 ? 2 : 1 }, (_, j) => (level + j) % DROP_KINDS);
+  }
+  // goal kinds first, so only the blockers a goal uses get placed; at most three goals with the drop goals
+  const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM) && kinds.length < 2; // the tutorial hint needs a firewall
   const fwSpots = [];
   const inRow = r => S.enc.slice(r * n, r * n + n).filter(Boolean).length;
   if (L) {
@@ -155,6 +164,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
     if (!S.enc[i] && !fwSpots.includes(i)) fwSpots.push(i);
   }
   fillBoard(S, rngFor(level, salt, 3, deal));
+  for (const { i, d } of L?.drops ?? []) S.grid[i] = dropTile(S, d);
   for (const i of fwSpots) S.grid[i].lock = true;
   if (!hasMove(S)) reshuffle(S, []);
   S.shuffles = 0;
@@ -163,15 +173,17 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const cracks = S.enc.filter(Boolean).length;
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
   if (fwSpots.length) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
-  // a template level with only a few blockers always gets a tile goal too, so it is never near free
-  if (S.goals.length < 2 || gr() < .5 || L && cracks + fwSpots.length < n) {
+  // a template level with only a few blockers always gets a tile goal too, so it is never near free (drops are work enough)
+  if (kinds.length ? S.goals.length + kinds.length < 3 && gr() < .5 : S.goals.length < 2 || gr() < .5 || L && cracks + fwSpots.length < n) {
     // goals ignore fails: size from the fails-0 colour count, colours from those that survive easing
     const kBase = paramsFor(level, 0, drop).k, kGoal = Math.max(4, kBase - 1);
     const need = Math.round(effort * GOAL * (15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
-    if (p.d > .5 && S.goals.length < 2 && gr() < .4) {
+    if (p.d > .5 && S.goals.length < 2 && !kinds.length && gr() < .4) {
       const u = (t + 1 + Math.floor(gr() * (kGoal - 1))) % kGoal;
       S.goals.push({ kind: 'tiles', t, need: Math.round(need * .6), got: 0 }, { kind: 'tiles', t: u, need: Math.round(need * .6), got: 0 });
     } else S.goals.push({ kind: 'tiles', t, need, got: 0 });
   }
+  const dropNeed = Math.max(1, Math.min(4, Math.round(effort * (1 + 3 * p.d) / kinds.length)));
+  S.goals.unshift(...kinds.map(d => ({ kind: 'drop', d, need: dropNeed, got: 0 })));
   return S;
 }

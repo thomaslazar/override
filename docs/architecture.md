@@ -103,14 +103,21 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
   Square only before `SHAPES_FROM` (11, a breather, always a template); after it a template with
   chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
-  Templates tagged `teleport` wait for `TP_FROM` (16, a breather, always a teleporter template), `drop` for `DROP_FROM` (21). Every 5th level
+  Templates tagged `teleport` wait for `TP_FROM` (16, a breather, always a teleporter template), `drop` for `DROP_FROM` (21, a breather, always a drop template). Every 5th level
   prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
   band (smaller `dMin`), or the easiest one; `fb` 2: square. Variety: a template among the last
   `RECENT` (5) template boards is skipped while the pool has others, and a flippable template flips
   side on each use. This needs the earlier levels' own boards, so `boardFor` fills a module cache
   `picks` in level order (fb 0, default tags) and reads it.
 - `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
-  template sets `n` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). `S.board` is the template name,
+  template sets `n` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). A template with
+  drop points also sets `S.exit`, `S.drops = { every, wait }` (`every` from the template; `wait` starts at
+  `every`, so the first drop comes with the first refill, or 0 when the template places starting drops,
+  which replace the dealt tiles on their cells), and one drop goal per kind, first in `goals`: the kinds its
+  kind-limited spawners and starting drops name, else one kind (two from d 0.7) chosen by level. Their
+  `need` is `round(effort * (1 + 3 d) / kinds)`, 1 to 4 each. With two drop kinds there is no firewall goal,
+  and a tile goal comes only when fewer than three goals stand (with chance .5, one colour), so a level keeps
+  at most three goals. `S.board` is the template name,
   `square:<pattern>` for a square with blockers, or `square`. Blockers (encrypted cells, firewall
   spots) and goals depend on level, salt and drop; tiles on `deal`, not on fails, so a deal is
   the same board on every retry until easing drops a colour. Square blocker patterns (encrypted
@@ -143,7 +150,13 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   block row with four pairs that cross left to right and back), `snake` (one spawner top left, each
   column's bottom ported to the next column's top, so tiles snake across the board; flippable) and
   `relay` (split by a block column; the second half has no spawner and is fed by four pairs from the
-  bottom of the first; flippable).
+  bottom of the first; flippable). Drop templates (tag `drop`, with `X` drop points) carry `every`, their drop
+  schedule: `chute` (an open board, the whole bottom row drop points, every 6), `corner` (the corner run: the
+  snake with a drop point bottom right, every 0; flippable), `funnel` (the mirrored funnel: a corner run on each
+  side of a block column, kind 0 from the top left, kind 1 from the top right, both ending on drop points by the
+  middle, every 3) and `sluice` (a block row with gaps above a bottom row of drop points, every 0). A drop
+  resting on a bottom cell that is not a drop point moves only by a swap that makes a match, which is rare at
+  an edge, so drop templates bring drops to their points by gravity.
 - `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
   out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
   cell without a feature. A pair letter used twice on one side throws.
@@ -151,7 +164,12 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   incomplete, on a dead cell or shares a cell with another pair, an egress that also spawns (it must be
   fed by its ingress only), an egress in a gravity loop (walking `above` up from it comes back to it;
   filling an empty board does not show a loop), a live cell that an
-  empty board never fills by `gravity` (straight, through teleporters, or diagonal), no legal move after `fillBoard`.
+  empty board never fills by `gravity` (straight, through teleporters, or diagonal), no legal move after `fillBoard`,
+  and on a board with drop points a spawner or starting drop with no path to one (`exitDistance`). The dummy
+  board has no `drops` schedule, so nothing spawns drops while it settles.
+- `exitDistance(layout, swap = 1)`: cost from each cell to the nearest drop point (`Infinity`: none), cheapest
+  paths back from the drop points: 1 per cell a drop falls (through teleporters), `swap` per swap with a
+  live neighbour (any side).
   A test runs it over every template, both mirrors.
 
 
@@ -162,7 +180,11 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 - `pick(S, rnd)` (exported): one-move lookahead. Every legal move in both directions is played
   on a copy whose seed is `hash(991, S.level, S.spawns, S.moves)`, independent of the real
   refill seed, so the bot cannot see future refills. Value: goal progress first (1000 per
-  goal), +15 per special on the board, +.5 per tile spawned, plus a tiny random tie-break.
+  goal), +15 per special on the board, +.5 per tile spawned, plus a tiny random tie-break. A drop on the
+  board counts towards its goal by `1 - dist / (far + 1)`, `dist` its `exitDistance` with a swap costing
+  `n` (falls first: a swap needs a match, and along a snake the flow is the way), `far` the board's
+  farthest finite cost; computed once per board (keyed by the shared `S.exit`). So a step closer outweighs a
+  plain clear, a drop that leaves is worth a whole one, and a new drop never lowers the value.
 - `solve(S, seed, nice)` plays a copy to a win with no limit (`Infinity` at `CAP`). Copies share the static
   board arrays (`cell`, `spawn`, `tp`, `exit`) and copy `drops`.
 - `limitFor(need, fails)` = `max(MIN_LIMIT, ceil(need * K + C))`, then +10% per fail from the

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { solve, pick, limitFor, prepare, search, CAP } from '../src/bot.js';
 import { makeAttempt, boardFor, difficulty } from '../src/levels.js';
 import { validSave, rngFor } from '../src/core.js';
+import { TEMPLATES } from '../src/layouts.js';
 
 test('limit eases from the 4th fail, capped at +40%', () => {
   assert.equal(limitFor(20, 0), Math.ceil(20 * 1.3 + 2));
@@ -90,4 +91,16 @@ test('fallback order: drop on the own template up to 0.5, then a lower template,
   assert.equal(f.fb, 2);
   // a passing run stops at the first board
   assert.equal(search(25, () => 20).fb, 0);
+});
+
+test('bot finishes drop levels on their own template', () => {
+  const levels = [];
+  for (let l = 21; l <= 150 && levels.length < 4; l++) if (TEMPLATES.find(t => t.name === boardFor(l).name)?.tags.includes('drop') && !levels.some(x => boardFor(x).name === boardFor(l).name)) levels.push(l);
+  assert.ok(levels.length >= 3, `${levels}`);
+  for (const l of levels) {
+    const S = prepare(l);
+    assert.equal(S.board, boardFor(l).name, `level ${l}`);
+    assert.ok(S.goals.some(g => g.kind === 'drop'), `level ${l}`);
+    assert.ok(Number.isFinite(S.need) && S.need < CAP, `level ${l} need ${S.need}`);
+  }
 });
