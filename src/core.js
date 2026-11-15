@@ -241,32 +241,33 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
 }
 
 /* ---------- gravity ---------- */
-// A cell is fed when going up (`above`) reaches a spawner without passing anything fixed
-// (dead cell, encrypted cell, firewalled tile), following teleporters up. A chain of distinct cells has
-// fewer than n * n steps, so the cap only cuts a cycle (which never reaches a spawner).
-function fed(S, i){
-  for (let j = above(S, i), k = 0; j >= 0 && k < S.grid.length; j = above(S, j), k++) {
-    if (dead(S, j) || S.enc[j] || S.grid[j]?.lock) return false;
-    if (isSpawner(S, j)) return true;
-  }
-  return false;
-}
 const occupied = (S, i) => S.grid[i] || S.enc[i] || dead(S, i) ? 1 : 0;
 function shift(S, from, to, step){ const x = S.grid[from]; S.grid[to] = x; S.grid[from] = null; step.moves.push({ id: x.id, from, to }) }
 // Passes until stable: straight down from `above`, else spawn at a spawner, else diagonal fill for unfed cells.
 // Roofed pockets stay empty; dead cells never fill.
 export function gravity(S, steps, calm = false){
-  const n = S.n, spawned = [];
+  // cached per settle: what a cell pulls from, whether it spawns and whether it is fed stay fixed while
+  // tiles fall (dead, encrypted and firewalled cells do not change during gravity)
+  const n = S.n, spawned = [], up = [], spawns = [], reach = [];
+  // A cell i is fed when going up from above(i), following teleporters up, meets a spawner before anything
+  // fixed (dead cell, encrypted cell, firewalled tile). A cell is marked unfed while its own walk runs,
+  // so a teleporter loop (which never reaches a spawner) counts as unfed.
+  const reaches = j => {
+    if (j < 0) return false;
+    if (reach[j] !== undefined) return reach[j];
+    reach[j] = false;
+    return reach[j] = !(dead(S, j) || S.enc[j] || S.grid[j]?.lock) && ((spawns[j] ??= !!isSpawner(S, j)) || reaches(up[j] ??= above(S, j)));
+  };
   // ponytail: pass cap only stops a teleporter loop (layouts.check rejects those) from cycling a gap forever
   for (let pass = 0; pass < 8 * n * n; pass++) {
     const step = { k: 'fall', moves: [], spawns: [] };
     for (let r = n - 1; r >= 0; r--) for (let c = 0; c < n; c++) {
       const i = r * n + c;
       if (S.grid[i] || S.enc[i] || dead(S, i)) continue;
-      const a = above(S, i);
+      const a = up[i] ??= above(S, i);
       if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
-      if (isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
-      if (r === 0 || fed(S, i)) continue;
+      if (spawns[i] ??= !!isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
+      if (r === 0 || reaches(a)) continue;
       // prefer a tile that cannot fall straight itself
       const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc))
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));

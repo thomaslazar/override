@@ -17,7 +17,7 @@ Optional static layout (absent on square boards and old saves): `cell` (per cell
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
 without `spawn` means every live top-row cell). A dead cell never holds a tile, never fills and is
 never matched; blasts pass over it. `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
-is the ingress and `above` of the cell below an ingress is `-1`, so gravity and `fed` follow them while
+is the ingress and `above` of the cell below an ingress is `-1`, so gravity and its fed test follow them while
 diagonal slides, matches and blasts keep to board adjacency. `validSave` checks all three when present
 (a dead cell must be empty; spawners and teleporter cells are live, a spawner cell appears once, a
 teleporter cell once across all pairs, pairs are complete).
@@ -45,10 +45,12 @@ teleporter cell once across all pairs, pairs are complete).
   the wave's `cleared` and counts for the tiles goal.
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
-  unless `fed` (going up via `above` reaches a spawner without a dead cell, encrypted cell or
-  firewalled tile; capped at `n * n` steps, which a chain of distinct cells never reaches, so only a
-  teleporter loop is cut). Dead cells count as occupied when choosing a diagonal source. At most
+  unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
+  firewalled tile; `reaches`, memoised per cell, a cell marked unfed while its own walk runs, so a
+  teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source. At most
   `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
+  Per settle it caches `above`, the spawner test and fed per cell (they cannot change while tiles
+  fall), which keeps long teleporter chains (the snake) cheap.
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
   each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
   else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and
@@ -89,14 +91,14 @@ teleporter cell once across all pairs, pairs are complete).
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
   Square only before `SHAPES_FROM` (11, a breather, always a template); after it a template with
   chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
-  Templates tagged `teleport` wait for `TP_FROM` (16), `drop` for `DROP_FROM` (21). Every 5th level
+  Templates tagged `teleport` wait for `TP_FROM` (16, a breather, always a teleporter template), `drop` for `DROP_FROM` (21). Every 5th level
   prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
   band (smaller `dMin`), or the easiest one; `fb` 2: square. Variety: a template among the last
   `RECENT` (5) template boards is skipped while the pool has others, and a flippable template flips
   side on each use. This needs the earlier levels' own boards, so `boardFor` fills a module cache
   `picks` in level order (fb 0, default tags) and reads it.
 - `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
-  template sets `n` (over `paramsFor`'s), `S.cell` and `S.spawn`. `S.board` is the template name,
+  template sets `n` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). `S.board` is the template name,
   `square:<pattern>` for a square with blockers, or `square`. Blockers (encrypted cells, firewall
   spots) and goals depend on level, salt and drop; tiles on `deal`, not on fails, so a deal is
   the same board on every retry until easing drops a colour. Square blocker patterns (encrypted
@@ -125,11 +127,18 @@ teleporter cell once across all pairs, pairs are complete).
   `D0`..`D2` starting drop tile) with `name`, a difficulty band `dMin`..`dMax`, `tags`, `mirror`
   (not symmetric, may be flipped) and `effort` (factor on blocker counts and tile goals). Any `S` means only marked cells spawn, so such a template marks
   its top row too. Stage 1 has shapes (notch, pillars, diamond, hourglass, frame) and walled or split
-  boards (split, wall, pocket).
+  boards (split, wall, pocket). Teleporter templates mark their spawners explicitly: `crossing` (a
+  block row with four pairs that cross left to right and back), `snake` (one spawner top left, each
+  column's bottom ported to the next column's top, so tiles snake across the board; flippable) and
+  `relay` (split by a block column; the second half has no spawner and is fed by four pairs from the
+  bottom of the first; flippable).
 - `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
   out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
-  cell without a feature.
-- `check(layout)` lists problems: size outside 7..9, a spawner on a dead cell, a live cell that an
+  cell without a feature. A pair letter used twice on one side throws.
+- `check(layout)` lists problems: size outside 7..9, a spawner on a dead cell, a teleporter pair that is
+  incomplete, on a dead cell or shares a cell with another pair, an egress that also spawns (it must be
+  fed by its ingress only), an egress in a gravity loop (walking `above` up from it comes back to it;
+  filling an empty board does not show a loop), a live cell that an
   empty board never fills by `gravity` (straight, through teleporters, or diagonal), no legal move after `fillBoard`.
   A test runs it over every template, both mirrors.
 
@@ -178,7 +187,9 @@ teleporter cell once across all pairs, pairs are complete).
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
   tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
-  tiles start stacked above their spawner and stay hidden until they pass its row, `top`), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
+  and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
+  the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
@@ -224,7 +235,9 @@ teleporter cell once across all pairs, pairs are complete).
   `drawFw` (flames and cage bars). Dead cells: a hole is `drawHole` (faint back-slash hatching, no cell background, running on across neighbouring holes), so the board's
   edge follows the shape; a block is `drawBlock` (a dark riveted steel plate with faint hatching, no
   glow). `spawnMark` draws a small down chevron on the top edge of a spawner only where spawners differ
-  from the plain top row (`S.spawn` entries below row 0 or limited to a drop kind). Effects: worm streak, bomb shockwave, area flash, crack.
+  from the plain top row (`S.spawn` entries below row 0 or limited to a drop kind). `tpMark` draws a
+  teleporter end as a small port bracket with the pair's letter (A, B, ... by pair order), open to the
+  bottom edge on the ingress and to the top edge on the egress, in the pair's colour (`TP_COL`), under the tiles. Effects: worm streak, bomb shockwave, area flash, crack.
   Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
   animation, effects and cycling (win art static). Tile colours come from `paletteFor`.

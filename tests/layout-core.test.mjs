@@ -139,6 +139,13 @@ test('egress below its ingress and pointing up the board both terminate', () => 
   for (const i of [5, 10, 15, 20]) S.grid[i] = null;
   gravity(S, []);
   assert.ok(live(S).every(i => S.grid[i]), 'a downward pair fills');
+  // pointing up the board without a loop: the bottom of column 0 feeds the second cell of column 1
+  const U = mk(board(5), { tp: [[20, 6]] });
+  for (const i of [6, 11, 16, 21]) U.grid[i] = null;
+  const id = U.grid[20].id;
+  gravity(U, []);
+  assert.ok(live(U).every(i => U.grid[i]), 'an upward pair fills');
+  assert.notEqual(U.grid[20]?.id, id, 'the ingress tile went up through the pair');
 });
 
 test('matches do not cross', () => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM } from '../src/levels.js';
+import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM, TP_FROM } from '../src/levels.js';
 import { findGroups, hasMove, validSave, isSpawner } from '../src/core.js';
 import { parse, TEMPLATES } from '../src/layouts.js';
 
@@ -209,4 +209,17 @@ test('templates do not repeat within a few template levels; a flippable one flip
     if (TEMPLATES.find(t => t.name === b.name).mirror) { if (b.name in side) assert.notEqual(b.mirror, side[b.name], `level ${l}`); side[b.name] = b.mirror }
     last.unshift(b.name);
   }
+});
+
+test('no teleporter templates before TP_FROM; TP_FROM is a breather with one', () => {
+  const tele = l => { const b = boardFor(l); return b.kind === 'template' && TEMPLATES.find(t => t.name === b.name).tags.includes('teleport') };
+  for (let l = 1; l < TP_FROM; l++) assert.ok(!tele(l), `level ${l}`);
+  assert.ok(breather(TP_FROM) && tele(TP_FROM));
+  let seen = 0;
+  for (let l = TP_FROM; l <= 150; l++) if (tele(l)) {
+    const S = makeAttempt(l);
+    assert.ok(S.tp?.length && validSave(S) && hasMove(S), `level ${l}`);
+    seen++;
+  }
+  assert.ok(seen >= 5, `${seen} teleporter levels`);
 });

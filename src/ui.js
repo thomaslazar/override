@@ -136,7 +136,11 @@ async function animate(steps, speed = 1){
       // one gravity pass moves tiles a single row: play a whole run of passes as one drop
       const above = new Map();   // spawner cell -> new tiles queued above it in this run
       for (; j < steps.length && steps[j].k === 'fall'; j++) {
-        for (const m of steps[j].moves) { const sp = sprites.get(m.id); place(sp, m.to); sp.falling = true; if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id) }
+        for (const m of steps[j].moves) {
+          const sp = sprites.get(m.id);
+          if (S.tp?.some(p => p[0] === m.from && p[1] === m.to)) (sp.hops ??= []).push(m);   // through a teleporter
+          place(sp, m.to); sp.falling = true; if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id);
+        }
         for (const p of steps[j].spawns) {
           const x = p.i % S.n, y = Math.floor(p.i / S.n), k = (above.get(p.i) || 0) + 1; above.set(p.i, k);
           sprites.set(p.tile.id, { ...p.tile, x, y: y - k, tx: x, ty: y, top: y, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
@@ -173,7 +177,7 @@ async function animate(steps, speed = 1){
     }
     if (s.k === 'shuffle') {
       toast(t('noMoves')); await wait(600);
-      for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; place(p, x.i); idAt.set(x.i, x.id) }
+      for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; delete p.top; place(p, x.i); idAt.set(x.i, x.id) }
       await settle();
     }
   } } finally { pace = 1 }
@@ -357,6 +361,16 @@ function drawHole(x, y){
 // spawner mark: a small down chevron on the cell's top edge, only where the spawners are not the plain top row
 const spawnMark = (cx, y) => { const w = cs * .12; g.save(); g.fillStyle = PAL.dim; g.beginPath(); g.moveTo(cx - w, y); g.lineTo(cx + w, y); g.lineTo(cx, y + w * .8); g.fill(); g.restore() };
 const marked = i => S.spawn?.some(x => x.i === i && (i >= S.n || x.d !== -1));
+// teleporter mark: a port bracket with the pair's letter, open to the cell's bottom edge on the ingress and to
+// its top edge on the egress; both ends of a pair share letter and colour (letters are marks, not text)
+const TP_COL = ['#5ad1ff', '#ffb347', '#c792ff', '#7dffb0', '#ff7aa8', '#ffe066', '#e9f0ff', '#7fa8ff'];
+function tpMark(i, k, egress){
+  const x = (i % S.n + .5) * cs, y = (row(i) + (egress ? .04 : .96)) * cs, h = Math.max(cs * .22, 8), w = h * 1.6, s = egress ? 1 : -1;
+  g.save(); g.strokeStyle = g.fillStyle = TP_COL[k % TP_COL.length]; g.lineWidth = Math.max(1.2, cs * .035); g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(x - w / 2, y); g.lineTo(x - w / 2, y + s * h); g.lineTo(x + w / 2, y + s * h); g.lineTo(x + w / 2, y); g.stroke();
+  g.font = `700 ${h * 1.05}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(String.fromCharCode(65 + k), x, y + s * h * .52); g.restore();
+}
 const flash = (i, kind, col) => { fx.push({ k: 'flash', i, kind, col, at: performance.now() }); boom(i, kind, col) };
 /* ---------- particles and shake (visual only) ---------- */
 // Tuning: BOOM sets how wild blasts look; sparks fly in cells/s, fall with SPARK_G, live 250 to 650 ms.
@@ -406,16 +420,18 @@ function flashShape(kind, r, c, n, p, col){
   if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, w);
 }
 // Falling tiles accelerate (GRAV cells/s²), drift sideways for diagonal fills, and hop once on landing.
-const GRAV = 70, HOP = .22;
+// A tile with teleporter hops first sinks out through the bottom of the ingress, then drops in above the egress.
+const GRAV = 70, HOP = .22, row = i => Math.floor(i / S.n);
 function fall(p, dt){
+  const h = p.hops?.[0], tx = h ? h.from % S.n : p.tx, ty = h ? row(h.from) + 1 : p.ty;
   p.vy = (p.vy || 0) + GRAV * dt; p.y += p.vy * dt;
-  const left = Math.max(1e-3, p.ty - p.y);
-  p.x += (p.tx - p.x) * Math.min(1, p.vy * dt / left);
-  if (p.y >= p.ty) {
-    p.y = p.ty; p.x = p.tx;
-    if (p.vy > 6 && !p.hopped) { p.vy *= -HOP; p.hopped = true }
-    else { p.vy = 0; p.hopped = p.falling = false }
-  }
+  const left = Math.max(1e-3, ty - p.y);
+  p.x += (tx - p.x) * Math.min(1, p.vy * dt / left);
+  if (p.y < ty) return;
+  if (h) { p.hops.shift(); p.x = h.to % S.n; p.top = row(h.to); p.y += p.top - 1 - ty; return }
+  p.y = p.ty; p.x = p.tx; delete p.top;
+  if (p.vy > 6 && !p.hopped) { p.vy *= -HOP; p.hopped = true }
+  else { p.vy = 0; p.hopped = p.falling = false }
 }
 let last = performance.now();
 function frame(ts){
@@ -433,16 +449,21 @@ function frame(ts){
       if (vEnc[i]) drawEnc(c * cs + cs / 2, r * cs + cs / 2, vEnc[i]);
       if (marked(i)) spawnMark(c * cs + cs / 2, r * cs + cs * .04);
     }
+    S.tp?.forEach(([a, b], k) => { tpMark(a, k, false); tpMark(b, k, true) });
     if (blocked() || won(S) || lost(S)) idle();
     else if (hint === undefined && ts - idleAt > HINT_MS) { const v = validMoves(S); hint = v.length && v.length <= HINT_MAX ? v[0] : null }
     const wig = hint ? wiggle(ts) : null;
     for (const p of sprites.values()) {
-      if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false }
+      if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false; p.hops = null; delete p.top }
       else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
-      if (p.y < (p.top ?? 0) - .5) continue;   // still above its spawner
-      const w = wig?.get(p.id);
+      // shown only below the top of its spawner or egress and above the bottom of the ingress it sinks into
+      const lo = p.top ?? 0, hi = p.hops?.length ? row(p.hops[0].from) + 1 : n;
+      if (p.y <= lo - 1 || p.y >= hi) continue;
+      const w = wig?.get(p.id), cut = p.y < lo || p.y > hi - 1;
+      if (cut) { g.save(); g.beginPath(); g.rect(0, lo * cs, n * cs, (hi - lo) * cs); g.clip() }
       drawTile(p, (p.x + (w?.[0] ?? 0)) * cs + cs / 2, (p.y + (w?.[1] ?? 0)) * cs + cs / 2);
+      if (cut) g.restore();
     }
     if (hint && RM) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.setLineDash([5, 4]); for (const i of hint) g.strokeRect(i % n * cs + 2, Math.floor(i / n) * cs + 2, cs - 4, cs - 4); g.setLineDash([]) }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }

@@ -1,5 +1,5 @@
 // Board templates: whole boards drawn as text, parsed into S fields and validated. Pure.
-import { dead, gravity, fillBoard, rngFor } from './core.js';
+import { dead, gravity, fillBoard, rngFor, above, isSpawner } from './core.js';
 
 // Rows of space-separated tokens: '.' live, 'o' hole, '#' block, 'z' live blocker zone, 'S' spawner,
 // 'S0'..'S2' spawner for that drop kind only, 'iA'..'iH' / 'eA'..'eH' teleporter ingress / egress of
@@ -87,6 +87,35 @@ export const TEMPLATES = [
     'z z z z # . . . .',
     'z z z z # . . . .',
     'z z z z # . . . .'),
+  // teleporters: tiles leaving an ingress (iA) come in at the top of its egress (eA)
+  T('crossing', 0.2, 0.8, ['teleport'], false, 1,
+    'S S S S S S S S S',
+    '. . . . . . . . .',
+    '. . . . . . . . .',
+    '. . iA iB . iC iD . .',
+    '. . # # . # # . .',
+    '. . eD eC . eB eA . .',
+    '. . . . . . . . .',
+    '. . . . . . . . .',
+    '. . . . . . . . .'),
+  T('snake', 0.3, 0.9, ['teleport', 'snake'], true, 2.2,
+    'S eA eB eC eD eE eF',
+    '. . . . . . .',
+    '. . . . z z z',
+    '. . . . z z z',
+    '. . . . z z z',
+    '. . . . z z z',
+    'iA iB iC iD iE iF .'),
+  T('relay', 0.4, 1, ['teleport', 'split'], true, 0.85,
+    'S S S S # eA eB eC eD',
+    '. . . . # . . . .',
+    'z z z z # . . . .',
+    'z z z z # . . . .',
+    'z z z z # . . . .',
+    'z z z z # . . . .',
+    'z z z z # . . . .',
+    '. . . . # . . . .',
+    'iA iB iC iD # . . . .'),
 ];
 
 // The template's static S fields. `zone`: cells where blockers may go (the 'z' cells, or every live
@@ -106,7 +135,11 @@ export function parse(t, mirror = false){
       else if (tok === 'z') zone.push(i);
       else if (tok === 'X') exit.push(i);
       else if ((m = tok.match(/^S([0-2])?$/))) spawn.push({ i, d: m[1] ? +m[1] : -1 });
-      else if ((m = tok.match(/^([ie])([A-H])$/))) (m[1] === 'i' ? ins : outs)[m[2]] = i;
+      else if ((m = tok.match(/^([ie])([A-H])$/))) {
+        const side = m[1] === 'i' ? ins : outs;
+        if (m[2] in side) throw new Error(`${t.name}: ${tok} twice`);
+        side[m[2]] = i;
+      }
       else if ((m = tok.match(/^D([0-2])$/))) drops.push({ i, d: +m[1] });
       else throw new Error(`${t.name}: bad token ${tok}`);
     });
@@ -116,8 +149,10 @@ export function parse(t, mirror = false){
   return { n, cell: cell.some(x => x) ? cell : undefined, spawn: spawn.length ? spawn : undefined, tp, exit, zone: zone.length ? zone : plain, drops };
 }
 
-// Problems with a parsed layout, empty when it is fair: size, every live cell gets a tile from an
-// empty board by gravity (straight or diagonal), and a filled board has a legal move.
+// Problems with a parsed layout, empty when it is fair: size, teleporter pairs complete, on live cells,
+// one pair per cell, no egress that also spawns (it is fed only by its ingress), no gravity loop through
+// a teleporter (filling an empty board does not show one), every live cell gets a tile from an empty
+// board by gravity (straight or diagonal), and a filled board has a legal move.
 export function check(L){
   const { n } = L, out = [];
   if (n < 7 || n > 9) out.push(`size ${n} is outside 7 to 9`);
@@ -125,6 +160,18 @@ export function check(L){
     grid: Array(n * n).fill(null), enc: Array(n * n).fill(0), goals: [], moves: 1, limit: 1, need: 0,
     seed: 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: false, cell: L.cell, spawn: L.spawn, tp: L.tp };
   for (const s of L.spawn ?? []) if (dead(S, s.i)) out.push(`spawner ${s.i} is a dead cell`);
+  const tp = L.tp ?? [], ends = tp.flat();
+  if (ends.some(i => i < 0)) out.push('a teleporter pair is incomplete');
+  if (ends.some(i => i >= 0 && dead(S, i))) out.push('a teleporter end is a dead cell');
+  if (new Set(ends).size !== ends.length) out.push('a cell is in two teleporter pairs');
+  if (out.length) return out;
+  for (const [, e] of tp) {
+    if (isSpawner(S, e)) out.push(`egress ${e} also spawns`);
+    // walk up from the egress: a chain of distinct cells ends within n * n steps, a loop comes back
+    let j = above(S, e);
+    for (let k = 0; j >= 0 && j !== e && k < n * n; k++) j = above(S, j);
+    if (j === e) out.push(`egress ${e} is in a gravity loop`);
+  }
   gravity(S, [], true);
   for (let i = 0; i < n * n; i++) if (!dead(S, i) && !S.grid[i]) out.push(`cell ${Math.floor(i / n)},${i % n} never gets a tile`);
   if (out.length) return out;

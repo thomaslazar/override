@@ -50,3 +50,38 @@ test('parse reads every token', () => {
 test('split boards have an odd size, so the split sits in the middle', () => {
   for (const t of TEMPLATES.filter(t => t.tags.includes('split'))) assert.equal(t.rows.length % 2, 1, t.name);
 });
+
+test('check finds a half pair', () => {
+  const rows = Array(7).fill('. . . . . . .');
+  rows[3] = '. iA . . . . .';
+  assert.ok(check(parse({ rows })).some(e => /pair/.test(e)));
+  rows[3] = '. . . . . eB .';
+  assert.ok(check(parse({ rows })).some(e => /pair/.test(e)));
+});
+
+test('check finds a loop', () => {
+  // the egress near the top pulls from the ingress at the bottom of its own column
+  const rows = Array(7).fill('. . . . . . .');
+  rows[1] = 'eA . . . . . .';
+  rows[6] = 'iA . . . . . .';
+  assert.ok(check(parse({ rows })).some(e => /loop/.test(e)));
+});
+
+test('check finds an egress that also spawns', () => {
+  const rows = Array(7).fill('. . . . . . .');
+  rows[0] = '. . . . . . eA';
+  rows[6] = 'iA . . . . . .';
+  assert.ok(check(parse({ rows })).some(e => /spawn/.test(e)));
+});
+
+test('parse rejects a pair letter used twice', () => {
+  const rows = Array(7).fill('. . . . . . .');
+  rows[3] = 'iA iA . . . . eA';
+  assert.throws(() => parse({ rows }));
+});
+
+test('teleporter templates: complete pairs, explicit spawners', () => {
+  const tp = TEMPLATES.filter(t => t.tags.includes('teleport'));
+  assert.ok(tp.length >= 3);
+  for (const t of tp) { const L = parse(t); assert.ok(L.tp.length && L.spawn, t.name) }
+});

@@ -60,11 +60,11 @@ export function boardFor(level, fb = 0, tags){
 function pickBoard(level, fb, tags){
   const r = rngFor(level, 31), square = { kind: 'square', pattern: PATTERNS[Math.floor(r() * PATTERNS.length)] };
   const { pos } = chapterOf(level), d = difficulty(level), roll = r(), pick = r(), low = r(), mirror = r() < .5;
-  // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one
-  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && roll >= .25 + .25 * (pos - 1) / (CHAPTER - 1))) return square;
+  // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one, TP_FROM a teleporter one
+  if (fb === 2 || level < SHAPES_FROM || (level > SHAPES_FROM && level !== TP_FROM && roll >= .25 + .25 * (pos - 1) / (CHAPTER - 1))) return square;
   const open = TEMPLATES.filter(t => !(t.tags.includes('teleport') && level < TP_FROM) && !(t.tags.includes('drop') && level < DROP_FROM));
   let pool = open.filter(t => d >= t.dMin && d <= t.dMax);
-  tags ??= pos % 5 === 0 ? SPIKE_TAGS : [];
+  tags ??= level === TP_FROM ? ['teleport'] : pos % 5 === 0 ? SPIKE_TAGS : [];
   const tagged = pool.filter(t => t.tags.some(x => tags.includes(x)));
   if (tagged.length) pool = tagged;
   if (!pool.length) return square;
@@ -106,6 +106,7 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
     deal, seed: hash(level, fails, salt, 1, deal), spawns: 0, shuffles: 0, ids: 0, score: 0, nice: true };
   if (L?.cell) S.cell = L.cell;
   if (L?.spawn) S.spawn = L.spawn;
+  if (L?.tp.length) S.tp = L.tp;
   // goal kinds first, so only the blockers a goal uses get placed
   const gr = rngFor(level, salt, 5), wantCrack = p.enc > 0, wantFw = p.fw > 0 && (gr() < .5 || level === FW_FROM); // the tutorial hint needs a firewall
   const fwSpots = [];
