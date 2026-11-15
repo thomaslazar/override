@@ -123,7 +123,7 @@ export function check(L){
   if (n < 7 || n > 9) out.push(`size ${n} is outside 7 to 9`);
   const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, k: 6, types: [0, 1, 2, 3, 4, 5, 6],
     grid: Array(n * n).fill(null), enc: Array(n * n).fill(0), goals: [], moves: 1, limit: 1, need: 0,
-    seed: 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: false, cell: L.cell, spawn: L.spawn };
+    seed: 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: false, cell: L.cell, spawn: L.spawn, tp: L.tp };
   for (const s of L.spawn ?? []) if (dead(S, s.i)) out.push(`spawner ${s.i} is a dead cell`);
   gravity(S, [], true);
   for (let i = 0; i < n * n; i++) if (!dead(S, i) && !S.grid[i]) out.push(`cell ${Math.floor(i / n)},${i % n} never gets a tile`);

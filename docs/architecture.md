@@ -16,7 +16,11 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
 without `spawn` means every live top-row cell). A dead cell never holds a tile, never fills and is
-never matched; blasts pass over it. `validSave` checks both when present (a dead cell must be empty).
+never matched; blasts pass over it. `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
+is the ingress and `above` of the cell below an ingress is `-1`, so gravity and `fed` follow them while
+diagonal slides, matches and blasts keep to board adjacency. `validSave` checks all three when present
+(a dead cell must be empty; spawners and teleporter cells are live, a spawner cell appears once, a
+teleporter cell once across all pairs, pairs are complete).
 
 - **random**: `mulberry32`, `hash`, `rngFor`. No `Math.random` anywhere in `src/`.
 - **matching**: `findGroups` merges horizontal and vertical runs of 3+ that share a cell into
@@ -42,8 +46,9 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless `fed` (going up via `above` reaches a spawner without a dead cell, encrypted cell or
-  firewalled tile; capped at `n * n` steps against cycles). Dead cells count as occupied when
-  choosing a diagonal source.
+  firewalled tile; capped at `n * n` steps, which a chain of distinct cells never reaches, so only a
+  teleporter loop is cut). Dead cells count as occupied when choosing a diagonal source. At most
+  `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
   each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
   else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and
@@ -125,7 +130,7 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
   cell without a feature.
 - `check(layout)` lists problems: size outside 7..9, a spawner on a dead cell, a live cell that an
-  empty board never fills by `gravity` (straight or diagonal), no legal move after `fillBoard`.
+  empty board never fills by `gravity` (straight, through teleporters, or diagonal), no legal move after `fillBoard`.
   A test runs it over every template, both mirrors.
 
 

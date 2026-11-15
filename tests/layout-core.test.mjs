@@ -93,3 +93,75 @@ test('a save without the new fields loads as before', () => {
     { spawn: [{ i: 49, d: -1 }] }, { spawn: [{ i: -1, d: 0 }] }, { spawn: [{ i: 0, d: 3 }] }, { spawn: {} }])
     assert.equal(validSave({ ...o, ...bad }), false, JSON.stringify(bad).slice(0, 60));
 });
+
+// 5 x 5 with a teleporter from (1,0) to (3,3)
+const tpBoard = (edits = {}) => mk(board(5, edits), { tp: [[5, 18]] });
+
+test('tile falls through a teleporter', () => {
+  const S = tpBoard(), x = S.grid[5];
+  S.grid[18] = null;
+  const steps = [];
+  gravity(S, steps);
+  assert.equal(S.grid[18], x);
+  assert.ok(falls(steps)[0].moves.some(m => m.from === 5 && m.to === 18));
+  assert.ok(live(S).every(i => S.grid[i]));
+});
+
+test('cell below an ingress is not fed from it', () => {
+  const S = tpBoard();
+  assert.equal(above(S, 10), -1);
+  S.grid[10] = null;
+  const steps = [];
+  gravity(S, steps);
+  assert.ok(S.grid[10]);
+  assert.ok(falls(steps).every(s => s.moves.every(m => !(m.from === 5 && m.to === 10))));
+});
+
+test('cell above an egress does not feed it', () => {
+  const S = tpBoard();
+  assert.equal(above(S, 18), 5);
+  S.grid[18] = null;
+  const steps = [];
+  gravity(S, steps);
+  assert.ok(falls(steps).every(s => s.moves.every(m => m.from !== 13)));
+});
+
+test('egress below its ingress and pointing up the board both terminate', () => {
+  for (const tp of [[[5, 20]], [[20, 5]]]) {
+    const S = mk(board(5), { tp });
+    for (const i of [5, 10, 15, 20]) S.grid[i] = null;
+    gravity(S, []);
+    const T = mk(board(5), { tp });
+    T.grid[10] = null;
+    gravity(T, []);
+  }
+  const S = mk(board(5), { tp: [[5, 20]] });
+  for (const i of [5, 10, 15, 20]) S.grid[i] = null;
+  gravity(S, []);
+  assert.ok(live(S).every(i => S.grid[i]), 'a downward pair fills');
+});
+
+test('matches do not cross', () => {
+  // A at (3,0), (4,0) and the egress (0,0) fed from the ingress (4,0): not a line
+  assert.equal(findGroups(mk(['A B C D E', 'B C D E A', 'C D E A B', 'A E A B C', 'A A B C D'], { tp: [[20, 0]] })).length, 0);
+  // board-adjacent ingress and egress still match
+  assert.equal(findGroups(mk(['A B C D E', 'A C D E A', 'A D E A B', 'D E A B C', 'E A B C D'], { tp: [[5, 10]] })).length, 1);
+});
+
+test('blasts do not cross', () => {
+  const S = mk(board(5, { '1,1': 'Ah' }), { tp: [[14, 20]] });   // ingress at the worm row's end
+  const { steps } = move(S, 6, 11);
+  const cleared = steps.find(s => s.k === 'wave').cleared.map(x => x.i);
+  assert.ok(cleared.includes(14));
+  assert.ok(!cleared.includes(20));
+});
+
+test('validSave checks teleporters and spawners', () => {
+  const o = toSave(mk(board(7)));
+  const cell = Array(49).fill(0); cell[3] = 1; o.grid[3] = null;
+  assert.ok(validSave({ ...o, tp: [[7, 30], [8, 2]] }));
+  assert.ok(validSave({ ...o, tp: [] }));
+  for (const bad of [{ tp: [[7, 49]] }, { tp: [[-1, 30]] }, { tp: [[7, -1]] }, { tp: [[7, 7]] }, { tp: [[7, 30], [30, 8]] },
+    { tp: [[7]] }, { tp: {} }, { cell, tp: [[3, 30]] }, { spawn: [{ i: 0, d: -1 }, { i: 0, d: 1 }] }, { cell, spawn: [{ i: 3, d: -1 }] }])
+    assert.equal(validSave({ ...o, ...bad }), false, JSON.stringify(bad).slice(0, 60));
+});

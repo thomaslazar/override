@@ -20,8 +20,16 @@ export const nbrs = (S, i) => { const [r, c] = rc(S, i); return [at(S, r - 1, c)
 export const tile = (S, t, s = null) => ({ id: S.ids++, t, s, lock: false });
 // Static cells (S.cell: 0 live, 1 hole, 2 block; absent: all live). A dead cell never holds a tile.
 export const dead = (S, i) => !!S.cell?.[i];
-// The cell gravity pulls from, or -1.
-export const above = (S, i) => i < S.n ? -1 : i - S.n;
+// The cell gravity pulls from, or -1. Teleporters (S.tp: [[ingress, egress]]) link the bottom of the
+// ingress to the top of the egress: the egress pulls from the ingress, the cell below an ingress from nothing.
+export function above(S, i){
+  if (S.tp?.length) {
+    const p = S.tp.find(x => x[1] === i);
+    if (p) return p[0];
+    if (i >= S.n && S.tp.some(x => x[0] === i - S.n)) return -1;
+  }
+  return i < S.n ? -1 : i - S.n;
+}
 // The spawner at i ({ i, d }) or null. Without S.spawn every live top-row cell spawns any kind.
 export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? null : i < S.n && !dead(S, i) ? { i, d: -1 } : null;
 export const movable = (S, i) => { const x = S.grid[i]; return !!x && !x.lock };
@@ -234,7 +242,8 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
 
 /* ---------- gravity ---------- */
 // A cell is fed when going up (`above`) reaches a spawner without passing anything fixed
-// (dead cell, encrypted cell, firewalled tile). The step cap guards against cycles.
+// (dead cell, encrypted cell, firewalled tile), following teleporters up. A chain of distinct cells has
+// fewer than n * n steps, so the cap only cuts a cycle (which never reaches a spawner).
 function fed(S, i){
   for (let j = above(S, i), k = 0; j >= 0 && k < S.grid.length; j = above(S, j), k++) {
     if (dead(S, j) || S.enc[j] || S.grid[j]?.lock) return false;
@@ -248,7 +257,8 @@ function shift(S, from, to, step){ const x = S.grid[from]; S.grid[to] = x; S.gri
 // Roofed pockets stay empty; dead cells never fill.
 export function gravity(S, steps, calm = false){
   const n = S.n, spawned = [];
-  for (;;) {
+  // ponytail: pass cap only stops a teleporter loop (layouts.check rejects those) from cycling a gap forever
+  for (let pass = 0; pass < 8 * n * n; pass++) {
     const step = { k: 'fall', moves: [], spawns: [] };
     for (let r = n - 1; r >= 0; r--) for (let c = 0; c < n; c++) {
       const i = r * n + c;
@@ -256,7 +266,7 @@ export function gravity(S, steps, calm = false){
       const a = above(S, i);
       if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
       if (isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
-      if (fed(S, i)) continue;
+      if (r === 0 || fed(S, i)) continue;
       // prefer a tile that cannot fall straight itself
       const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc))
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
@@ -265,6 +275,7 @@ export function gravity(S, steps, calm = false){
     if (!step.moves.length && !step.spawns.length) return calm ? undefined : damp(S, spawned);
     steps.push(step);
   }
+  return calm ? undefined : damp(S, spawned);
 }
 
 // Settled board: a refilled plain tile that sits in a line survives with chance DAMP, else it takes a
@@ -417,7 +428,12 @@ export function validSave(o){
   if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
   if (!Array.isArray(o.enc) || o.enc.length !== nn || !o.enc.every(x => int(x, 0, 3))) return false;
   if (o.cell !== undefined && (!Array.isArray(o.cell) || o.cell.length !== nn || !o.cell.every((x, i) => int(x, 0, 2) && (!x || (o.grid[i] === null && !o.enc[i]))))) return false;
-  if (o.spawn !== undefined && (!Array.isArray(o.spawn) || !o.spawn.every(x => x && int(x.i, 0, nn - 1) && int(x.d, -1, 2)))) return false;
+  const liveCell = i => int(i, 0, nn - 1) && !o.cell?.[i];
+  if (o.spawn !== undefined && (!Array.isArray(o.spawn) || !o.spawn.every(x => x && liveCell(x.i) && int(x.d, -1, 2))
+    || new Set(o.spawn.map(x => x.i)).size !== o.spawn.length)) return false;
+  // teleporters: complete pairs of live cells, no cell in two places
+  if (o.tp !== undefined && (!Array.isArray(o.tp) || !o.tp.every(p => Array.isArray(p) && p.length === 2 && p.every(liveCell))
+    || new Set(o.tp.flat()).size !== o.tp.length * 2)) return false;
   if (!Array.isArray(o.goals) || !o.goals.length || o.goals.length > 3) return false;
   return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 1e9)
     && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
