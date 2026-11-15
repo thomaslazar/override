@@ -172,3 +172,14 @@ test('validSave checks teleporters and spawners', () => {
     { tp: [[7]] }, { tp: {} }, { cell, tp: [[3, 30]] }, { spawn: [{ i: 0, d: -1 }, { i: 0, d: 1 }] }, { cell, spawn: [{ i: 3, d: -1 }] }])
     assert.equal(validSave({ ...o, ...bad }), false, JSON.stringify(bad).slice(0, 60));
 });
+
+test('a diagonal slide never takes from a cell its own column feeds through a teleporter', () => {
+  // column 1 empties into column 0 through the pair; a slide from column 0 into the roofed cell 9
+  // would feed column 1 again and cycle the same tiles forever (owner bug, snake level 24)
+  const S = mk(['A A B CS', 'B #3 C D', 'C . D E', 'D E F A'], { tp: [[13, 0]] });
+  const steps = [];
+  gravity(S, steps, true);
+  assert.ok(steps.length < 5, `${steps.length} fall steps`);
+  assert.ok(S.grid[9]);
+  assert.ok(!steps.some(s => s.moves.some(m => m.from === 4 && m.to === 9)));
+});

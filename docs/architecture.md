@@ -47,7 +47,7 @@ teleporter cell once across all pairs, pairs are complete).
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
   firewalled tile; `reaches`, memoised per cell, a cell marked unfed while its own walk runs, so a
-  teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source. At most
+  teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source; a source whose upward walk meets the empty cell is skipped (it is fed from that column through a teleporter, so taking from it would cycle the same tiles between two columns). At most
   `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
   Per settle it caches `above`, the spawner test and fed per cell (they cannot change while tiles
   fall), which keeps long teleporter chains (the snake) cheap.

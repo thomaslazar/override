@@ -258,6 +258,8 @@ export function gravity(S, steps, calm = false){
     reach[j] = false;
     return reach[j] = !(dead(S, j) || S.enc[j] || S.grid[j]?.lock) && ((spawns[j] ??= !!isSpawner(S, j)) || reaches(up[j] ??= above(S, j)));
   };
+  // whether walking up from j (straight and through teleporters) meets i
+  const downstream = (i, j) => { for (let k = 0; k < n * n && j >= 0; k++) if ((j = up[j] ??= above(S, j)) === i) return true; return false };
   // ponytail: pass cap only stops a teleporter loop (layouts.check rejects those) from cycling a gap forever
   for (let pass = 0; pass < 8 * n * n; pass++) {
     const step = { k: 'fall', moves: [], spawns: [] };
@@ -268,8 +270,9 @@ export function gravity(S, steps, calm = false){
       if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
       if (spawns[i] ??= !!isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
       if (r === 0 || reaches(a)) continue;
-      // prefer a tile that cannot fall straight itself
-      const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc))
+      // prefer a tile that cannot fall straight itself; never take from a cell fed (through a teleporter)
+      // from this cell's own column, or the same tiles would cycle between the two columns forever
+      const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc) && !downstream(i, (r - 1) * n + cc))
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
