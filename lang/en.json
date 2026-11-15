@@ -56,6 +56,7 @@
   "turnPhone": "Turn your phone upright to play.",
   "hintCrack": "Encrypted cells. Match next to them to crack them.",
   "hintFirewall": "Firewalls hold a tile in place. Match it to free it.",
+  "hintDrop": "Cards, drives and disks won’t pop. Get them to the exits.",
   "decker": "Decker",
   "comms1": "Maglock on the service door. Crack it and we’re in.",
   "comms2": "Badge reader on the loading dock. Make it like us.",

@@ -1,6 +1,7 @@
 # Override board layouts, teleporters and drop goals: design
 
-Date: 2026-11-14. Status: approved in principle by the owner (2026-11-14); builder-check calls marked below. Branch `feat/board-layouts`. Replaces roadmap items 1
+Date: 2026-11-14. Status: approved in principle by the owner (2026-11-14); builder-check calls marked below. All three stages
+built (2026-11-15), awaiting the owner’s test. Branch `feat/board-layouts`. Replaces roadmap items 1
 (board layouts), 2 (drop goal) and 3 (teleporters and islands) with one feature. Extends the core
 loop spec; everything there still holds unless this file says so.
 

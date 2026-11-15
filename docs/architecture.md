@@ -223,7 +223,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
   and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
-  the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), exit (the
+  drop tile leaves the view at once; an `exit` effect slides it out through the cell's bottom edge, clipped to the
+  cell, with a light bar flaring on the edge and sparks; the HUD adds its `points`; 220 ms per exit), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
@@ -234,7 +236,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   step and `sync()` shows the saved end state. Reduced motion skips the animation.
 - HUD score: `#score` under the goals shows `score n`, plus `· best n` when the level has a best
   (plain digits, no grouping). While a move animates, `shown` holds the HUD's score and
-  moves: it starts at the score before the move and the moves left after it, each wave step adds its
+  moves: it starts at the score before the move and the moves left after it, each wave and exit step adds its
   `points`, and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0; in the finale a drop waits at most 150 ms, so the next round
   converts and fires while tiles still fall (state is unchanged, only the look overlaps);
   the round's specials light up 50 ms apart and blast 60 ms apart, each cleared tile popping with its
@@ -260,7 +262,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   the confirmations. The menu has tabs Run (level picker up to the best level, or `MAX_LEVEL` 9999 on
   a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
-  `override-plays`, opt-in, `src/plays.js`) and Info (how to play, Share, GitHub, licence, font).
+  `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
+  goal and `d` for a drop goal) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
@@ -271,7 +274,16 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   glow). `spawnMark` draws a small down chevron on the top edge of a spawner only where spawners differ
   from the plain top row (`S.spawn` entries below row 0 or limited to a drop kind). `tpMark` draws a
   teleporter end as a small port bracket with the pair's letter (A, B, ... by pair order), open to the
-  bottom edge on the ingress and to the top edge on the egress, in the pair's colour (`TP_COL`), under the tiles. Effects: worm streak, bomb shockwave, area flash, crack.
+  bottom edge on the ingress and to the top edge on the egress, in the pair's colour (`TP_COL`), under the tiles.
+  `exitMark` draws a drop point as an amber slot along the cell's bottom edge with two chevrons pointing out of
+  the board (no template puts a drop point on a teleporter ingress, which would share that edge). Drop tiles are
+  `drawDrop(d)`: solid, unlit hardware objects with a dark drop shadow, no glyph and no glow, so they read as
+  nothing you can pop, and each kind has its own silhouette (colour is never the cue): 0 a keycard (a wide card
+  with a chip and a cut corner), 1 a drive (an upright stick, plug pointing down, a blinking light), 2 a disk (a
+  square cartridge with a cut corner, a metal shutter and a label). `drawTile` checks `isDrop` first (a drop has
+  `t` -1 like a zero-day). HUD goals: one icon and count per goal (`icon(goal)`: a drop goal shows its piece, so
+  there is one counter per drop kind). The comms line explains encrypted cells at `ENC_FROM`, firewalls at
+  `FW_FROM` and drops at `DROP_FROM`. Effects: worm streak, bomb shockwave, area flash, crack.
   Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
   animation, effects and cycling (win art static). Tile colours come from `paletteFor`.

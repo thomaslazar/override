@@ -86,3 +86,8 @@ test('attempt records board', () => {
   assert.equal(attemptOf({ ...mkS(), board: 'pocket' }, 'T').board, 'pocket');
   assert.equal(attemptOf(mkS(), 'T').board, 'square');
 });
+
+test('a drop goal keeps its kind in the log', () => {
+  const S = { ...mkS(), goals: [{ kind: 'drop', d: 1, need: 2, got: 0 }] };
+  assert.deepEqual(mk(S).goals, [{ kind: 'drop', d: 1, need: 2 }]);
+});

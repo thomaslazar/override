@@ -1,8 +1,8 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead } from './core.js';
+import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead, isDrop } from './core.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
-import { chapterOf, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel } from './levels.js';
+import { chapterOf, ENC_FROM, FW_FROM, DROP_FROM, MAX_LEVEL, clampLevel } from './levels.js';
 
 const $ = s => document.querySelector(s);
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -175,6 +175,12 @@ async function animate(steps, speed = 1){
       if (shown) shown.score += s.points ?? 0;
       hud(); await wait(inFinale ? 120 : 190);
     }
+    if (s.k === 'exit') {   // a drop leaves: it slides out through the cell's bottom edge with a short flash
+      const p = sprites.get(s.id); fx.push({ k: 'exit', p, at: performance.now() }); sprites.delete(s.id); idAt.delete(s.i);
+      sparks(p.x + .5, p.y + 1, PAL.acc, 10, 7, 1.6, -Math.PI / 2);
+      if (shown) shown.score += s.points ?? 0;
+      hud(); await wait(220);
+    }
     if (s.k === 'shuffle') {
       toast(t('noMoves')); await wait(600);
       for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; delete p.top; place(p, x.i); idAt.set(x.i, x.id) }
@@ -321,9 +327,54 @@ function drawFw(cx, cy, sz){
   }
   g.restore();
 }
+// drop tiles: hardware to carry out, never popped, so solid unlit objects (no glyph, no glow), each kind its own
+// silhouette: 0 a keycard (wide card, chip, cut corner), 1 a drive (upright stick, plug pointing down), 2 a disk
+// (square cartridge with a metal shutter and a label)
+function drawDrop(d, cx, cy, sz){
+  const u = sz / 100, line = Math.max(1, 3 * u);
+  g.save(); g.translate(cx, cy); g.lineJoin = 'round'; g.lineWidth = line; g.strokeStyle = '#0b0d10';
+  g.shadowColor = 'rgba(0,0,0,.7)'; g.shadowBlur = 6 * u; g.shadowOffsetY = 3 * u;
+  const body = (path, fill) => { path(); g.fillStyle = fill; g.fill(); g.shadowColor = 'transparent'; g.stroke() };
+  if (d === 0) {
+    const w = 39 * u, h = 26 * u, k = 10 * u;
+    body(() => { g.beginPath(); g.moveTo(-w + k, -h); g.lineTo(w, -h); g.lineTo(w, h); g.lineTo(-w, h); g.lineTo(-w, -h + k); g.closePath() }, '#e3e8ee');
+    g.fillStyle = '#2b3138'; g.fillRect(-w + line / 2, -h + 9 * u, 2 * w - line, 9 * u);   // stripe
+    rr(-w + 8 * u, 2 * u, 18 * u, 15 * u, 3 * u); g.fillStyle = PAL.acc; g.fill(); g.strokeStyle = '#7a5a10'; g.lineWidth = 1.5 * u; g.stroke();   // chip
+    g.beginPath(); g.moveTo(-w + 17 * u, 2 * u); g.lineTo(-w + 17 * u, 17 * u); g.moveTo(-w + 8 * u, 9.5 * u); g.lineTo(-w + 26 * u, 9.5 * u); g.stroke();
+    g.fillStyle = '#9aa5b1'; for (const y of [5, 11]) g.fillRect(-w + 32 * u, y * u, 36 * u, 3 * u);   // printed lines
+  } else if (d === 1) {
+    g.scale(1.15, 1.15); const w = 18 * u, top = -38 * u, bot = 18 * u;
+    rr(-12 * u, bot - 2 * u, 24 * u, 20 * u, 2 * u); g.fillStyle = '#c3cbd4'; g.fill(); g.shadowColor = 'transparent'; g.stroke();   // plug
+    g.fillStyle = '#4a525c'; g.fillRect(-7 * u, bot + 5 * u, 5 * u, 5 * u); g.fillRect(2 * u, bot + 5 * u, 5 * u, 5 * u);
+    body(() => rr(-w, top, 2 * w, bot - top, 6 * u), '#5d6b7a');
+    rr(-w + 6 * u, top + 16 * u, 2 * w - 12 * u, 28 * u, 2 * u); g.fillStyle = '#e3e8ee'; g.fill();   // label
+    g.fillStyle = '#5d6b7a'; for (const y of [22, 30, 38]) g.fillRect(-w + 9 * u, top + y * u, 2 * w - 18 * u, 2.5 * u);
+    const on = Math.floor(now() / 700) % 2 === 0; g.fillStyle = on ? PAL.acc : '#3a3320';
+    g.beginPath(); g.arc(0, top + 8 * u, 3.5 * u, 0, 7); g.fill();   // activity light
+  } else {
+    const a = 34 * u, k = 9 * u;
+    body(() => { g.beginPath(); g.moveTo(-a, -a); g.lineTo(a - k, -a); g.lineTo(a, -a + k); g.lineTo(a, a); g.lineTo(-a, a); g.closePath() }, '#3d4652');
+    g.fillStyle = '#c3cbd4'; g.fillRect(-15 * u, -a + line / 2, 32 * u, 26 * u);   // shutter
+    g.fillStyle = '#3d4652'; g.fillRect(5 * u, -a + 5 * u, 7 * u, 16 * u);
+    rr(-a + 7 * u, 2 * u, 2 * a - 14 * u, 27 * u, 2 * u); g.fillStyle = '#e3e8ee'; g.fill();   // label
+    g.fillStyle = PAL.acc; g.fillRect(-a + 7 * u, 2 * u, 2 * a - 14 * u, 5 * u);
+    g.fillStyle = '#9aa5b1'; for (const y of [12, 19]) g.fillRect(-a + 12 * u, y * u, 2 * a - 24 * u, 2.5 * u);
+  }
+  g.restore();
+}
+// drop point mark: a slot along the cell's bottom edge with a chevron pointing out of the board
+function exitMark(i){
+  const x = (i % S.n + .5) * cs, y = (row(i) + 1) * cs - cs * .05, w = cs * .22, h = Math.max(cs * .065, 2.5);
+  g.save(); g.fillStyle = g.strokeStyle = PAL.acc; g.globalAlpha = .75;
+  g.fillRect(x - cs * .38, y - Math.max(1.5, cs * .03), cs * .76, Math.max(1.5, cs * .03));
+  g.lineWidth = Math.max(1.2, cs * .035); g.lineJoin = g.lineCap = 'round';
+  for (const o of [2.1, 1]) { g.beginPath(); g.moveTo(x - w / 2, y - h * o - h * .9); g.lineTo(x, y - h * o); g.lineTo(x + w / 2, y - h * o - h * .9); g.stroke() }
+  g.restore();
+}
 function drawTile(x, cx, cy, sc = 1){
   const sz = cs * sc;
-  if (x.s === 'z') drawZero(cx, cy, sz);
+  if (isDrop(x)) drawDrop(x.d, cx, cy, sz);
+  else if (x.s === 'z') drawZero(cx, cy, sz);
   else if (x.s === 'h' || x.s === 'v') drawWorm(S.types[x.t], cx, cy, sz, x.s === 'v');
   else if (x.s === 'b') drawBomb(S.types[x.t], cx, cy, sz);
   else glyph(S.types[x.t], cx, cy, sz * .5);
@@ -451,6 +502,7 @@ function frame(ts){
       if (marked(i)) spawnMark(c * cs + cs / 2, r * cs + cs * .04);
     }
     S.tp?.forEach(([a, b], k) => { tpMark(a, k, false); tpMark(b, k, true) });
+    S.exit?.forEach(exitMark);
     if (blocked() || won(S) || lost(S)) idle();
     else if (hint === undefined && ts - idleAt > HINT_MS) { const v = validMoves(S); hint = v.length && v.length <= HINT_MAX ? v[0] : null }
     const wig = hint ? wiggle(ts) : null;
@@ -469,7 +521,7 @@ function frame(ts){
     if (hint && RM) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.setLineDash([5, 4]); for (const i of hint) g.strokeRect(i % n * cs + 2, Math.floor(i / n) * cs + 2, cs - 4, cs - 4); g.setLineDash([]) }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
-      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : 240); if (p >= 1 || RM) return false;
+      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : f.k === 'exit' ? 380 : 240); if (p >= 1 || RM) return false;
       g.globalAlpha = 1 - p;
       if (f.k === 'spark') {   // a glowing streak along its velocity, falling and slowing
         const t = (ts - f.at) / 1000, x = f.x + f.vx * t * (1 - t * .6), y = f.y + f.vy * t + SPARK_G * t * t / 2, vy = f.vy + SPARK_G * t;
@@ -477,6 +529,12 @@ function frame(ts){
         g.beginPath(); g.moveTo(x * cs, y * cs); g.lineTo((x - f.vx * .05) * cs, (y - vy * .05) * cs); g.stroke(); g.shadowBlur = 0;
       }
       else if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .9);
+      else if (f.k === 'exit') {   // the drop sinks out through the bottom edge; a light bar flares on the edge
+        const X = f.p.x * cs, Y = f.p.y * cs, q = Math.min(1, p / .7);
+        g.globalAlpha = 1; g.save(); g.beginPath(); g.rect(X, Y, cs, cs); g.clip(); drawDrop(f.p.d, X + cs / 2, Y + cs / 2 + q * q * cs, cs); g.restore();
+        g.globalAlpha = 1 - p; g.fillStyle = '#ffffff'; g.shadowColor = PAL.acc; g.shadowBlur = cs * .6;
+        g.fillRect(X + cs * (.1 - .1 * p), Y + cs * .9, cs * (.8 + .2 * p), cs * .08); g.shadowBlur = 0;
+      }
       else {
         const r = Math.floor(f.i / n), c = f.i % n;
         if (f.k === 'crack') { g.strokeStyle = PAL.encInk; g.lineWidth = 3; g.strokeRect(c * cs + 2 - p * 6, r * cs + 2 - p * 6, cs - 4 + p * 12, cs - 4 + p * 12) }
@@ -494,6 +552,7 @@ function icon(goal){
   const g2 = g, cs2 = cs; g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); cs = s;
   if (goal.kind === 'crack') drawEnc(s / 2, s / 2, 2, s);
   else if (goal.kind === 'firewall') drawFw(s / 2, s / 2, s);
+  else if (goal.kind === 'drop') drawDrop(goal.d, s / 2, s / 2, s * 1.15);
   else glyph(S.types[goal.t], s / 2, s / 2, s * .8);
   g = g2; cs = cs2; return c;
 }
@@ -514,7 +573,7 @@ function hud(){
 }
 function comms(){
   const lines = [t('comms1'), t('comms2'), t('comms3'), t('comms4'), t('comms5'), t('comms6'), t('comms7'), t('comms8'), t('comms9'), t('comms10'), t('comms11'), t('comms12')];
-  $('#line').textContent = S.level === ENC_FROM ? t('hintCrack') : S.level === FW_FROM ? t('hintFirewall') : lines[hash(S.level, 23) % lines.length];
+  $('#line').textContent = S.level === ENC_FROM ? t('hintCrack') : S.level === FW_FROM ? t('hintFirewall') : S.level === DROP_FROM ? t('hintDrop') : lines[hash(S.level, 23) % lines.length];
 }
 let toastTimer; function toast(s){ const el = $('#toast'); el.textContent = s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 1600) }
 let dismissable = false;

@@ -6,19 +6,20 @@ the fiction are still working names.
 
 ## Next, in order
 
-1. **Board layouts, drops and teleporters.** Spec: `docs/superpowers/specs/2026-11-14-board-layouts-design.md`.
-   Levels stop being plain squares; built in three stages on `feat/board-layouts`.
+1. **Board layouts, drops and teleporters.** Done, awaiting the owner’s test on `feat/board-layouts`. Spec:
+   `docs/superpowers/specs/2026-11-14-board-layouts-design.md`. Levels stop being plain squares; built in three stages.
    - Stage 1, geometry and spawners: done. Holes and unbreakable blocks, spawners anywhere,
      blocker patterns on square boards (ring, wall, cross, diagonal), the first shape and
      geometry templates (notch, pillars, diamond, hourglass, frame, split, wall, pocket), bot and
      sim support, drawing.
-   - Stage 2, teleporters: an ingress and an egress anywhere; whatever falls out of the ingress
-     comes in at the egress. Matches and blasts never reach across. Teleporter templates (snake,
-     feeder, crossover, mid-board egress).
-   - Stage 3, drop goal: drop tiles (drives, keys, a planted device) come from spawners and leave
-     at drop points. They never match and cannot be destroyed; they swap only when the swap makes a
-     match for the other tile. Never more on the board than the goals still need. Drop templates
-     (corner run, mirrored funnel).
+   - Stage 2, teleporters: done. An ingress and an egress anywhere; whatever falls out of the ingress
+     comes in at the egress. Matches and blasts never reach across. Teleporter templates (crossing,
+     snake, relay), from level 16.
+   - Stage 3, drop goal: done. Drop tiles (keycard, drive, disk, each its own drawn piece) come from
+     spawners and leave at drop points. They never match and cannot be destroyed; they swap only when
+     the swap makes a match for the other tile. Never more on the board than the goals still need.
+     Drop templates (chute, corner run, mirrored funnel, sluice), from level 21; the bot steers drops
+     towards their drop points.
    - Research: `docs/research/2026-11-11-level-layouts.md`; 50 real levels transcribed and 26
      template candidates: `docs/research/2026-11-11-layout-gallery.md`.
 
@@ -78,8 +79,8 @@ the fiction are still working names.
      piece drawn as on the board, one or two lines of what it does and how to beat it, and OK.
    - Shown once per player (seen list in a new `override-` key), with a way to see them again from
      the Info tab. Never costs a move; the board waits under it.
-   - Today only the comms line mentions encrypted cells (level 4) and firewalls (level 7); the cards
-     replace that.
+   - Today only the comms line mentions encrypted cells (level 4), firewalls (level 7) and drops
+     (level 21); the cards replace that.
    - The idle hint exists (the swap wriggles after 10 s when only one or two exist); open whether it
      should show on any board and be switchable in settings.
    - Open: whether the first levels also get a guided first move (a pointing hand on a set swap).

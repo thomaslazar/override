@@ -37,9 +37,11 @@ Read before changing behaviour:
 ## Files
 
 - `index.html`: markup (strip with the obstacle plate, comms line, deck with image pieces and stickers, screen with log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; the middle log line hides below 780 px height, the whole log below 620 px height).
-- `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs` and `tests/refill.test.mjs`.
+- `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs`, `tests/refill.test.mjs`,
+  `tests/score.test.mjs`, `tests/finale.test.mjs`, `tests/layout-core.test.mjs` (holes, blocks, spawners, teleporters)
+  and `tests/drops.test.mjs` (drop tiles and drop goals).
 - `src/levels.js`: chapters, difficulty, `paramsFor`, `boardFor` (square pattern or template), `makeAttempt`, pure. Tested in `tests/levels.test.mjs`.
-- `src/layouts.js`: board templates, `parse`, `check`, pure. Tested in `tests/layouts.test.mjs`.
+- `src/layouts.js`: board templates (shapes, teleporters, drops), `parse`, `check`, `exitDistance`, pure. Tested in `tests/layouts.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in
   `tests/bot.test.mjs`. `tools/sim.mjs`: balance report with it.
 - `src/plays.js`: opt-in play log (pure, tested in `tests/plays.test.mjs`); `tools/plays.mjs`: report over

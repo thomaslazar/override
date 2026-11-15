@@ -6,7 +6,7 @@ export const logFrom = o => {
     attempts: Array.isArray(l.attempts) ? l.attempts.filter(a => a && typeof a === 'object' && Array.isArray(a.moves)) : [] };
 };
 export const attemptOf = (S, at) => ({ level: S.level, fails: S.fails, board: S.board ?? 'square', n: S.n, k: S.k,
-  goals: S.goals.map(g => g.t === undefined ? { kind: g.kind, need: g.need } : { kind: g.kind, t: g.t, need: g.need }),
+  goals: S.goals.map(g => ({ kind: g.kind, ...(g.t !== undefined && { t: g.t }), ...(g.d !== undefined && { d: g.d }), need: g.need })),
   limit: S.limit, need: S.need, salt: S.salt, drop: S.drop, deal: S.deal ?? 0, at, moves: [], end: null, left: null, t: 0 });
 const open = log => { const a = log.attempts.at(-1); return a && a.end === null ? a : null; };
 export const close = (log, end, S, seconds) => { const a = open(log); if (a) { a.end = end; a.left = S ? S.limit - (S.spare ?? S.moves) : null;
