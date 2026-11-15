@@ -199,3 +199,14 @@ test('patterns on squares', () => {
   }
   assert.equal(seen.size, 5);
 });
+
+test('templates do not repeat within a few template levels; a flippable one flips on each use', () => {
+  let last = [], side = {};
+  for (let l = SHAPES_FROM; l <= 300; l++) {
+    const b = boardFor(l);
+    if (b.kind !== 'template') continue;
+    if (l % 5 !== 0) assert.ok(!last.slice(0, 2).includes(b.name), `level ${l} ${b.name} after ${last}`);
+    if (TEMPLATES.find(t => t.name === b.name).mirror) { if (b.name in side) assert.notEqual(b.mirror, side[b.name], `level ${l}`); side[b.name] = b.mirror }
+    last.unshift(b.name);
+  }
+});

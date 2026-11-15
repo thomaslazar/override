@@ -86,7 +86,10 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
   Templates tagged `teleport` wait for `TP_FROM` (16), `drop` for `DROP_FROM` (21). Every 5th level
   prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
-  band (smaller `dMin`), or the easiest one; `fb` 2: square.
+  band (smaller `dMin`), or the easiest one; `fb` 2: square. Variety: a template among the last
+  `RECENT` (5) template boards is skipped while the pool has others, and a flippable template flips
+  side on each use. This needs the earlier levels' own boards, so `boardFor` fills a module cache
+  `picks` in level order (fb 0, default tags) and reads it.
 - `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
   template sets `n` (over `paramsFor`'s), `S.cell` and `S.spawn`. `S.board` is the template name,
   `square:<pattern>` for a square with blockers, or `square`. Blockers (encrypted cells, firewall
@@ -213,7 +216,7 @@ never matched; blasts pass over it. `validSave` checks both when present (a dead
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
   (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
   level's colours); blockers are `drawEnc` (static slab, amber outline for hits left) and
-  `drawFw` (flames and cage bars). Dead cells: a hole gets no cell background, so the board's
+  `drawFw` (flames and cage bars). Dead cells: a hole is `drawHole` (faint back-slash hatching, no cell background, running on across neighbouring holes), so the board's
   edge follows the shape; a block is `drawBlock` (a dark riveted steel plate with faint hatching, no
   glow). `spawnMark` draws a small down chevron on the top edge of a spawner only where spawners differ
   from the plain top row (`S.spawn` entries below row 0 or limited to a drop kind). Effects: worm streak, bomb shockwave, area flash, crack.

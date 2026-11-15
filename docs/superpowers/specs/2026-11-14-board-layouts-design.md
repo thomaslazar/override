@@ -163,6 +163,10 @@ square board (old saves keep working).
   half later. Templates enter in this order, each first on a breather (chapter positions 6, 11, 16,
   21, 26): shapes and geometry from level 11, teleporters from level 16, drop goals from level 21. In later chapters
   everything mixes. Every 5th level (the spike) prefers tougher tags (`walled`, `split`, `funnel`).
+- Changed in testing (owner, 2026-11-15): no template again within the last 5 template boards while
+  the pool has others; a mirrored template alternates sides on each use. A board split in halves
+  (split, wall) has an odd size so the split sits in the middle (wall is 9 x 9 now). Holes are drawn
+  as faint hatching, so off-board areas read as such and not as empty black.
 - Blocker patterns on squares: ring, wall row, cross, diagonal, random mirrored pairs (today), by
   level. Builder-check call: patterns apply to every square level with blockers, so those levels
   get new boards and the bot sets new limits for them; square levels without blockers keep their

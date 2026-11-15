@@ -346,6 +346,14 @@ function drawBlock(cx, cy){
   g.fillStyle = '#69737e'; for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.arc(cx + x * a * .72, cy + y * a * .72, cs * .045, 0, 7); g.fill() }
   g.restore();
 }
+// hole: off the board; faint back-slash hatching that runs on across neighbouring holes (blocks hatch the other way)
+function drawHole(x, y){
+  const sp = cs / 4;
+  g.save(); g.beginPath(); g.rect(x, y, cs, cs); g.clip();
+  g.strokeStyle = 'rgba(120,135,150,.16)'; g.lineWidth = 1; g.beginPath();
+  for (let t = -cs; t <= cs; t += sp) { g.moveTo(x + t, y); g.lineTo(x + t + cs, y + cs) }
+  g.stroke(); g.restore();
+}
 // spawner mark: a small down chevron on the cell's top edge, only where the spawners are not the plain top row
 const spawnMark = (cx, y) => { const w = cs * .12; g.save(); g.fillStyle = PAL.dim; g.beginPath(); g.moveTo(cx - w, y); g.lineTo(cx + w, y); g.lineTo(cx, y + w * .8); g.fill(); g.restore() };
 const marked = i => S.spawn?.some(x => x.i === i && (i >= S.n || x.d !== -1));
@@ -419,7 +427,7 @@ function frame(ts){
     if (sp < 1) { const a = shake.amp * (1 - sp) ** 2; g.translate((fxRnd() - .5) * 2 * a, (fxRnd() - .5) * 2 * a) }
     for (let i = 0; i < n * n; i++) {
       const r = Math.floor(i / n), c = i % n, d = S.cell?.[i];
-      if (d === 1) continue;   // hole: outside the board, no background
+      if (d === 1) { drawHole(c * cs, r * cs); continue }
       if (d === 2) { drawBlock(c * cs + cs / 2, r * cs + cs / 2); continue }
       g.fillStyle = PAL.cell; g.beginPath(); g.roundRect(c * cs + cs * .04, r * cs + cs * .04, cs * .92, cs * .92, cs * .1); g.fill();
       if (vEnc[i]) drawEnc(c * cs + cs / 2, r * cs + cs / 2, vEnc[i]);

@@ -46,3 +46,7 @@ test('parse reads every token', () => {
   assert.ok(!L.zone.includes(0) && !L.zone.includes(7) && !L.zone.includes(45) && !L.zone.includes(42) && L.zone.includes(8));
   assert.equal(L.cell, undefined);
 });
+
+test('split boards have an odd size, so the split sits in the middle', () => {
+  for (const t of TEMPLATES.filter(t => t.tags.includes('split'))) assert.equal(t.rows.length % 2, 1, t.name);
+});

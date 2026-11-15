@@ -45,8 +45,19 @@ const PATTERNS = ['ring', 'wall', 'cross', 'diagonal', 'pairs'], SPIKE_TAGS = ['
 
 // The level's board, from `level` only (its own stream, so the older streams keep their draws).
 // fb 1: a template of a lower band (or the easiest one), fb 2: a square board. `tags`: preferred
-// template tags, by default the tougher ones on every 5th level.
+// template tags, by default the tougher ones on every 5th level. A template is not picked again
+// while it is one of the last RECENT ones (when the pool allows), and a flippable one flips side
+// on each use.
+const RECENT = 5, picks = [];   // picks[l]: level l's own board (fb 0, default tags), filled in level order
 export function boardFor(level, fb = 0, tags){
+  if (fb === 0 && tags === undefined) {
+    for (let l = picks.length || 1; l <= level; l++) picks[l] = pickBoard(l, 0);
+    return picks[level];
+  }
+  boardFor(level - 1);
+  return pickBoard(level, fb, tags);
+}
+function pickBoard(level, fb, tags){
   const r = rngFor(level, 31), square = { kind: 'square', pattern: PATTERNS[Math.floor(r() * PATTERNS.length)] };
   const { pos } = chapterOf(level), d = difficulty(level), roll = r(), pick = r(), low = r(), mirror = r() < .5;
   // about 1 in 4 rising to 1 in 2 over a chapter; the first template level always gets one
@@ -57,12 +68,16 @@ export function boardFor(level, fb = 0, tags){
   const tagged = pool.filter(t => t.tags.some(x => tags.includes(x)));
   if (tagged.length) pool = tagged;
   if (!pool.length) return square;
-  let t = pool[Math.floor(pick * pool.length)];
+  const before = [];   // earlier template boards, newest first
+  for (let l = level - 1; l >= SHAPES_FROM && before.length < 60; l--) if (picks[l].kind === 'template') before.push(picks[l]);
+  const recent = before.slice(0, Math.min(RECENT, pool.length - 1)).map(b => b.name), fresh = pool.filter(t => !recent.includes(t.name));
+  let t = fresh[Math.floor(pick * fresh.length)];
   if (fb === 1) {
     const lower = open.filter(x => x.dMin < t.dMin);
     t = lower.length ? lower[Math.floor(low * lower.length)] : open.reduce((a, b) => b.dMin < a.dMin ? b : a);
   }
-  return { kind: 'template', name: t.name, mirror: t.mirror && mirror };
+  const prev = before.find(b => b.name === t.name);
+  return { kind: 'template', name: t.name, mirror: t.mirror && (prev ? !prev.mirror : mirror) };
 }
 
 // Order of a square pattern's cells (rows 2 and below): lower scores fill first.
