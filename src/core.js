@@ -13,6 +13,7 @@ export const rngFor = (...xs) => mulberry32(hash(...xs));
 
 /* ---------- board helpers ---------- */
 export const TYPES = 7;   // glyph and colour slots; a level uses k of them
+export const DROP_KINDS = 3;   // drop tile kinds (spec, Drop tiles and the drop goal)
 const range = (a, b) => Array.from({ length: b - a }, (_, k) => a + k);
 export const rc = (S, i) => [Math.floor(i / S.n), i % S.n];
 export const at = (S, r, c) => r >= 0 && c >= 0 && r < S.n && c < S.n ? r * S.n + c : -1;
@@ -33,7 +34,9 @@ export function above(S, i){
 // The spawner at i ({ i, d }) or null. Without S.spawn every live top-row cell spawns any kind.
 export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? null : i < S.n && !dead(S, i) ? { i, d: -1 } : null;
 export const movable = (S, i) => { const x = S.grid[i]; return !!x && !x.lock };
-// The colour a cell matches with, or -1 (empty, encrypted, outside, zero-day).
+// A drop tile ({ t: -1, s: null, d }) never matches, is never cleared and leaves at a drop point (S.exit).
+export const isDrop = x => x?.d !== undefined;
+// The colour a cell matches with, or -1 (empty, encrypted, outside, zero-day, drop).
 export const colourAt = (S, r, c) => { const i = at(S, r, c), x = i < 0 ? null : S.grid[i]; return x && x.s !== 'z' ? x.t : -1 };
 
 /* ---------- matching ---------- */
@@ -99,10 +102,12 @@ export function lineAt(S, i){
 }
 export function swapLegal(S, a, b){
   if (!movable(S, a) || !movable(S, b)) return false;
-  const A = S.grid[a], B = S.grid[b];
-  if (A.s || B.s) return true;
+  const A = S.grid[a], B = S.grid[b], dA = isDrop(A), dB = isDrop(B);
+  if (dA && dB) return false;
+  if (A.s && !dB || B.s && !dA) return true;
   S.grid[a] = B; S.grid[b] = A;
-  const ok = lineAt(S, a) || lineAt(S, b);
+  // with a drop only the other tile counts (a special too: it must land in a match)
+  const ok = dA ? lineAt(S, a) : dB ? lineAt(S, b) : lineAt(S, a) || lineAt(S, b);
   S.grid[a] = A; S.grid[b] = B;
   return ok;
 }
@@ -182,7 +187,7 @@ export function fillBoard(S, rnd){
 /* ---------- clearing ---------- */
 // A random colour still on the board (seeded by the zero-day's id), for a zero-day fired by a blast.
 function randomColour(S, id){
-  const on = [...new Set(S.grid.filter(x => x && x.s !== 'z').map(x => x.t))].sort((a, b) => a - b);
+  const on = [...new Set(S.grid.filter(x => x && x.s !== 'z' && !isDrop(x)).map(x => x.t))].sort((a, b) => a - b);
   return on[Math.floor(rngFor(S.seed, 13, id)() * on.length)];
 }
 function square(S, i, d){
@@ -199,14 +204,15 @@ function area(S, i, x){
   const t = x.target ?? randomColour(S, x.id);   // zero-day: the swapped tile's colour, else a random one
   return range(0, n * n).filter(j => S.grid[j] && S.grid[j].s !== 'z' && S.grid[j].t === t);
 }
-export const SCORE = { tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 };
+export const SCORE = { exit: 200, tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 };
 export function pointsOf(step, chain){
   const zeros = step.fired.filter(f => f.s === 'z').length;
   return Math.min(chain, SCORE.chainCap) * (SCORE.tile * step.cleared.length + SCORE.crack * step.cracked.length
     + SCORE.unlock * step.unlocked.length + SCORE.create * step.created.length
     + SCORE.fire * (step.fired.length - zeros) + SCORE.zero * zeros);
 }
-function bump(S, kind, t){ for (const g of S.goals) if (g.kind === kind && (kind !== 'tiles' || g.t === t)) g.got++ }
+// `t`: the colour for 'tiles', the drop kind for 'drop'.
+function bump(S, kind, t){ for (const g of S.goals) if (g.kind === kind && (kind === 'tiles' ? g.t === t : kind !== 'drop' || g.d === t)) g.got++ }
 // One wave: fire specials in `cells` (chains), hit blockers, clear tiles, then place new specials.
 // `matched` holds cells cleared by matching (they crack encrypted neighbours); `fired` holds ids that must not fire.
 function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
@@ -226,7 +232,7 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
   for (const i of hit) { S.enc[i]--; step.cracked.push({ i, hp: S.enc[i] }); if (!S.enc[i]) bump(S, 'crack') }
   for (const i of cells) {
     const x = S.grid[i];
-    if (!x) continue;
+    if (!x || isDrop(x)) continue;   // blasts pass drops by
     if (x.lock) { x.lock = false; step.unlocked.push(i); bump(S, 'firewall'); continue }
     if (x.s !== 'z') bump(S, 'tiles', x.t);
     step.cleared.push({ i, id: x.id }); S.grid[i] = null;
@@ -268,7 +274,12 @@ export function gravity(S, steps, calm = false){
       if (S.grid[i] || S.enc[i] || dead(S, i)) continue;
       const a = up[i] ??= above(S, i);
       if (a >= 0 && movable(S, a)) { shift(S, a, i, step); continue }
-      if (spawns[i] ??= !!isSpawner(S, i)) { const x = tile(S, spawnColour(S, i)); S.grid[i] = x; step.spawns.push({ i, tile: { ...x } }); spawned.push([x, step.spawns[step.spawns.length - 1]]); continue }
+      if (spawns[i] ??= !!isSpawner(S, i)) {
+        const d = dropDue(S, i), x = d >= 0 ? { ...tile(S, -1), d } : tile(S, spawnColour(S, i));
+        S.grid[i] = x; step.spawns.push({ i, tile: { ...x } });
+        if (d < 0) spawned.push([x, step.spawns[step.spawns.length - 1]]);
+        continue;
+      }
       if (r === 0 || reaches(a)) continue;
       // prefer a tile that cannot fall straight itself; never take from a cell fed (through a teleporter)
       // from this cell's own column, or the same tiles would cycle between the two columns forever
@@ -276,12 +287,39 @@ export function gravity(S, steps, calm = false){
         .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
-    if (!step.moves.length && !step.spawns.length) return calm ? undefined : damp(S, spawned);
+    if (!step.moves.length && !step.spawns.length) {
+      if (!calm && exits(S, steps)) continue;   // settled: drops on drop points leave, then their cells refill
+      return calm ? undefined : damp(S, spawned);
+    }
     steps.push(step);
   }
   return calm ? undefined : damp(S, spawned);
 }
 
+// The drop kind spawner i spawns now, or -1. Due every S.drops.every moves (S.drops.wait counts them), or with
+// every 0 once no drop is on the board; only a kind the spawner allows and the goals still need beyond the drops on the board.
+function dropDue(S, i){
+  if (!S.drops) return -1;
+  const on = S.grid.filter(isDrop);
+  if (S.drops.every ? S.drops.wait < S.drops.every : on.length) return -1;
+  const { d } = isSpawner(S, i);
+  for (const g of S.goals) if (g.kind === 'drop' && (d < 0 || d === g.d) && g.got + on.filter(x => x.d === g.d).length < g.need) {
+    S.drops.wait = 0;
+    return g.d;
+  }
+  return -1;
+}
+// Drops on drop points leave the board: one 'exit' step each, the goal counts, flat SCORE.exit (no chain factor).
+function exits(S, steps){
+  let out = false;
+  for (const i of S.exit ?? []) {
+    const x = S.grid[i];
+    if (!isDrop(x)) continue;
+    S.grid[i] = null; bump(S, 'drop', x.d); S.score = (S.score ?? 0) + SCORE.exit; out = true;
+    steps.push({ k: 'exit', i, id: x.id, d: x.d, points: SCORE.exit });
+  }
+  return out;
+}
 // Settled board: a refilled plain tile that sits in a line survives with chance DAMP, else it takes a
 // colour that makes no line. The spawn record is patched so the animation shows the final colour.
 function damp(S, spawned){
@@ -338,7 +376,7 @@ export function finale(S){
   // Spare moves go in rounds of up to FINALE_BATCH: that many tiles turn special at once, then fire together.
   for (let k = 0, left = spare; left > 0; k++) {
     const rnd = rngFor(S.seed, 29, k), n = Math.min(FINALE_BATCH, left); left -= n;
-    const plain = []; S.grid.forEach((x, i) => { if (x && !x.lock && !x.s) plain.push(i) });
+    const plain = []; S.grid.forEach((x, i) => { if (x && !x.lock && !x.s && !isDrop(x)) plain.push(i) });
     const cells = [];
     while (cells.length < n && plain.length) {
       const i = plain.splice(Math.floor(rnd() * plain.length), 1)[0], s = rnd() < 1 / 3 ? 'b' : rnd() < .5 ? 'h' : 'v';
@@ -385,27 +423,32 @@ function combo(S, A, pa, B, pb, steps){
   steps.push(wave(S, cells, new Set(), [], fired));
   gravity(S, steps);
 }
+// A move is spent: one fewer left, one more towards the next scheduled drop.
+const spend = S => { S.moves--; if (S.drops) S.drops.wait++ };
 // The player drags the tile at `a` onto `b`. Resolves everything; returns the steps for the UI.
 export function move(S, a, b){
   const steps = [];
   if (S.moves <= 0 || won(S) || !nextTo(S, a, b) || !movable(S, a) || !movable(S, b)) return { ok: false, steps };
-  const A = S.grid[a], B = S.grid[b];
+  const A = S.grid[a], B = S.grid[b], drop = isDrop(A) || isDrop(B);
+  // a swap with a drop goes only when the other tile lands in a match (then it resolves as that match, no combo)
+  if (drop && !swapLegal(S, a, b)) { steps.push({ k: 'swap', a, b }, { k: 'back', a, b }); return { ok: false, steps } }
   S.grid[a] = B; S.grid[b] = A;
   steps.push({ k: 'swap', a, b });
   const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z';
   // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
   // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
-  if (lone && findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
-  else if (A.s || B.s) { S.moves--; combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
-  else if (findGroups(S).length) { S.moves--; cascade(S, steps, [b, a], swipe) }
+  if (drop) { spend(S); cascade(S, steps, [b, a], swipe) }
+  else if (lone && findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
+  else if (A.s || B.s) { spend(S); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
+  else if (findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe) }
   else { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
   if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
   return { ok: true, steps };
 }
-// Shuffles movable tiles (seeded) until no match and a valid move; after 200 tries also redraws colours.
+// Shuffles movable tiles except drops (seeded) until no match and a valid move; after 200 tries also redraws colours.
 export function reshuffle(S, steps){
   const spots = [], tiles = [];
-  for (let i = 0; i < S.n * S.n; i++) if (movable(S, i)) { spots.push(i); tiles.push(S.grid[i]) }
+  for (let i = 0; i < S.n * S.n; i++) if (movable(S, i) && !isDrop(S.grid[i])) { spots.push(i); tiles.push(S.grid[i]) }
   const rnd = rngFor(S.seed, 13, S.shuffles++);
   for (let k = 0; k < 400; k++) {
     if (k >= 200) for (const x of tiles) if (!x.s) x.t = Math.floor(rnd() * S.k);
@@ -419,7 +462,8 @@ export function reshuffle(S, steps){
 /* ---------- saves ---------- */
 const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
 const validTile = (x, k) => x === null || (x && typeof x === 'object' && Number.isInteger(x.id) && typeof x.lock === 'boolean'
-  && ((x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b'].includes(x.s) && int(x.t, 0, k - 1))));
+  && (x.d !== undefined ? int(x.d, 0, DROP_KINDS - 1) && x.t === -1 && x.s === null && !x.lock
+    : (x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b'].includes(x.s) && int(x.t, 0, k - 1))));
 export function validSave(o){
   if (!o || typeof o !== 'object' || o.v !== 1) return false;
   if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 7, 9) || !int(o.k, 2, TYPES)) return false;
@@ -438,9 +482,11 @@ export function validSave(o){
   // teleporters: complete pairs of live cells, no cell in two places
   if (o.tp !== undefined && (!Array.isArray(o.tp) || !o.tp.every(p => Array.isArray(p) && p.length === 2 && p.every(liveCell))
     || new Set(o.tp.flat()).size !== o.tp.length * 2)) return false;
+  if (o.exit !== undefined && (!Array.isArray(o.exit) || !o.exit.every(liveCell) || new Set(o.exit).size !== o.exit.length)) return false;
+  if (o.drops !== undefined && !(o.drops && int(o.drops.every, 0, 999) && int(o.drops.wait, 0, 1e9))) return false;
   if (!Array.isArray(o.goals) || !o.goals.length || o.goals.length > 3) return false;
-  return o.goals.every(g => g && ['tiles', 'crack', 'firewall'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 1e9)
-    && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)));
+  return o.goals.every(g => g && ['tiles', 'crack', 'firewall', 'drop'].includes(g.kind) && int(g.need, 1, 999) && int(g.got, 0, 1e9)
+    && (g.kind !== 'tiles' || int(g.t, 0, o.k - 1)) && (g.kind !== 'drop' || int(g.d, 0, DROP_KINDS - 1)));
 }
 export const toSave = S => JSON.parse(JSON.stringify(S));
 export const fromSave = o => validSave(o) ? { ...JSON.parse(JSON.stringify(o)), score: o.score ?? 0 } : null;

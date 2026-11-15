@@ -4,7 +4,8 @@ import { tile } from '../src/core.js';
 // 'A'..'F' colour 0..5, suffix 'h' | 'v' | 'b' makes that special, suffix '!' locks it (firewall),
 // 'Z' zero-day, '#1'..'#3' encrypted cell with that many hits, '.' empty cell,
 // 'o' hole, '#B' block, suffix 'S' on a tile or '.' makes a spawner (then only marked cells spawn).
-// o.tp: teleporter pairs [[ingress, egress]].
+// 'D0'..'D2' drop tile of that kind; suffix 'X' on any token makes a drop point.
+// o.tp: teleporter pairs [[ingress, egress]]; o.drops: drop schedule { every, wait }.
 export function mk(rows, o = {}){
   const n = rows.length;
   const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, k: o.k ?? 6, types: [0, 1, 2, 3, 4, 5, 6],
@@ -12,13 +13,16 @@ export function mk(rows, o = {}){
     goals: o.goals ?? [{ kind: 'tiles', t: 0, need: 999, got: 0 }],
     moves: o.moves ?? 30, limit: o.limit ?? 30, need: 0, seed: o.seed ?? 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: o.nice ?? false };
   if (o.tp) S.tp = o.tp;
+  if (o.drops) S.drops = o.drops;
   rows.forEach((row, r) => row.trim().split(/\s+/).forEach((tok, c) => {
     const i = r * n + c;
     if (tok === 'o' || tok === '#B') { (S.cell ??= Array(n * n).fill(0))[i] = tok === 'o' ? 1 : 2; return }
+    if (tok.length > 1 && tok.endsWith('X')) { (S.exit ??= []).push(i); tok = tok.slice(0, -1) }
     if (tok.length > 1 && tok.endsWith('S')) { (S.spawn ??= []).push({ i, d: -1 }); tok = tok.slice(0, -1) }
     if (tok === '.') return;
     if (tok[0] === '#') { S.enc[i] = +tok.slice(1) || 1; return }
     if (tok === 'Z') { S.grid[i] = tile(S, -1, 'z'); return }
+    if (/^D[0-2]$/.test(tok)) { S.grid[i] = { ...tile(S, -1), d: +tok[1] }; return }
     const m = tok.match(/^([A-F])([hvb])?(!)?$/);
     if (!m) throw new Error('bad token ' + tok);
     const x = tile(S, m[1].charCodeAt(0) - 65, m[2] || null);

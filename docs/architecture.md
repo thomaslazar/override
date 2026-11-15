@@ -12,7 +12,8 @@ the spec): `n` board side (7..9), `k` colours, `types` glyph slot per colour, `g
 null, index `r * n + c`), `enc` (encrypted hits left per cell), `goals`, `moves`, `limit`,
 `need`, `seed`, `salt`, `drop`, `deal` (which seeded board), `pick` (set by the UI), counters `spawns`, `shuffles`, `ids`, and `nice` (helpful refill on for the
 player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`'v'` (worm),
-`'b'` (logic bomb) or `'z'` (zero-day, `t === -1`); `lock` is a firewall.
+`'b'` (logic bomb) or `'z'` (zero-day, `t === -1`); `lock` is a firewall. A drop tile is
+`{ id, t: -1, s: null, lock: false, d }` (`d` its kind, `0..DROP_KINDS - 1`, `DROP_KINDS = 3`; `isDrop(x)`).
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
 without `spawn` means every live top-row cell). A dead cell never holds a tile, never fills and is
@@ -20,16 +21,21 @@ never matched; blasts pass over it. `tp` (`[[ingress, egress]]`): one-way telepo
 is the ingress and `above` of the cell below an ingress is `-1`, so gravity and its fed test follow them while
 diagonal slides, matches and blasts keep to board adjacency. `validSave` checks all three when present
 (a dead cell must be empty; spawners and teleporter cells are live, a spawner cell appears once, a
-teleporter cell once across all pairs, pairs are complete).
+teleporter cell once across all pairs, pairs are complete). `exit` (drop point cells, live, each once) and
+`drops` (`{ every, wait }`: a drop every `every` moves, `wait` counting moves since the last one; `every: 0`
+means the next comes once no drop is on the board) are optional too; `validSave` checks them, drop tiles
+and drop goals `{ kind: 'drop', d, need, got }`.
 
 - **random**: `mulberry32`, `hash`, `rngFor`. No `Math.random` anywhere in `src/`.
 - **matching**: `findGroups` merges horizontal and vertical runs of 3+ that share a cell into
-  one group; encrypted cells, empty cells and zero-days never match. `specialOf(group, swipe)`:
+  one group; encrypted cells, empty cells, zero-days and drops never match. `specialOf(group, swipe)`:
   5+ run makes a zero-day, an L or T (a horizontal and a vertical run) a bomb, a run of 4 a
   worm along the swipe (or its own direction). `spotOf` puts it on a swapped cell, else the
   crossing (bomb), else the middle of the longest run. `swapLegal` needs a match, or a special.
+  A swap with a drop is legal only when the other tile lands in a line (a special too); drop with drop never.
 - **move**: `move(S, a, b)` returns `{ ok, steps }`. Steps are `swap`, `back`, `combo`,
-  `convert`, `wave`, `fall`, `shuffle` (contract in the plan). Flow: swap; a lone worm or bomb
+  `convert`, `wave`, `fall`, `exit`, `shuffle` (contract in the plan). Flow: swap; a legal swap with a drop
+  resolves as the other tile's match (no combo); a lone worm or bomb
   swapped into a match joins that match's first wave (so the special it makes survives); any
   other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
@@ -42,7 +48,8 @@ teleporter cell once across all pairs, pairs are complete).
   area, plus neighbours of matched cells and of a zero-day's tiles), unlocks firewalled tiles (a firewalled tile hit is unlocked,
   not cleared), clears the rest and counts goals, then places the new specials. A special
   created on a cell whose firewalled tile was only unlocked consumes that tile: it appears in
-  the wave's `cleared` and counts for the tiles goal.
+  the wave's `cleared` and counts for the tiles goal. No wave clears a drop (blasts and zero-days pass it
+  by; a zero-day's random colour is never a drop's).
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
@@ -50,7 +57,12 @@ teleporter cell once across all pairs, pairs are complete).
   teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source; a source whose upward walk meets the empty cell is skipped (it is fed from that column through a teleporter, so taking from it would cycle the same tiles between two columns). At most
   `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
   Per settle it caches `above`, the spawner test and fed per cell (they cannot change while tiles
-  fall), which keeps long teleporter chains (the snake) cheap.
+  fall), which keeps long teleporter chains (the snake) cheap. Drops fall like tiles (diagonal slides too).
+  When a pass settles (and gravity is not calm), every drop on a drop point leaves: an
+  `{ k: 'exit', i, id, d, points }` step, its goal counts, `SCORE.exit` added flat (no chain factor),
+  then gravity goes on and refills the cell. A spawner spawns a drop instead of a tile when one is due
+  (`dropDue`: by `S.drops`, of a kind the spawner allows, the first drop goal that still needs more than
+  the drops of its kind on the board); a spawned drop resets `wait`. `move` adds 1 to `wait` per spent move.
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
   each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
   else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and
@@ -61,9 +73,9 @@ teleporter cell once across all pairs, pairs are complete).
   direct match (no free cascades). `refillWeights` start at 1; with `nice`, +`A` + `M * pressure`
   for a colour that sets up a pair, +`B` for a colour a tiles goal still needs. Weights only
   ever add; the only thing against the player is the shared settle-time damping (see gravity). `spawnColour` draws from `rngFor(S.seed, 7, S.spawns++)`.
-- **reshuffle**: seeded shuffle of movable tiles until there is no match and a move exists;
+- **reshuffle**: seeded shuffle of movable tiles (drops stay put) until there is no match and a move exists;
   after 200 tries it also redraws plain colours (400 max).
-- **score**: `SCORE = { tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 }`.
+- **score**: `SCORE = { exit: 200, tile: 10, crack: 20, unlock: 30, create: 50, fire: 50, zero: 100, chainCap: 5 }`.
   `pointsOf(step, chain)` sums a wave's cleared tiles, cracks, unlocks, created and fired specials
   (a fired zero-day at `zero`), times the chain factor: the wave's place in the cascade (1 for the
   move's first wave), capped at `chainCap`. Each wave step carries `points`; `S.score` is the total
@@ -72,9 +84,9 @@ teleporter cell once across all pairs, pairs are complete).
   then returns `{ steps }` starting with a `{ k: 'finale' }` marker: every special on the board fires
   (a wave, then gravity and cascade, repeated until none is left, 500 rounds max), then the spare
   moves go in rounds of up to `FINALE_BATCH` (5): each round turns that many distinct seeded random
-  plain, unlocked tiles into bombs (1/3) or worms (h or v) with one `convert` step (`spent` = the
+  plain, unlocked tiles (never drops) into bombs (1/3) or worms (h or v) with one `convert` step (`spent` = the
   moves it uses) and fires the board again. Its gravity is calm (no settle-time damping), so lucky
-  lines are allowed. All of it scores; the result is fixed when the level is won.
+  lines are allowed; drops stay (no exits, none due once won). All of it scores; the result is fixed when the level is won.
 - **saves**: `validSave` (version `v: 1`), `toSave`, `fromSave`; an invalid save is dropped.
 
 
