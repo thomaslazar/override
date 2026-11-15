@@ -106,7 +106,7 @@ square board (old saves keep working).
 - **Falling (builder-check call):** drop tiles fall exactly like tiles, diagonal slides included, so a
   drop under a hole or block can still slide past it.
 - **Leaving:** when gravity settles, every drop tile on a drop point leaves the board (a step
-  `{ k: 'exit', i, id, kind }`), counts for its goal and the cell refills. Any drop point takes any
+  `{ k: 'exit', i, id, d, points }`), counts for its goal and the cell refills. Any drop point takes any
   kind (owner).
 - **Goal:** `{ kind: 'drop', d: <drop kind>, need, got }`. A level can have one goal per drop kind,
   so "2 data drives and 1 keycard" is two goals. Drop goals can sit next to tile, crack and firewall

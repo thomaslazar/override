@@ -99,7 +99,7 @@ export const TEMPLATES = [
     '. . . . . . . . .',
     '. . . . . . . . .',
     '. . . . . . . . .'),
-  T('snake', 0.3, 0.9, ['teleport', 'snake'], true, 2.2,
+  T('snake', 0.3, 0.8, ['teleport', 'snake'], true, 2.2,
     'S eA eB eC eD eE eF',
     '. . . . . . .',
     '. . . . z z z',

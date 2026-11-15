@@ -73,8 +73,9 @@ function pickBoard(level, fb, tags){
   const recent = before.slice(0, Math.min(RECENT, pool.length - 1)).map(b => b.name), fresh = pool.filter(t => !recent.includes(t.name));
   let t = fresh[Math.floor(pick * fresh.length)];
   if (fb === 1) {
-    const lower = open.filter(x => x.dMin < t.dMin);
-    t = lower.length ? lower[Math.floor(low * lower.length)] : open.reduce((a, b) => b.dMin < a.dMin ? b : a);
+    // same drop-ness, so a fallback never adds or removes a drop goal
+    const kin = open.filter(x => x.tags.includes('drop') === t.tags.includes('drop')), lower = kin.filter(x => x.dMin < t.dMin);
+    t = lower.length ? lower[Math.floor(low * lower.length)] : kin.reduce((a, b) => b.dMin < a.dMin ? b : a);
   }
   const prev = before.find(b => b.name === t.name);
   return { kind: 'template', name: t.name, mirror: t.mirror && (prev ? !prev.mirror : mirror) };

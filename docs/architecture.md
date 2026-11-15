@@ -105,7 +105,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   chance .25 rising to .5 over the chapter, from those whose band holds `difficulty(level)`.
   Templates tagged `teleport` wait for `TP_FROM` (16, a breather, always a teleporter template), `drop` for `DROP_FROM` (21, a breather, always a drop template). Every 5th level
   prefers the tags `walled`, `split`, `funnel` (or the given `tags`). `fb` 1: a template of a lower
-  band (smaller `dMin`), or the easiest one; `fb` 2: square. Variety: a template among the last
+  band (smaller `dMin`), or the easiest one, among templates with the same drop-ness (a fallback never
+  adds or removes a drop goal); `fb` 2: square. Variety: a template among the last
   `RECENT` (5) template boards is skipped while the pool has others, and a flippable template flips
   side on each use. This needs the earlier levels' own boards, so `boardFor` fills a module cache
   `picks` in level order (fb 0, default tags) and reads it.

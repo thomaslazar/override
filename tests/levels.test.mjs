@@ -169,7 +169,9 @@ test('lower-band fallback picks an easier template', () => {
     if (b.kind !== 'template') continue;
     const f = boardFor(l, 1), band = name => TEMPLATES.find(t => t.name === name).dMin;
     assert.equal(f.kind, 'template');
-    assert.ok(band(f.name) < band(b.name) || band(f.name) === Math.min(...TEMPLATES.map(t => t.dMin)), `level ${l}`);
+    const drop = name => TEMPLATES.find(t => t.name === name).tags.includes('drop');
+    assert.equal(drop(f.name), drop(b.name), `level ${l} keeps drop goals or their absence`);
+    assert.ok(band(f.name) < band(b.name) || band(f.name) === Math.min(...TEMPLATES.filter(t => t.tags.includes('drop') === drop(b.name)).map(t => t.dMin)), `level ${l}`);
     assert.equal(makeAttempt(l, 0, 0, 0, 0, 2).board.startsWith('square'), true);
   }
 });
