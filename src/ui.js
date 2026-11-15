@@ -368,8 +368,9 @@ function tpMark(i, k, egress){
   const x = (i % S.n + .5) * cs, y = (row(i) + (egress ? .04 : .96)) * cs, h = Math.max(cs * .22, 8), w = h * 1.6, s = egress ? 1 : -1;
   g.save(); g.strokeStyle = g.fillStyle = TP_COL[k % TP_COL.length]; g.lineWidth = Math.max(1.2, cs * .035); g.lineJoin = 'round';
   g.beginPath(); g.moveTo(x - w / 2, y); g.lineTo(x - w / 2, y + s * h); g.lineTo(x + w / 2, y + s * h); g.lineTo(x + w / 2, y); g.stroke();
-  g.font = `700 ${h * 1.05}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(String.fromCharCode(65 + k), x, y + s * h * .52); g.restore();
+  // centre the glyph's ink inside the bracket (a 'middle' baseline sits capitals high, touching the ingress roof)
+  const ch = String.fromCharCode(65 + k); g.font = `700 ${h * 1.05}px ${MONO}`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const m = g.measureText(ch); g.fillText(ch, x, y + s * h / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2); g.restore();
 }
 const flash = (i, kind, col) => { fx.push({ k: 'flash', i, kind, col, at: performance.now() }); boom(i, kind, col) };
 /* ---------- particles and shake (visual only) ---------- */
