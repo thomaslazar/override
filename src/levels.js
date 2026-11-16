@@ -1,6 +1,6 @@
 // Level generation. Pure and seeded: an attempt follows from level, fails, salt and drop.
 import { hash, rngFor, fillBoard, hasMove, reshuffle, isSpawner, dropTile, TYPES, DROP_KINDS } from './core.js';
-import { TEMPLATES, parse } from './layouts.js';
+import { TEMPLATES, parse, MIN_SIDE, MAX_W, MAX_H } from './layouts.js';
 
 /* ---------- chapters & difficulty ---------- */
 export const CHAPTER = 30;
@@ -32,10 +32,14 @@ export function paramsFor(level, fails = 0, drop = 0){
   let k = d > .8 ? 6 : 5;
   if (fails >= 6) k = Math.max(4, k - 1);
   const n = d < .33 ? (h < 40 ? 9 : 8) : d < .66 ? (h < 15 ? 9 : h < 30 ? 7 : 8) : (h < 45 ? 7 : 8);
-  const enc = level < ENC_FROM ? 0 : Math.round(n * n * (.05 + .13 * d));
+  // a plain board is a rectangle of about the same area: 35 % square, 45 % tall, 20 % wide, 1 or 2 off the square's side
+  const shape = hash(level, 1, 7) % 100, dl = 1 + hash(level, 1, 8) % 2, sk = shape < 35 ? 0 : shape < 80 ? dl : -dl;
+  const clamp = (v, max) => Math.min(max, Math.max(MIN_SIDE, v));
+  const w = clamp(n - sk, MAX_W), hh = clamp(n + sk, MAX_H);
+  const enc = level < ENC_FROM ? 0 : Math.round(w * hh * (.05 + .13 * d));
   const hp = 1 + Math.min(2, Math.floor(d * 3));
   const fw = level < FW_FROM ? 0 : Math.round(1 + 4 * d);
-  return { d, k, n, enc, hp, fw };
+  return { d, k, w, h: hh, n: Math.max(w, hh), enc, hp, fw };
 }
 
 /* ---------- boards ---------- */
@@ -84,9 +88,9 @@ function pickBoard(level, fb, tags){
 }
 
 // Order of a square pattern's cells (rows 2 and below): lower scores fill first.
-function patternScore(pattern, n, r, c){
-  const cr = (n + 1) / 2, cc = (n - 1) / 2, dr = r - cr, dc = c - cc;
-  if (pattern === 'ring') return Math.abs(Math.max(Math.abs(dr), Math.abs(dc)) - (n % 2 ? 2 : 1.5));
+function patternScore(pattern, w, h, r, c){
+  const cr = (h + 1) / 2, cc = (w - 1) / 2, dr = r - cr, dc = c - cc;
+  if (pattern === 'ring') return Math.abs(Math.max(Math.abs(dr), Math.abs(dc)) - (Math.min(w, h) % 2 ? 2 : 1.5));
   if (pattern === 'wall') return Math.abs(dr);
   if (pattern === 'cross') return Math.min(Math.abs(dr), Math.abs(dc));
   return Math.min(Math.abs(dr - dc), Math.abs(dr + dc));   // diagonal: an X
@@ -101,13 +105,14 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const p = paramsFor(level, fails, drop), board = boardFor(level, fb);
   const tpl = board.kind === 'template' ? TEMPLATES.find(t => t.name === board.name) : null, L = tpl && parse(tpl, board.mirror);
   const effort = tpl ? tpl.effort : 1;
-  const n = L ? L.n : p.n, nn = n * n, lr = rngFor(level, salt, 2);
+  const n = L ? L.n : p.n, w = L ? L.w : p.w, h = L ? L.h : p.h, nn = n * n, lr = rngFor(level, salt, 2);
   const order = Array.from({ length: TYPES }, (_, i) => i), tr = rngFor(level, 4);
   for (let j = TYPES - 1; j > 0; j--) { const m = Math.floor(tr() * (j + 1)); [order[j], order[m]] = [order[m], order[j]] }
-  const S = { v: 1, level, fails, salt, drop, n, k: p.k, types: order.slice(0, p.k),
+  const S = { v: 1, level, fails, salt, drop, n, w, h, k: p.k, types: order.slice(0, p.k),
     grid: Array(nn).fill(null), enc: Array(nn).fill(0), goals: [], moves: 0, limit: 0, need: 0,
     deal, seed: hash(level, fails, salt, 1, deal), spawns: 0, shuffles: 0, ids: 0, score: 0, nice: true };
   if (L?.cell) S.cell = L.cell;
+  else if (w !== h) S.cell = Array.from({ length: nn }, (_, i) => +(i % n >= w || Math.floor(i / n) >= h));   // padding holes
   if (L?.spawn) S.spawn = L.spawn;
   if (L?.tp.length) S.tp = L.tp;
   // a board with drop points has a drop goal per kind: the kinds its spawners and starting drops name, else
@@ -125,45 +130,45 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const inRow = r => S.enc.slice(r * n, r * n + n).filter(Boolean).length;
   if (L) {
     // templates: blockers only on zone cells, never on a spawner, at most a third of them (a packed zone
-    // stalls); counts scaled from paramsFor's n * n square to the template's live cells; in a small zone
+    // stalls); counts scaled from paramsFor's w * h plain board to the template's live cells; in a small zone
     // (a walled pocket, under 2n cells) encrypted cells take one hit, as few matches reach it
     const zone = L.zone.filter(i => !isSpawner(S, i)), room = Math.floor(zone.length / 3);
-    const live = L.cell ? L.cell.filter(x => !x).length : nn, scale = effort * live / (p.n * p.n);
+    const live = L.cell ? L.cell.filter(x => !x).length : nn, scale = effort * live / (p.w * p.h);
     const enc = Math.min(Math.round(p.enc * scale), room), fw = Math.round(p.fw * scale), hp = zone.length < 2 * n ? 1 : p.hp;
     for (let j = zone.length - 1; j > 0; j--) { const m = Math.floor(lr() * (j + 1)); [zone[j], zone[m]] = [zone[m], zone[j]] }
     for (let j = 0, placed = 0; wantCrack && placed < enc && j < zone.length; j++) {
       const i = zone[j];
-      if (inRow(Math.floor(i / n)) + 1 > n - 2) continue;
+      if (inRow(Math.floor(i / n)) + 1 > w - 2) continue;
       S.enc[i] = 1 + Math.floor(lr() * hp);
       placed++;
     }
     const fwRoom = room - S.enc.filter(Boolean).length;
     for (const i of zone) if (wantFw && fwSpots.length < Math.min(fw, fwRoom) && !S.enc[i]) fwSpots.push(i);
   } else if (board.pattern === 'pairs') {
-    // encrypted cells: random mirrored pairs from row 2 down, at most n - 2 per row
+    // encrypted cells: random mirrored pairs from row 2 down, at most w - 2 per row
     for (let placed = 0, guard = 0; wantCrack && placed < p.enc && guard < 500; guard++) {
-      const r = 2 + Math.floor(lr() * (n - 2)), c = Math.floor(lr() * Math.ceil(n / 2)), m = n - 1 - c;
+      const r = 2 + Math.floor(lr() * (h - 2)), c = Math.floor(lr() * Math.ceil(w / 2)), m = w - 1 - c;
       const add = m === c ? 1 : 2;
-      if (S.enc[r * n + c] || inRow(r) + add > n - 2) continue;
+      if (S.enc[r * n + c] || inRow(r) + add > w - 2) continue;
       const hp = 1 + Math.floor(lr() * p.hp);
       S.enc[r * n + c] = S.enc[r * n + m] = hp;
       placed += add;
     }
   } else if (wantCrack) {
-    // a pattern of mirrored pairs from row 2 down, nearest the shape first, at most n - 2 per row
+    // a pattern of mirrored pairs from row 2 down, nearest the shape first, at most w - 2 per row
     const left = [];
-    for (let r = 2; r < n; r++) for (let c = 0; c < Math.ceil(n / 2); c++) left.push({ r, c, s: patternScore(board.pattern, n, r, c) + .9 * lr() });
+    for (let r = 2; r < h; r++) for (let c = 0; c < Math.ceil(w / 2); c++) left.push({ r, c, s: patternScore(board.pattern, w, h, r, c) + .9 * lr() });
     left.sort((a, b) => a.s - b.s);
     for (let j = 0, placed = 0; placed < p.enc && j < left.length; j++) {
-      const { r, c } = left[j], m = n - 1 - c, add = m === c ? 1 : 2;
-      if (inRow(r) + add > n - 2) continue;
+      const { r, c } = left[j], m = w - 1 - c, add = m === c ? 1 : 2;
+      if (inRow(r) + add > w - 2) continue;
       S.enc[r * n + c] = S.enc[r * n + m] = 1 + Math.floor(lr() * p.hp);
       placed += add;
     }
   }
   // firewall spots come from the layout stream, so they stay on retry
   for (let guard = 0; !L && wantFw && fwSpots.length < p.fw && guard < 500; guard++) {
-    const i = n + Math.floor(lr() * (nn - n));
+    const j = Math.floor(lr() * w * (h - 1)), i = (1 + Math.floor(j / w)) * n + j % w;
     if (!S.enc[i] && !fwSpots.includes(i)) fwSpots.push(i);
   }
   fillBoard(S, rngFor(level, salt, 3, deal));

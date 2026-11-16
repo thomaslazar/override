@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chapterOf, difficulty, breather, paramsFor, makeAttempt, GOAL, ENC_FROM, FW_FROM, MAX_LEVEL, clampLevel, boardFor, SHAPES_FROM, TP_FROM, DROP_FROM } from '../src/levels.js';
 import { findGroups, hasMove, validSave, isSpawner } from '../src/core.js';
-import { parse, TEMPLATES } from '../src/layouts.js';
+import { parse, TEMPLATES, MIN_SIDE, MAX_W, MAX_H } from '../src/layouts.js';
 
 test('chapters are 30 levels', () => {
   assert.deepEqual(chapterOf(1), { n: 1, start: 1, pos: 1 });
@@ -22,7 +22,7 @@ test('difficulty ramps per chapter with a five-level wave', () => {
 test('parameters stay in range and ease with fails', () => {
   for (let l = 1; l <= 300; l++) {
     const p = paramsFor(l);
-    assert.ok(p.n >= 7 && p.n <= 9 && p.k >= 4 && p.k <= 6 && p.hp >= 1 && p.hp <= 3, `level ${l}`);
+    assert.ok(p.n >= 5 && p.n <= 11 && p.k >= 4 && p.k <= 6 && p.hp >= 1 && p.hp <= 3, `level ${l}`);
     if (l < ENC_FROM) assert.equal(p.enc, 0);
     if (l < FW_FROM) assert.equal(p.fw, 0);
     assert.ok(paramsFor(l, 6).k === Math.max(4, p.k - 1));
@@ -130,11 +130,9 @@ test('level picker clamps to 1..max and falls back on junk', () => {
 });
 
 test('square levels without blockers unchanged', () => {
-  // recorded from master before boards existed
+  // recorded from master before boards existed (levels 2 and 3 are rectangles now)
   const master = {
     1: ['0020133124303041320433032130212044043011103200100033244232031342', { kind: 'tiles', t: 1, need: 18, got: 0 }],
-    2: ['2202130123302434004142042232323304412331422102143103430211014132', { kind: 'tiles', t: 3, need: 19, got: 0 }],
-    3: ['2334211241002234102003142403122010112341014301131143324204243030', { kind: 'tiles', t: 2, need: 20, got: 0 }],
   };
   for (const [l, [grid, goal]] of Object.entries(master)) {
     const S = makeAttempt(+l);
@@ -255,4 +253,49 @@ test('a template\'s starting drops are placed', () => {
     assert.deepEqual(S.grid[i], { id: S.grid[i].id, t: -1, s: null, lock: false, d: 2 });
     assert.ok(S.goals.some(g => g.kind === 'drop' && g.d === 2) && S.drops.wait === 0 && validSave(S));
   } finally { t.rows[1] = saved }
+});
+
+const plain = l => !boardFor(l).name && boardFor(l).kind !== 'template';
+
+test('plain levels draw rectangles', () => {
+  let rect = 0, tall = 0, wide = 0, total = 0;
+  for (let l = 1; l <= 300; l++) {
+    if (!plain(l)) continue;
+    const p = paramsFor(l);
+    assert.deepEqual(p, paramsFor(l));
+    assert.ok(p.w >= MIN_SIDE && p.w <= MAX_W && p.h >= MIN_SIDE && p.h <= MAX_H, `level ${l}`);
+    assert.equal(p.n, Math.max(p.w, p.h));
+    total++;
+    if (p.w !== p.h) rect++;
+    if (p.h > p.w) tall++;
+    if (p.w > p.h) wide++;
+  }
+  assert.ok(rect >= .3 * total, `${rect}/${total} rectangles`);
+  assert.ok(tall > wide);
+});
+
+test('rectangle boards are valid and playable', () => {
+  let seen = 0;
+  for (let l = 1; l <= 300 && seen < 40; l++) {
+    if (!plain(l) || paramsFor(l).w === paramsFor(l).h) continue;
+    const S = makeAttempt(l), { n, w, h } = S;
+    seen++;
+    assert.ok(validSave(S), `level ${l}`);
+    assert.ok(hasMove(S), `level ${l}`);
+    for (let i = 0; i < n * n; i++) if (i % n >= w || Math.floor(i / n) >= h) assert.ok(!S.grid[i] && !S.enc[i], `level ${l} cell ${i}`);
+  }
+  assert.equal(seen, 40);
+});
+
+test('patterns stay inside the rectangle and leave two free cells per row', () => {
+  for (let l = 4; l <= 300; l++) {
+    const S = makeAttempt(l), { n, w, h } = S;
+    if (S.spawn || S.tp || !plain(l)) continue;
+    for (let r = 0; r < n; r++) {
+      const row = S.enc.slice(r * n, r * n + n);
+      assert.ok(r < h || row.every(x => !x), `level ${l} row ${r}`);
+      assert.ok(row.slice(w).every(x => !x), `level ${l} padding columns`);
+      assert.ok(row.filter(Boolean).length <= w - 2, `level ${l} row ${r}`);
+    }
+  }
 });

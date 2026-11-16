@@ -23,7 +23,7 @@ Read before changing behaviour:
 - Test: `node --test` (not `node --test tests/`).
 - Balance: `node tools/sim.mjs [levels] [runs] [--refill nice]`, e.g. `node tools/sim.mjs 1-30`.
   Levels are `1-60`, `3,25,50` or a mix (default 1, 3, 5, 10 ... 60). Run `r` plays with
-  `fails = r`. Per level it prints board name (`S.board`), size, colours, goals, need, limit, margin, salt, drop and time, plus target (8 + 14 d),
+  `fails = r`. Per level it prints board name (`S.board`), size (`WxH`), colours, goals, need, limit, margin, salt, drop and time, plus target (8 + 14 d),
   ratio (need / target), w/m (waves per move) and 4+ (share of moves with 4+ waves), and a summary line.
   `--refill nice` also re-solves with the helpful refill on and prints what it saves.
 - Play log report: `node tools/plays.mjs <file> [file ...]` over logs exported from Settings, by level and by board.

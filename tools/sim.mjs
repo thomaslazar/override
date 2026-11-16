@@ -10,7 +10,7 @@ const levels = (pos[0] || '1,3,5,10,15,20,25,30,31,45,60').split(',').flatMap(p 
   const [a, b] = p.split('-').map(Number); return b ? Array.from({ length: b - a + 1 }, (_, i) => a + i) : [a];
 });
 const runs = +(pos[1] || 1), goal = g => g.kind === 'tiles' ? `t${g.t}:${g.need}` : g.kind === 'drop' ? `drop${g.d}:${g.need}` : `${g.kind}:${g.need}`;
-console.log('level ch board            n k goals                          need limit margin salt drop target ratio  w/m   4+    ms' + (nice ? '  nice saved' : ''));
+console.log('level ch board             WxH k goals                          need limit margin salt drop target ratio  w/m   4+    ms' + (nice ? '  nice saved' : ''));
 let saved = 0, count = 0;
 const ratios = [], wpm = [], big = [], times = [], med = a => [...a].sort((x, y) => x - y)[a.length >> 1];
 // replay three bot games as solve plays them (own refill seed, nice off, no limit), counting wave steps per move
@@ -30,7 +30,7 @@ for (const l of levels) for (let r = 0; r < runs; r++) {
   const t0 = Date.now(), S = prepare(l, r), ms = Date.now() - t0;
   const target = Math.round(8 + 14 * difficulty(l)), ratio = Math.round(100 * S.need / target), [wm, big4] = cascades(S);
   ratios.push(ratio); wpm.push(wm); big.push(big4); times.push(ms);
-  let line = `${String(l).padStart(5)} ${String(chapterOf(l).n).padStart(2)} ${(S.board ?? 'square').padEnd(16)} ${S.n} ${S.k} ${S.goals.map(goal).join(' ').padEnd(30)} ${String(S.need).padStart(4)} ${String(S.limit).padStart(5)} ${String(S.limit - S.need).padStart(6)} ${String(S.salt).padStart(4)} ${String(S.drop).padStart(4)} ${String(target).padStart(6)} ${String(ratio).padStart(4)}% ${wm.toFixed(2)} ${String(big4.toFixed(0)).padStart(3)}% ${String(ms).padStart(5)}`;
+  let line = `${String(l).padStart(5)} ${String(chapterOf(l).n).padStart(2)} ${(S.board ?? 'square').padEnd(16)} ${(S.w + 'x' + S.h).padStart(5)} ${S.k} ${S.goals.map(goal).join(' ').padEnd(30)} ${String(S.need).padStart(4)} ${String(S.limit).padStart(5)} ${String(S.limit - S.need).padStart(6)} ${String(S.salt).padStart(4)} ${String(S.drop).padStart(4)} ${String(target).padStart(6)} ${String(ratio).padStart(4)}% ${wm.toFixed(2)} ${String(big4.toFixed(0)).padStart(3)}% ${String(ms).padStart(5)}`;
   if (nice) {
     const xs = [0, 1, 2].map(k => solve(S, k, true)).sort((a, b) => a - b), nn = xs[1];
     line += ` ${String(nn).padStart(5)} ${String(S.need - nn).padStart(5)}`;

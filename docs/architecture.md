@@ -98,9 +98,10 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 - Chapters of `CHAPTER` = 30 levels. `difficulty(level)` ramps over the chapter from a base
   (`min(.25, .05 * (chapter - 1))`) to .85, +.1 on every 5th level, -.1 on the level after
   (`breather`). Encrypted cells from `ENC_FROM` (4), firewalls from `FW_FROM` (7).
-- `paramsFor(level, fails, drop)` gives `{ d, k, n, enc, hp, fw }`: colours 5, or 6 (d > .8), minus
-  one from the 6th fail (min 4, so 4 only by retry easing); board 7..9 by
-  difficulty and `hash(level, 1)`; encrypted cell count, hits and firewall count scale with `d`.
+- `paramsFor(level, fails, drop)` gives `{ d, k, w, h, n, enc, hp, fw }`: colours 5, or 6 (d > .8), minus
+  one from the 6th fail (min 4, so 4 only by retry easing); plain board a rectangle `w` x `h` (5 to `MAX_W`, `MAX_H`; `n` = max) of about
+  the old square's area (7..9 by difficulty and `hash(level, 1)`), shaped by `hash(level, 1, 7)`: 35 % square, 45 % tall,
+  20 % wide, 1 or 2 off the side (`hash(level, 1, 8)`); encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
 - `boardFor(level, fb, tags)` picks the board from `level` only (stream `rngFor(level, 31)`, so the
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
@@ -116,7 +117,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   A pick that would still repeat one of the last two template boards (a thin pool at low difficulty) gives a
   square board instead (not on spikes, `TP_FROM` or `DROP_FROM`).
 - `makeAttempt(level, fails, salt, drop, deal, fb)`: the board comes from `boardFor(level, fb)`; a
-  template sets `n` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). A template with
+  template sets `n`, `w`, `h` (over `paramsFor`'s), `S.cell`, `S.spawn` and `S.tp` (when it has pairs). A plain
+  rectangle gets `S.cell` with padding holes (right of `w`, below `h`); a plain square gets none. Plain patterns,
+  pairs, firewall spots and the at most `w - 2` encrypted cells per row stay inside `w` x `h`. A template with
   drop points also sets `S.exit`, `S.drops = { every, wait }` (`every` from the template; `wait` starts at
   `every`, so the first drop comes with the first refill, or 0 when the template places starting drops,
   which replace the dealt tiles on their cells), and one drop goal per kind, first in `goals`: the kinds its
@@ -132,7 +135,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   first, with jitter from the layout stream; firewalls are random from row 1. Square levels without
   blockers draw exactly as before. On a template blockers go only on zone cells that are not
   spawners, in a shuffled order, at most n - 2 encrypted per row and at most a third of the zone in all
-  (a packed pocket stalls). The counts from `paramsFor` are scaled from its `n * n` square to the
+  (a packed pocket stalls). The counts from `paramsFor` are scaled from its `w * h` board to the
   template's live cells and by the template's `effort`, which also scales the tile goals: boards with
   few cascades (wall, pocket, split) or few cells (notch) get less to do, tuned with the sim to the
   effort target `8 + 14 d`. A template level whose blockers number under `n` always gets a tile goal.
