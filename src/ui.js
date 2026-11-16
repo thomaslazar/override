@@ -35,7 +35,7 @@ worker.onmessage = e => {
   S.pick = pick; ready.set(k, S);
   waiting.get(k)?.(S); waiting.delete(k);
 };
-const failed = () => { hideLoading(); showSheet(t('loadFailed'), '', [[t('reload'), () => location.reload(), true]]) };
+const failed = () => { showSheet(t('loadFailed'), '', [[t('reload'), () => location.reload(), true]]) };
 worker.onerror = worker.onmessageerror = failed;
 function ask(level, fails, pick){ const k = keyOf(level, fails, pick); if (!ready.has(k) && !asked.has(k)) { asked.add(k); worker.postMessage({ level, fails, pick }) } }
 // Resolves with a fresh copy of the attempt; only the latest want() is delivered.
@@ -86,20 +86,27 @@ function load(){
   if (s) return { S: s };
   return { level: Number.isInteger(o?.level) && o.level >= 1 && o.level <= 1e6 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0 };
 }
-const showLoading = level => { $('#loadTitle').textContent = t('loading', { n: level }); $('#loadSub').textContent = t('loadingSub'); $('#loading').classList.add('on') };
-const hideLoading = () => $('#loading').classList.remove('on');
-// Starts (level, fails): loading card until the worker answers (at least 400 ms if it had to wait).
-async function begin(level, fails){
-  busy = true; closeSheets();
+// Level start screen for (level, fails): chapter, level, goals, moves, DECKER's line. The attempt starts on Start,
+// so until then the save holds only the level and fails (a reload shows this screen again).
+let stuck;
+async function brief(level, fails){
+  busy = true; closeSheets(); clearTimeout(stuck);
+  store.set('override-v1', JSON.stringify({ level, fails }));
   const pick = pickFor(level); planned.delete(level);
-  const t0 = performance.now(), cached = ready.has(keyOf(level, fails, pick));
-  if (!cached) showLoading(level);
-  const stuck = setTimeout(failed, 20000);   // never hang on the loading card: offer a reload instead
+  const c = commsLine({ level }), info = el('div', null, 'brief'), say = el('p', null, 'comms');
+  say.append(el('b', c.who), ' ' + c.line);
+  info.append(el('p', t('preparing'), 'preparing'));
+  showSheet(t('level', { c: chapterOf(level).n, n: level }), '', [[t('start'), () => {
+    S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save(); start();
+  }, true]]);
+  $('#sheet').classList.add('brief');
+  const go = $('#card .btn'); go.disabled = true; $('#card').insertBefore(info, go);
+  stuck = setTimeout(failed, 20000);   // never hang on the start screen: offer a reload instead
   const s = await want(level, fails, pick); clearTimeout(stuck);
-  if (!cached) await sleep(Math.max(0, 400 - (performance.now() - t0)));
-  hideLoading();
-  S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save();
-  start();
+  const goals = el('div', null, 'goals');
+  for (const goal of s.goals) { const d = el('span', null, 'goal'); d.append(icon(goal, s.types), String(goal.need)); goals.append(d) }
+  info.textContent = ''; info.append(goals, el('p', t('briefMoves', { n: s.moves })), say);
+  go.disabled = false;
 }
 function start(){
   sync(); fit(); hud(); unlockScene(false);
@@ -236,7 +243,7 @@ function win(){
   const prev = bestOf(S.level), end = S.score;
   bests[S.level] = Math.max(prev ?? 0, end); store.set('override-best', JSON.stringify(bests)); hud();
   const text = t('winText', { n: S.spare ?? S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
-  showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; begin(S.level + 1, 0) }, true]], false, true);
+  showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; brief(S.level + 1, 0) }, true]], false, true);
   const rows = el('div', null, 'scores'), row = (label, n, cls) => { const r = el('div', null, cls); r.append(el('span', label), el('i'), el('b', fmt(n))); rows.append(r); return r.lastChild };
   const v = row(t('score'), RM ? end : 0, 'now');
   if (prev !== null) row(t('best'), prev, 'best');
@@ -252,7 +259,7 @@ function win(){
   };
   requestAnimationFrame(tick);
 }
-function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => begin(S.level, S.fails + 1), true]]) }
+function lose(){ showSheet(t('loseTitle'), t('loseText'), [[t('retry'), () => brief(S.level, S.fails + 1), true]]) }
 
 /* ---------- drawing ---------- */
 const cv = $('#board'); let g = cv.getContext('2d');
@@ -548,13 +555,13 @@ function frame(ts){
 }
 
 /* ---------- hud, comms, sheets ---------- */
-function icon(goal){
+function icon(goal, types = S.types){
   const c = document.createElement('canvas'), s = 22, d = devicePixelRatio || 1; c.width = c.height = s * d; c.style.width = c.style.height = s + 'px';
   const g2 = g, cs2 = cs; g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); cs = s;
   if (goal.kind === 'crack') drawEnc(s / 2, s / 2, 2, s);
   else if (goal.kind === 'firewall') drawFw(s / 2, s / 2, s);
   else if (goal.kind === 'drop') drawDrop(goal.d, s / 2, s / 2, s * 1.15);
-  else glyph(S.types[goal.t], s / 2, s / 2, s * .8);
+  else glyph(types[goal.t], s / 2, s / 2, s * .8);
   g = g2; cs = cs2; return c;
 }
 function hud(){
@@ -584,7 +591,7 @@ const closeMenu = () => { $('#menu').hidden = true; grace = performance.now() + 
 const closeSheets = () => { closeSheet(); closeMenu() };
 // buttons: [label, fn, main]. dismiss: tap outside the card or Escape closes it (win and loss sheets never dismiss).
 function showSheet(title, text, buttons, dismiss, art){
-  const card = $('#card'); card.textContent = ''; dismissable = !!dismiss; clearInterval(artTimer);
+  const card = $('#card'); card.textContent = ''; $('#sheet').classList.remove('brief'); dismissable = !!dismiss; clearInterval(artTimer);
   if (art) { const l = document.createElement('pre'), w = document.createElement('canvas'); l.setAttribute('aria-hidden', 'true'); w.setAttribute('aria-hidden', 'true'); l.className = 'ascL'; w.className = 'ascW'; card.append(l, w); animateArt(l, w) }
   const h = document.createElement('h2'); h.textContent = title; card.append(h);
   if (text) { const p = document.createElement('p'); p.textContent = text; card.append(p) }
@@ -635,7 +642,7 @@ function renderMenu(){
   const body = el('div', null, 'menu-body');
   if (tab === 0) {
     // level picker: up to the best level reached, any level on a local build
-    const max = DEV ? MAX_LEVEL : run.best, inp = el('input'), go = btn('', () => { closeMenu(); begin(clampLevel(inp.value, max, S.level), 0) });
+    const max = DEV ? MAX_LEVEL : run.best, inp = el('input'), go = btn('', () => { closeMenu(); brief(clampLevel(inp.value, max, S.level), 0) });
     Object.assign(inp, { type: 'number', min: 1, max, value: S.level, inputMode: 'numeric' }); inp.setAttribute('aria-label', t('pickLevel'));
     const show = () => { go.textContent = t('playLevel', { n: clampLevel(inp.value, max, S.level) }) };
     const step = d => { inp.value = clampLevel(+clampLevel(inp.value, max, S.level) + d, max, S.level); show() };
@@ -648,8 +655,8 @@ function renderMenu(){
   }
   if (tab === 0) body.append(
     el('p', t('bestLevel', { n: run.best })),
-    btn(t('restart'), () => confirmSheet(t('restartAsk'), () => begin(S.level, S.fails))),
-    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); begin(1, 0) })));
+    btn(t('restart'), () => confirmSheet(t('restartAsk'), () => brief(S.level, S.fails))),
+    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); brief(1, 0) })));
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); renderMenu() };
@@ -722,7 +729,7 @@ cv.onpointercancel = () => press = null;
 readPal(); fit();
 document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
-if (first.S) { S = first.S; S.w ??= S.n; S.h ??= S.n; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else begin(first.level, first.fails);
+if (first.S) { S = first.S; S.w ??= S.n; S.h ??= S.n; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else brief(first.level, first.fails);
 requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());

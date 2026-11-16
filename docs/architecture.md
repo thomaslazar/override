@@ -224,14 +224,20 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   picks at random (`crypto`), every retry or restart takes the next (mod 10), so a board repeats only after 10
   attempts. The next level's pick is fixed when it is prefetched.
 - Worker protocol: the UI posts `{ level, fails, pick }`, the worker answers `{ level, fails, pick, S }`
-  from `prepare`, in order. `worker.onerror`/`onmessageerror` hide the loading card and show a
+  from `prepare`, in order. `worker.onerror`/`onmessageerror` show a
   non-dismissable "Reload" sheet. The UI keeps `ready` (answers by `level:fails:pick`), `ask` (once per
   key), `want` (a promise for the latest key only, delivering a copy) and `prefetch(level,
   fails, pick)`, which asks for the next level and the next retry after every start.
-- `begin(level, fails)`: picks the board, closes sheets, shows the loading card if the answer is not ready
-  (at least 400 ms; after 20 s it shows the Reload sheet instead of hanging), sets `S`, `run.best` and `run.fails`, saves, then `start()`. Next level is
-  `begin(level + 1, 0)`; Try again is `begin(S.level, S.fails + 1)`; Restart level (menu, asks
-  first) is `begin(S.level, S.fails)`, not a fail.
+- `brief(level, fails)`: the level start screen, on every start path (next level `brief(level + 1, 0)`, try
+  again `brief(S.level, S.fails + 1)`, Restart level (menu, asks first) `brief(S.level, S.fails)`, not a fail;
+  Start over, the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
+  play without it. It picks the board, closes sheets, saves only `{ level, fails }` to `override-v1` (a reload
+  shows the screen again) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
+  chapter and level, a preparing line and a disabled Start. When `want` answers (at once if prefetched; after
+  20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit and
+  DECKER's `commsLine({ level })`, and enables Start. Start sets `S`, opens the play log attempt
+  (`logStart(true)`), sets `run.best` and `run.fails`, saves, then `start()`. The empty room under the text is
+  for later briefing and items.
 - View model: `sprites` (by tile id, with target `tx`, `ty`), `vEnc`, `fx`. `sync()` rebuilds
   the view from `S`; it runs at level start and after every move's animation, so the view
   always equals the state. `animate(steps)` plays the `move` steps in order (swap and back,
@@ -302,7 +308,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `t` -1 like a zero-day). HUD goals: one icon and count per goal (`icon(goal)`: a drop goal shows its piece, so
   there is one counter per drop kind). The comms line (`commsLine(S)` in `ui.js`, shown on the level start screen, not the play screen) explains encrypted cells at `ENC_FROM`, firewalls at
   `FW_FROM` and drops at `DROP_FROM`. Effects: worm streak, bomb shockwave, area flash, crack.
-  Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
+  Sheets (the level start screen too), menu and toast are terminal windows; the win sheet has the `PADLOCK`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle
   animation, effects and cycling (win art static). Tile colours come from `paletteFor`.
 - Saving: `override-v1` holds `S` whole, written after every move. `override-run` is

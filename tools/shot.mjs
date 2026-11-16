@@ -50,6 +50,7 @@ try {
   if (flag('--reduced-motion')) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
   await send('Page.navigate', { url }); await sleep(7000);
   if (flag('--won')) {
+    await ev(`document.querySelector('#sheet.brief .btn')?.click()`); await sleep(500);   // past the level start screen
     await ev(`(() => { const s = JSON.parse(localStorage['override-v1']); s.goals.forEach(g => g.got = g.need); localStorage['override-v1'] = JSON.stringify(s) })()`);
     await send('Page.navigate', { url: url.split('?')[0] }); await sleep(7000);
   }
