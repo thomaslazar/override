@@ -144,7 +144,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
   firewall goal. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
-  colour, or two at 60% each on harder levels).
+  colour, or two at 60% each on harder levels). Tile goals show in `goalColours(level)` (`levels.js`): the colour
+  slots in `S.types` are remapped (the deal is unchanged) so neighbouring levels never share a goal colour; odd
+  levels draw two colours freely, even levels draw from what both odd neighbours leave.
 
 
 ## Templates (`src/layouts.js`)

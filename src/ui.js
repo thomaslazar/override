@@ -736,6 +736,10 @@ requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
+// a second tap on a special fires it: keep mobile browsers from reading the two taps as a double-tap zoom
+// (pointer events still fire; only the touch default, the zoom and the synthetic click, is dropped)
+cv.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault());
 if ('serviceWorker' in navigator) {
   if (DEV) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).then(() => caches.keys()).then(ks => ks.filter(k => k.startsWith('override-')).forEach(k => caches.delete(k)));
   else navigator.serviceWorker.register('sw.js');

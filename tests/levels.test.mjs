@@ -303,3 +303,9 @@ test('patterns stay inside the rectangle and leave two free cells per row', () =
     }
   }
 });
+test('tile goal colours never repeat between neighbouring levels', async () => {
+  const { makeAttempt: mkA } = await import('../src/levels.js');
+  const shown = l => mkA(l).goals.filter(g => g.kind === 'tiles').map(g => mkA(l).types[g.t]);
+  let prev = shown(1);
+  for (let l = 2; l <= 80; l++) { const cur = shown(l); assert.ok(!cur.some(c => prev.includes(c)), `levels ${l - 1} and ${l}`); prev = cur }
+});

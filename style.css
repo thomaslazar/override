@@ -10,7 +10,7 @@
 }
 *{box-sizing:border-box;margin:0}
 html,body{height:100%;overflow:hidden}
-html{background:var(--bg)}
+html{background:var(--bg);touch-action:manipulation}
 body{
   font:15px/1.35 "Barlow Semi Condensed",system-ui,sans-serif; color:var(--ink);
   width:100%; max-width:480px; margin:0 auto; position:relative;

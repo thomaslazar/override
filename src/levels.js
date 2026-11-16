@@ -102,6 +102,15 @@ export const GOAL = 1.2; // tile goal size factor, tuned by playtest
 
 // Board kind and template depend on level (and the fallback fb) only; blockers and goals on level, salt
 // and drop; tiles on the deal (one of the level's seeded boards) and the colour count (fails ease it from the 6th).
+// Tile goal colours (visible colour slots) by level, never shared with the level before or after: odd levels draw
+// two freely, even levels draw from what their two odd neighbours left over.
+export function goalColours(level){
+  const draw = (l, skip) => { const r = rngFor(l, 6), c = Array.from({ length: TYPES }, (_, i) => i).filter(x => !skip.includes(x));
+    for (let j = c.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [c[j], c[m]] = [c[m], c[j]] }
+    return c.slice(0, 2) };
+  return level % 2 ? draw(level, []) : draw(level, [...draw(level - 1, []), ...draw(level + 1, [])]);
+}
+
 export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb = 0){
   const p = paramsFor(level, fails, drop), board = boardFor(level, fb);
   const tpl = board.kind === 'template' ? TEMPLATES.find(t => t.name === board.name) : null, L = tpl && parse(tpl, board.mirror);
@@ -192,6 +201,11 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
       const u = (t + 1 + Math.floor(gr() * (kGoal - 1))) % kGoal;
       S.goals.push({ kind: 'tiles', t, need: Math.round(need * .6), got: 0 }, { kind: 'tiles', t: u, need: Math.round(need * .6), got: 0 });
     } else S.goals.push({ kind: 'tiles', t, need, got: 0 });
+    // show the goal tiles in this level's goal colours: remap the colour slots only, the deal stays the same
+    S.goals.filter(g => g.kind === 'tiles').forEach((g, k) => {
+      const v = goalColours(level)[k], j = S.types.indexOf(v);
+      if (j >= 0) [S.types[g.t], S.types[j]] = [S.types[j], S.types[g.t]]; else S.types[g.t] = v;
+    });
   }
   const dropNeed = Math.max(1, Math.min(4, Math.round(effort * (1 + 3 * p.d) / kinds.length)));
   S.goals.unshift(...kinds.map(d => ({ kind: 'drop', d, need: dropNeed, got: 0 })));
