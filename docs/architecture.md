@@ -133,7 +133,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `ring`, `wall` (a middle row), `cross` and `diagonal` (an X) fill the cells nearest the shape
   first, with jitter from the layout stream; firewalls are random from row 1. Square levels without
   blockers draw exactly as before. On a template blockers go only on zone cells that are not
-  spawners, in a shuffled order, at most n - 2 encrypted per row and at most a third of the zone in all
+  spawners, in a shuffled order, at most w - 2 encrypted per row and at most a third of the zone in all
   (a packed pocket stalls). The counts from `paramsFor` are scaled from its `w * h` board to the
   template's live cells and by the template's `effort`, which also scales the tile goals: boards with
   few cascades (wall, pocket, split) or few cells (notch) get less to do, tuned with the sim to the
