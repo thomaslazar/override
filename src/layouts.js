@@ -418,7 +418,7 @@ export const TEMPLATES = [
 
 // The template's static S fields. `zone`: cells where blockers may go (the 'z' cells, or every live
 // cell without a feature when none is marked). `drops`: [{ i, d }] starting drop tiles.
-export const MIN_SIDE = 5, MAX_W = 11, MAX_H = 11;
+export const MIN_SIDE = 5, MAX_W = 9, MAX_H = 11;
 
 export function parse(t, mirror = false){
   const h = t.rows.length, w = t.rows[0].trim().split(/\s+/).length, n = Math.max(w, h);

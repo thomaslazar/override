@@ -178,7 +178,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   out when the template needs none (square, no holes). `S.w`, `S.h` are the visible rectangle, `S.n` the grid;
   missing in a save means square. `validSave` takes n 5..11 and w, h in 5..n with max(w, h) = n. `zone` is the `z` cells, or every live
   cell without a feature. A pair letter used twice on one side throws.
-- `check(layout)` lists problems: a side outside `MIN_SIDE..MAX_W` / `MAX_H` (5..11), a spawner on a dead cell, a teleporter pair that is
+- `check(layout)` lists problems: a side outside `MIN_SIDE..MAX_W` / `MAX_H` (5..9 wide, 5..11 tall), a spawner on a dead cell, a teleporter pair that is
   incomplete, on a dead cell or shares a cell with another pair, an egress that also spawns (it must be
   fed by its ingress only), an egress in a gravity loop (walking `above` up from it comes back to it;
   filling an empty board does not show a loop), a live cell that an
@@ -282,7 +282,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
   goal and `d` for a drop goal) and Info (how to play, Share, GitHub, licence, font).
-- Look: dark only, a hacker terminal. The strip shows the obstacle plate (locked; `unlockScene`
+- Look: dark only, a hacker terminal. The strip (a thin band, `clamp(60px,10dvh,84px)`) shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
   (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
@@ -300,7 +300,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   with a chip and a cut corner), 1 a drive (an upright stick, plug pointing down, a blinking light), 2 a disk (a
   square cartridge with a cut corner, a metal shutter and a label). `drawTile` checks `isDrop` first (a drop has
   `t` -1 like a zero-day). HUD goals: one icon and count per goal (`icon(goal)`: a drop goal shows its piece, so
-  there is one counter per drop kind). The comms line explains encrypted cells at `ENC_FROM`, firewalls at
+  there is one counter per drop kind). The comms line (`commsLine(S)` in `ui.js`, shown on the level start screen, not the play screen) explains encrypted cells at `ENC_FROM`, firewalls at
   `FW_FROM` and drops at `DROP_FROM`. Effects: worm streak, bomb shockwave, area flash, crack.
   Sheets, menu, loading card and toast are terminal windows; the win sheet has the `PADLOCK`
   and `PWNED` art (`animateArt`, decoration, not translated). `prefers-reduced-motion` skips idle

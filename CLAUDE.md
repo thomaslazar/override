@@ -36,7 +36,7 @@ Read before changing behaviour:
 
 ## Files
 
-- `index.html`: markup (strip with the obstacle plate, comms line, deck with image pieces and stickers, screen with log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; the middle log line hides below 780 px height, the whole log below 620 px height).
+- `index.html`: markup (thin strip with the obstacle plate, deck with image pieces and stickers, screen with two log lines, HUD, board canvas, soft keys, sheet, menu, loading card; no rain). `style.css`: all styles, dark only (terminal windows; the whole log hides below 620 px height).
 - `src/core.js`: rules, pure (no DOM, no storage). Tested in `tests/core.test.mjs`, `tests/refill.test.mjs`,
   `tests/score.test.mjs`, `tests/finale.test.mjs`, `tests/layout-core.test.mjs` (holes, blocks, spawners, teleporters)
   and `tests/drops.test.mjs` (drop tiles and drop goals).

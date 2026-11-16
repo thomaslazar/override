@@ -70,7 +70,6 @@
   "comms10": "Vault controller. This is the one we came for.",
   "comms11": "Shutter on the way out. Open it and we walk.",
   "comms12": "Gate to the yard. The driver’s waiting.",
-  "logHandshake": "handshake ok · cipher weak",
   "logInject": "injecting payload",
   "pickLevel": "Go to level",
   "playLevel": "Play level {n}",

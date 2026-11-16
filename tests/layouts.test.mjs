@@ -137,6 +137,6 @@ test('parse mirrors within the width', () => {
 });
 
 test('check: size per side', () => {
-  for (const [w, h] of [[4, 9], [9, 12]]) assert.match(check(parse(rect(w, h)))[0], /^size /);
-  for (const [w, h] of [[5, 11], [11, 11]]) assert.deepEqual(check(parse(rect(w, h))), []);
+  for (const [w, h] of [[4, 9], [10, 9], [9, 12]]) assert.match(check(parse(rect(w, h)))[0], /^size /);
+  for (const [w, h] of [[5, 11], [9, 11]]) assert.deepEqual(check(parse(rect(w, h))), []);
 });

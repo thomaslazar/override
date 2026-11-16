@@ -102,7 +102,7 @@ async function begin(level, fails){
   start();
 }
 function start(){
-  sync(); fit(); hud(); comms(); unlockScene(false);
+  sync(); fit(); hud(); unlockScene(false);
   busy = false; grace = performance.now() + 400; sel = -1;
   prefetch(S.level, S.fails, Number.isInteger(S.pick) ? S.pick : 0);
   if (won(S)) win(); else if (lost(S)) lose(true);
@@ -558,8 +558,8 @@ function icon(goal){
   g = g2; cs = cs2; return c;
 }
 function hud(){
-  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip'); $('#log2').textContent = t('logHandshake'); $('#log3').textContent = t('logInject');
-  $('#who').textContent = t('decker'); $('#turnText').textContent = t('turnPhone');
+  $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip'); $('#log3').textContent = t('logInject');
+  $('#turnText').textContent = t('turnPhone');
   $('#levelLabel').textContent = t('level', { c: chapterOf(S.level).n, n: S.level });
   const el = $('#goals'); el.textContent = '';
   for (const goal of S.goals) {
@@ -572,9 +572,9 @@ function hud(){
   $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
   $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
 }
-function comms(){
+export function commsLine(S){
   const lines = [t('comms1'), t('comms2'), t('comms3'), t('comms4'), t('comms5'), t('comms6'), t('comms7'), t('comms8'), t('comms9'), t('comms10'), t('comms11'), t('comms12')];
-  $('#line').textContent = S.level === ENC_FROM ? t('hintCrack') : S.level === FW_FROM ? t('hintFirewall') : S.level === DROP_FROM ? t('hintDrop') : lines[hash(S.level, 23) % lines.length];
+  return { who: t('decker'), line: S.level === ENC_FROM ? t('hintCrack') : S.level === FW_FROM ? t('hintFirewall') : S.level === DROP_FROM ? t('hintDrop') : lines[hash(S.level, 23) % lines.length] };
 }
 let toastTimer; function toast(s){ const el = $('#toast'); el.textContent = s; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 1600) }
 let dismissable = false;
@@ -652,7 +652,7 @@ function renderMenu(){
     btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); begin(1, 0) })));
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
-    sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); comms(); renderMenu() };
+    sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); renderMenu() };
     body.append(el('label', t('language')), sel, el('label', t('palette')));
     const cur = store.get('override-palette') === 'colourblind' ? 'colourblind' : 'standard', seg = el('div', null, 'seg');
     for (const [k, l] of [['standard', t('paletteStandard')], ['colourblind', t('paletteColourblind')]]) seg.append(btn(l, () => { store.set('override-palette', k); readPal(); hud(); renderMenu() }, k === cur ? 'on' : ''));

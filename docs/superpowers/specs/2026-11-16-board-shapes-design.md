@@ -153,3 +153,9 @@ needed anyway: later the player will pick items to take into a level there.
 - The exact strip height, start screen layout and copy (all visible text in `lang/en.json`, no em-dashes,
   typographic apostrophes).
 - Whether old saves load as squares or are dropped.
+
+## Changed in building
+
+- Task 4: at 375 x 548 the play area (`#wrap`) is 291 x 349 css px with the thin strip, so 11 rows fit at 30 px
+  (31.7) but 10 columns do not (29.1). `MAX_W` is 9; `MAX_H` stays 11. Widths 10 and 11 are gone from the plain
+  size draw and `check`. The comms overlay left the play screen; its text moves to the level start screen.
