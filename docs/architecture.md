@@ -100,8 +100,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   (`breather`). Encrypted cells from `ENC_FROM` (4), firewalls from `FW_FROM` (7).
 - `paramsFor(level, fails, drop)` gives `{ d, k, w, h, n, enc, hp, fw }`: colours 5, or 6 (d > .8), minus
   one from the 6th fail (min 4, so 4 only by retry easing); plain board a rectangle `w` x `h` (5 to `MAX_W`, `MAX_H`; `n` = max) of about
-  the old square's area (7..9 by difficulty and `hash(level, 1)`), shaped by `hash(level, 1, 7)`: 35 % square, 45 % tall,
-  20 % wide, 1 or 2 off the side (`hash(level, 1, 8)`); encrypted cell count, hits and firewall count scale with `d`.
+  the old square's area (7..9 by difficulty and `hash(level, 1)`), shaped by `hash(level, 1, 7)`: 30 % square, 45 % tall,
+  25 % wide (mostly 9 wide, 5 to 7 high; `hash(level, 1, 9)`, `(level, 1, 10)`), tall 1 or 2 off the side (`hash(level, 1, 8)`); encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
 - `boardFor(level, fb, tags)` picks the board from `level` only (stream `rngFor(level, 31)`, so the
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.

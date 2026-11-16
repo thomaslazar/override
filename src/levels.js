@@ -32,14 +32,15 @@ export function paramsFor(level, fails = 0, drop = 0){
   let k = d > .8 ? 6 : 5;
   if (fails >= 6) k = Math.max(4, k - 1);
   const n = d < .33 ? (h < 40 ? 9 : 8) : d < .66 ? (h < 15 ? 9 : h < 30 ? 7 : 8) : (h < 45 ? 7 : 8);
-  // a plain board is a rectangle of about the same area: 35 % square, 45 % tall, 20 % wide, 1 or 2 off the square's side
-  const shape = hash(level, 1, 7) % 100, dl = 1 + hash(level, 1, 8) % 2, sk = shape < 35 ? 0 : shape < 80 ? dl : -dl;
+  // a plain board: 30 % square, 45 % tall (1 or 2 off the square's side), 25 % wide: mostly 9 wide (sometimes 10 or 11), 5 to 7 high
+  const shape = hash(level, 1, 7) % 100, dl = 1 + hash(level, 1, 8) % 2, wide = shape >= 75, u = hash(level, 1, 9) % 10;
   const clamp = (v, max) => Math.min(max, Math.max(MIN_SIDE, v));
-  const w = clamp(n - sk, MAX_W), hh = clamp(n + sk, MAX_H);
-  const enc = level < ENC_FROM ? 0 : Math.round(w * hh * (.05 + .13 * d));
+  const bw = wide ? clamp(u < 7 ? 9 : u < 9 ? 10 : 11, MAX_W) : clamp(n - (shape < 30 ? 0 : dl), MAX_W);
+  const bh = wide ? clamp(4 + dl + hash(level, 1, 10) % 2, MAX_H) : clamp(n + (shape < 30 ? 0 : dl), MAX_H);
+  const enc = level < ENC_FROM ? 0 : Math.round(bw * bh * (.05 + .13 * d));
   const hp = 1 + Math.min(2, Math.floor(d * 3));
   const fw = level < FW_FROM ? 0 : Math.round(1 + 4 * d);
-  return { d, k, w, h: hh, n: Math.max(w, hh), enc, hp, fw };
+  return { d, k, w: bw, h: bh, n: Math.max(bw, bh), enc, hp, fw };
 }
 
 /* ---------- boards ---------- */
