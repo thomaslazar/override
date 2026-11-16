@@ -172,6 +172,11 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   terrace, valley, mask, plus, butterfly, vase, gate, tee, safe; teleporter boards donut (a hole that tiles
   cross by teleporter) and delta; drop boards hopper, scree, locket, ledge, yoke (one drop kind per leg) and
   pachinko (block pegs). `effort` and bands are tuned with `tools/sim.mjs` over levels 1 to 150.
+  Third library (from `docs/research/2026-11-16-board-shapes-second-pass.md`, 112 boards): non-square boards,
+  70 tall (towers, letters, lanes, stacked rooms), 36 wide (bands, crowns, bridges) and a few 9 x 9 island boards;
+  81 shapes and walled boards, 15 teleporter boards (top rows marked `S`), 16 drop boards. Tags `tall`, `wide`,
+  `lanes`, `island` are descriptive only. Each was tuned by forcing it onto up to seven levels in its band
+  (effort about effort x 90 / average ratio), then checked with `tools/sim.mjs 1-150`; 153 templates in all.
 - `parse(t, mirror)` gives `{ n, w, h, cell, spawn, tp, exit, zone, drops }`: rows give `h`, tokens per row `w`
   (all rows equal, else it throws), `n = max(w, h)`; cells right of `w` and below `h` are holes in `cell`
   (padding, top left anchor); mirror flips within `w`. `cell` and `spawn` are left

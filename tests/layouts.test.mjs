@@ -1,16 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TEMPLATES, parse, check, exitDistance } from '../src/layouts.js';
+import { TEMPLATES, parse, check, exitDistance, MIN_SIDE, MAX_W, MAX_H } from '../src/layouts.js';
 
 test('every template parses, both mirrors, and check() is empty', () => {
   assert.ok(TEMPLATES.length >= 7);
   for (const t of TEMPLATES) for (const m of [false, true]) assert.deepEqual(check(parse(t, m)), [], t.name + (m ? ' mirrored' : ''));
 });
 
-test('n stays 7 to 9, names are unique, bands lie in 0..1', () => {
+test('sides stay in the size caps, names are unique, bands lie in 0..1', () => {
   for (const t of TEMPLATES) {
-    const n = parse(t).n;
-    assert.ok(n >= 7 && n <= 9, t.name);
+    const { w, h } = parse(t);
+    assert.ok(w >= MIN_SIDE && w <= MAX_W && h >= MIN_SIDE && h <= MAX_H, t.name);
     assert.ok(0 <= t.dMin && t.dMin < t.dMax && t.dMax <= 1, t.name);
   }
   assert.equal(new Set(TEMPLATES.map(t => t.name)).size, TEMPLATES.length);
@@ -47,8 +47,8 @@ test('parse reads every token', () => {
   assert.equal(L.cell, undefined);
 });
 
-test('split boards have an odd size, so the split sits in the middle', () => {
-  for (const t of TEMPLATES.filter(t => t.tags.includes('split'))) assert.equal(t.rows.length % 2, 1, t.name);
+test('split boards have an odd width, so the split sits in the middle', () => {
+  for (const t of TEMPLATES.filter(t => t.tags.includes('split'))) assert.equal(parse(t).w % 2, 1, t.name);
 });
 
 test('check finds a half pair', () => {

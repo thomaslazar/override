@@ -159,3 +159,8 @@ needed anyway: later the player will pick items to take into a level there.
 - Task 4: at 375 x 548 the play area (`#wrap`) is 291 x 333 css px with the 60 px strip, so 11 rows fit at 30 px
   (30.3) but 10 columns do not (29.1). `MAX_W` is 9; `MAX_H` stays 11. Widths 10 and 11 are gone from the plain
   size draw and `check`. The comms overlay left the play screen; its text moves to the level start screen.
+- Task 6: of 130 researched candidates, 112 went in as the third library (153 templates in all): 81 shapes and
+  walled boards, 15 teleporter boards, 16 drop boards. Eleven-wide candidates were redrawn 9 wide or dropped,
+  near duplicates and six that stayed too hard or too slow were dropped
+  (`docs/research/2026-11-16-board-shapes-second-pass.md`). delta and the new dumbwaiter and comb end their band at
+  0.65 (slow or too hard above), scree has a third drop point, and a few older efforts were retuned.
