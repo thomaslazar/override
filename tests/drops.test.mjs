@@ -125,7 +125,7 @@ test('drop leaves at a drop point', () => {
   const id = S.grid[1].id, steps = [];
   gravity(S, steps);
   const ex = steps.find(s => s.k === 'exit');
-  assert.deepEqual(ex, { k: 'exit', i: 7, id, d: 0, points: SCORE.exit });
+  assert.deepEqual(ex, { k: 'exit', i: 7, id, d: 0, points: SCORE.exit, got: [1] });
   assert.equal(SCORE.exit, 200);
   assert.equal(S.goals[0].got, 1);
   assert.equal(S.score, 200);

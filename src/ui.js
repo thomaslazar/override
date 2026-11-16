@@ -133,7 +133,7 @@ const settled = () => [...sprites.values()].every(p => p.x === p.tx && p.y === p
 const settle = () => new Promise(res => { const f = () => settled() ? res() : requestAnimationFrame(f); f() });
 const idAt = new Map();   // cell -> sprite id during animation
 // speed: a factor on every wait and on tile motion (the finale plays faster). skip stops at the next step.
-let pace = 1, skip = false, shown = null;   // shown: the HUD's score and moves while a move animates
+let pace = 1, skip = false, shown = null;   // shown: the HUD's score, moves and goal progress while a move animates
 async function animate(steps, speed = 1){
   const wait = ms => sleep(ms / speed); pace = speed;
   idAt.clear(); for (const [id, p] of sprites) idAt.set(p.ty * S.n + p.tx, id);
@@ -180,13 +180,13 @@ async function animate(steps, speed = 1){
         if (skip) return;
       } else { s.fired.forEach(fire); s.cleared.forEach(pop) }
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
-      if (shown) shown.score += s.points ?? 0;
+      if (shown) { shown.score += s.points ?? 0; shown.got = s.got }
       hud(); await wait(inFinale ? 120 : 190);
     }
     if (s.k === 'exit') {   // a drop leaves: it slides out through the cell's bottom edge with a short flash
       const p = sprites.get(s.id); fx.push({ k: 'exit', p, at: performance.now() }); sprites.delete(s.id); idAt.delete(s.i);
       sparks(p.x + .5, p.y + 1, PAL.acc, 10, 7, 1.6, -Math.PI / 2);
-      if (shown) shown.score += s.points ?? 0;
+      if (shown) { shown.score += s.points ?? 0; shown.got = s.got }
       hud(); await wait(220);
     }
     if (s.k === 'shuffle') {
@@ -213,8 +213,8 @@ async function playFinale(steps){
 async function play(a, b){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
   busy = true;
-  const before = S.moves, from = S.score, r = move(S, a, b);
-  shown = { score: from, moves: S.moves };   // the HUD ticks from here while the steps play, not from the final state
+  const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = move(S, a, b);
+  shown = { score: from, moves: S.moves, got };   // the HUD ticks from here while the steps play, not from the final state
   const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1);   // before the finale
   const end = r.ok && won(S) ? finale(S) : null;   // the finale runs now: the save holds the end state
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
@@ -570,10 +570,11 @@ function hud(){
   $('#turnText').textContent = t('turnPhone');
   $('#levelLabel').textContent = t('level', { c: chapterOf(S.level).n, n: S.level });
   const el = $('#goals'); el.textContent = '';
-  for (const goal of S.goals) {
-    const d = document.createElement('span'); d.className = 'goal' + (goal.got >= goal.need ? ' done' : '');
-    d.append(icon(goal), String(Math.max(0, goal.need - goal.got))); el.append(d);
-  }
+  S.goals.forEach((goal, k) => {
+    const got = shown?.got?.[k] ?? goal.got;
+    const d = document.createElement('span'); d.className = 'goal' + (got >= goal.need ? ' done' : '');
+    d.append(icon(goal), String(Math.max(0, goal.need - got))); el.append(d);
+  });
   $('#moves').textContent = shown ? shown.moves : S.moves;
   const best = bestOf(S.level);
   $('#score').textContent = best === null ? t('hudScore', { s: fmt(shown ? shown.score : S.score) }) : t('hudScoreBest', { s: fmt(shown ? shown.score : S.score), b: fmt(best) });

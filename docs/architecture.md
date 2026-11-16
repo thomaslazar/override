@@ -62,7 +62,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   fall), which keeps long teleporter chains (the snake) cheap. Drops fall like tiles (diagonal slides too).
   After every pass that moved something, and again when a pass settles (gravity not calm), every drop on a
   drop point leaves, so a drop goes the moment it lands: an
-  `{ k: 'exit', i, id, d, points }` step, its goal counts, `SCORE.exit` added flat (no chain factor),
+  `{ k: 'exit', i, id, d, points, got }` step, its goal counts, `SCORE.exit` added flat (no chain factor),
   then gravity goes on and refills the cell. A spawner spawns a drop instead of a tile when one is due
   (`dropDue`: by `S.drops`, of a kind the spawner allows, the first drop goal that still needs more than
   the drops of its kind on the board); a spawned drop resets `wait`. `move` adds 1 to `wait` per spent move.
@@ -263,9 +263,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   (document capture `pointerdown`, ignores the grace, stops the event) skips: the animation stops at the next
   step and `sync()` shows the saved end state. Reduced motion skips the animation.
 - HUD score: `#score` under the goals shows `score n`, plus `· best n` when the level has a best
-  (plain digits, no grouping). While a move animates, `shown` holds the HUD's score and
-  moves: it starts at the score before the move and the moves left after it, each wave and exit step adds its
-  `points`, and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0; in the finale a drop waits at most 150 ms, so the next round
+  (plain digits, no grouping). While a move animates, `shown` holds the HUD's score,
+  moves and goal progress: it starts at the score and goal counts before the move and the moves left after it, each
+  wave and exit step adds its `points` and takes its `got` (the goal counts after that step, recorded by `core.js`), and each finale `convert` step spends its `spent` spare moves, so the count ends at `S.score` and 0; in the finale a drop waits at most 150 ms, so the next round
   converts and fires while tiles still fall (state is unchanged, only the look overlaps);
   the round's specials light up 50 ms apart and blast 60 ms apart, each cleared tile popping with its
   nearest special;

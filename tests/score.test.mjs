@@ -33,3 +33,11 @@ test('saves: score and spare optional integers; old saves load with score 0', ()
   assert.ok(validSave({ ...toSave(big()), score: 120, spare: 3 }));
   { const o = toSave(big()); o.goals = o.goals.map(g => ({ ...g, got: 20000 })); assert.ok(validSave(o)) }
 });
+test('each wave records goal progress so far; cascade waves add to it', () => {
+  const goals = [0, 1, 2, 3, 4].map(t => ({ kind: 'tiles', t, need: 99, got: 0 }));
+  const S = mk(['A B C D E', 'B C D E A', 'C Dh Ev A B', 'D E A B C', 'E A B C D'], { seed: 518, k: 5, goals });
+  const waves = move(S, 11, 12).steps.filter(s => s.k === 'wave'), sum = w => w.got.reduce((a, b) => a + b, 0);
+  assert.ok(waves.length >= 2);
+  for (let k = 1; k < waves.length; k++) assert.ok(sum(waves[k]) > sum(waves[k - 1]), 'wave ' + k + ' cleared tiles that count');
+  assert.deepEqual(waves.at(-1).got, S.goals.map(g => g.got));
+});

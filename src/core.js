@@ -246,6 +246,7 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
     const x = tile(S, c.t, c.s); S.grid[c.i] = x; step.created.push({ i: c.i, tile: { ...x } });
   }
   step.points = pointsOf(step, chain); S.score = (S.score ?? 0) + step.points;
+  step.got = S.goals.map(g => g.got);   // goal progress after this wave, so the HUD can tick along
   return step;
 }
 
@@ -320,7 +321,7 @@ function exits(S, steps){
     const x = S.grid[i];
     if (!isDrop(x)) continue;
     S.grid[i] = null; bump(S, 'drop', x.d); S.score = (S.score ?? 0) + SCORE.exit; out = true;
-    steps.push({ k: 'exit', i, id: x.id, d: x.d, points: SCORE.exit });
+    steps.push({ k: 'exit', i, id: x.id, d: x.d, points: SCORE.exit, got: S.goals.map(g => g.got) });
   }
   return out;
 }
