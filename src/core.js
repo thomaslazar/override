@@ -482,12 +482,14 @@ const validTile = (x, k) => x === null || (x && typeof x === 'object' && Number.
     : (x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b'].includes(x.s) && int(x.t, 0, k - 1))));
 export function validSave(o){
   if (!o || typeof o !== 'object' || o.v !== 1) return false;
-  if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 7, 9) || !int(o.k, 2, TYPES)) return false;
+  if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 5, 11) || !int(o.k, 2, TYPES)) return false;
   if (!int(o.moves, 0, 999) || !int(o.limit, 0, 999) || !int(o.seed, 0, 2 ** 32) || !int(o.ids, 0, 1e9)) return false;
   if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
   if (o.score !== undefined && !int(o.score, 0, 1e9)) return false;
   if (o.spare !== undefined && !int(o.spare, 0, 999)) return false;
   if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
+  const w = o.w ?? o.n, h = o.h ?? o.n;   // sides: MIN_SIDE..MAX in layouts.js; missing means square
+  if (!int(w, 5, o.n) || !int(h, 5, o.n) || Math.max(w, h) !== o.n) return false;
   const nn = o.n * o.n;
   if (!Array.isArray(o.grid) || o.grid.length !== nn || !o.grid.every(x => validTile(x, o.k))) return false;
   if (!Array.isArray(o.enc) || o.enc.length !== nn || !o.enc.every(x => int(x, 0, 3))) return false;

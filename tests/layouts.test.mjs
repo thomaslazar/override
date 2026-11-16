@@ -120,3 +120,23 @@ test('exitDistance follows teleporters and swaps', () => {
   const T = parse({ rows }), d = exitDistance(T);
   assert.equal(d[42], 1 + 6 + 2);   // through the teleporter, down, then across
 });
+
+const rect = (w, h, edits = {}) => ({ name: 'r', rows: Array.from({ length: h }, (_, r) =>
+  Array.from({ length: w }, (_, c) => edits[r + ',' + c] ?? (r === 0 ? 'S' : '.')).join(' ')) });
+
+test('parse pads a non-square template', () => {
+  const L = parse(rect(6, 9));
+  assert.deepEqual([L.n, L.w, L.h], [9, 6, 9]);
+  for (let i = 0; i < 81; i++) assert.equal(L.cell[i] === 1, i % 9 >= 6, String(i));
+  assert.deepEqual(L.spawn.map(s => s.i), [0, 1, 2, 3, 4, 5]);
+});
+
+test('parse mirrors within the width', () => {
+  const L = parse(rect(6, 9, { '8,0': 'iA', '0,5': 'eA' }), true);
+  assert.deepEqual(L.tp, [[8 * 9 + 5, 0]]);
+});
+
+test('check: size per side', () => {
+  for (const [w, h] of [[4, 9], [9, 12]]) assert.match(check(parse(rect(w, h)))[0], /^size /);
+  for (const [w, h] of [[5, 11], [11, 11]]) assert.deepEqual(check(parse(rect(w, h))), []);
+});

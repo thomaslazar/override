@@ -7,15 +7,17 @@ import { tile, dropTile } from '../src/core.js';
 // 'D0'..'D2' drop tile of that kind; suffix 'X' on any token makes a drop point.
 // o.tp: teleporter pairs [[ingress, egress]]; o.drops: drop schedule { every, wait }.
 export function mk(rows, o = {}){
-  const n = rows.length;
+  const h = rows.length, w = rows[0].trim().split(/\s+/).length, n = Math.max(w, h);
   const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, k: o.k ?? 6, types: [0, 1, 2, 3, 4, 5, 6],
     grid: Array(n * n).fill(null), enc: Array(n * n).fill(0),
     goals: o.goals ?? [{ kind: 'tiles', t: 0, need: 999, got: 0 }],
     moves: o.moves ?? 30, limit: o.limit ?? 30, need: 0, seed: o.seed ?? 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: o.nice ?? false };
+  if (w !== h) { S.w = w; S.h = h; S.cell = Array(n * n).fill(1) }
   if (o.tp) S.tp = o.tp;
   if (o.drops) S.drops = o.drops;
   rows.forEach((row, r) => row.trim().split(/\s+/).forEach((tok, c) => {
     const i = r * n + c;
+    if (S.cell && tok !== 'o' && tok !== '#B') S.cell[i] = 0;
     if (tok === 'o' || tok === '#B') { (S.cell ??= Array(n * n).fill(0))[i] = tok === 'o' ? 1 : 2; return }
     if (tok.length > 1 && tok.endsWith('X')) { (S.exit ??= []).push(i); tok = tok.slice(0, -1) }
     if (tok.length > 1 && tok.endsWith('S')) { (S.spawn ??= []).push({ i, d: -1 }); tok = tok.slice(0, -1) }

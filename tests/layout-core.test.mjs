@@ -183,3 +183,32 @@ test('a diagonal slide never takes from a cell its own column feeds through a te
   assert.ok(S.grid[9]);
   assert.ok(!steps.some(s => s.moves.some(m => m.from === 4 && m.to === 9)));
 });
+
+test('a wide board fills and keeps padding empty', async () => {
+  const { parse } = await import('../src/layouts.js');
+  const L = parse({ name: 'w', rows: Array.from({ length: 5 }, () => Array(9).fill('.').join(' ')) });
+  const S = mk(Array.from({ length: 5 }, () => Array(9).fill('.').join(' ')));
+  assert.deepEqual([S.n, S.w, S.h, L.n, L.w, L.h], [9, 9, 5, 9, 9, 5]);
+  gravity(S, [], true);
+  assert.equal(S.grid.filter(Boolean).length, 45);
+  assert.ok(S.grid.slice(45).every(x => x === null));
+});
+
+test('drops leave on a tall board', () => {
+  const rows = Array.from({ length: 9 }, (_, r) => Array.from({ length: 6 }, (_, c) => r === 0 && c === 0 ? 'D0' : r === 8 && c === 0 ? '.X' : c === 0 ? '.' : 'ABCDE'[(r * 2 + c) % 5]).join(' '));
+  const S = mk(rows, { goals: [{ kind: 'drop', d: 0, need: 1, got: 0 }] });
+  assert.deepEqual([S.n, S.w, S.h], [9, 6, 9]);
+  gravity(S, []);
+  assert.equal(S.goals[0].got, 1);
+});
+
+test('validSave: n 5..11 with w and h', () => {
+  const S = mk(Array.from({ length: 11 }, (_, r) => Array.from({ length: 9 }, (_, c) => 'ABCDE'[(r * 2 + c) % 5]).join(' ')));
+  const o = JSON.parse(JSON.stringify(toSave(S)));
+  assert.deepEqual([o.n, o.w, o.h], [11, 9, 11]);
+  assert.ok(validSave(o));
+  for (const bad of [{ w: 12 }, { w: 4 }, { h: 10 }, { w: 1.5 }]) assert.equal(validSave({ ...o, ...bad }), false, JSON.stringify(bad));
+  const sq = mk(Array.from({ length: 6 }, () => 'A B C D E F'));
+  const old = JSON.parse(JSON.stringify(toSave(sq)));
+  assert.ok(validSave(old));
+});

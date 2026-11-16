@@ -169,10 +169,13 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   terrace, valley, mask, plus, butterfly, vase, gate, tee, safe; teleporter boards donut (a hole that tiles
   cross by teleporter) and delta; drop boards hopper, scree, locket, ledge, yoke (one drop kind per leg) and
   pachinko (block pegs). `effort` and bands are tuned with `tools/sim.mjs` over levels 1 to 150.
-- `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
-  out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
+- `parse(t, mirror)` gives `{ n, w, h, cell, spawn, tp, exit, zone, drops }`: rows give `h`, tokens per row `w`
+  (all rows equal, else it throws), `n = max(w, h)`; cells right of `w` and below `h` are holes in `cell`
+  (padding, top left anchor); mirror flips within `w`. `cell` and `spawn` are left
+  out when the template needs none (square, no holes). `S.w`, `S.h` are the visible rectangle, `S.n` the grid;
+  missing in a save means square. `validSave` takes n 5..11 and w, h in 5..n with max(w, h) = n. `zone` is the `z` cells, or every live
   cell without a feature. A pair letter used twice on one side throws.
-- `check(layout)` lists problems: size outside 7..9, a spawner on a dead cell, a teleporter pair that is
+- `check(layout)` lists problems: a side outside `MIN_SIDE..MAX_W` / `MAX_H` (5..11), a spawner on a dead cell, a teleporter pair that is
   incomplete, on a dead cell or shares a cell with another pair, an egress that also spawns (it must be
   fed by its ingress only), an egress in a gravity loop (walking `above` up from it comes back to it;
   filling an empty board does not show a loop), a live cell that an

@@ -418,15 +418,20 @@ export const TEMPLATES = [
 
 // The template's static S fields. `zone`: cells where blockers may go (the 'z' cells, or every live
 // cell without a feature when none is marked). `drops`: [{ i, d }] starting drop tiles.
+export const MIN_SIDE = 5, MAX_W = 11, MAX_H = 11;
+
 export function parse(t, mirror = false){
-  const n = t.rows.length, cell = Array(n * n).fill(0), spawn = [], ins = {}, outs = {}, exit = [], drops = [], zone = [], plain = [];
+  const h = t.rows.length, w = t.rows[0].trim().split(/\s+/).length, n = Math.max(w, h);
+  // padding (right of w, below h) stays hole
+  const cell = Array(n * n).fill(1), spawn = [], ins = {}, outs = {}, exit = [], drops = [], zone = [], plain = [];
   t.rows.forEach((row, r) => {
     const toks = row.trim().split(/\s+/);
-    if (toks.length !== n) throw new Error(`${t.name}: row ${r} has ${toks.length} cells, not ${n}`);
+    if (toks.length !== w) throw new Error(`${t.name}: row ${r} has ${toks.length} cells, not ${w}`);
     if (mirror) toks.reverse();
     toks.forEach((tok, c) => {
       const i = r * n + c;
       let m;
+      cell[i] = 0;
       if (tok === '.') plain.push(i);
       else if (tok === 'o') cell[i] = 1;
       else if (tok === '#') cell[i] = 2;
@@ -444,7 +449,7 @@ export function parse(t, mirror = false){
   });
   const tp = Object.keys(ins).sort().map(k => [ins[k], outs[k] ?? -1]);
   for (const k of Object.keys(outs)) if (!(k in ins)) tp.push([-1, outs[k]]);
-  return { n, cell: cell.some(x => x) ? cell : undefined, spawn: spawn.length ? spawn : undefined, tp, exit, zone: zone.length ? zone : plain, drops };
+  return { n, w, h, cell: cell.some(x => x) ? cell : undefined, spawn: spawn.length ? spawn : undefined, tp, exit, zone: zone.length ? zone : plain, drops };
 }
 
 // Problems with a parsed layout, empty when it is fair: size, teleporter pairs complete, on live cells,
@@ -453,9 +458,9 @@ export function parse(t, mirror = false){
 // point (on a board with drop points), every live cell gets a tile from an empty
 // board by gravity (straight or diagonal), and a filled board has a legal move.
 export function check(L){
-  const { n } = L, out = [];
-  if (n < 7 || n > 9) out.push(`size ${n} is outside 7 to 9`);
-  const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, k: 6, types: [0, 1, 2, 3, 4, 5, 6],
+  const { n } = L, w = L.w ?? n, h = L.h ?? n, out = [];
+  if (w < MIN_SIDE || w > MAX_W || h < MIN_SIDE || h > MAX_H) out.push(`size ${w}x${h} is outside ${MIN_SIDE} to ${MAX_W} wide and ${MIN_SIDE} to ${MAX_H} tall`);
+  const S = { v: 1, level: 1, fails: 0, salt: 0, drop: 0, n, w, h, k: 6, types: [0, 1, 2, 3, 4, 5, 6],
     grid: Array(n * n).fill(null), enc: Array(n * n).fill(0), goals: [], moves: 1, limit: 1, need: 0,
     seed: 1, spawns: 0, shuffles: 0, ids: 0, score: 0, nice: false, cell: L.cell, spawn: L.spawn, tp: L.tp };
   for (const s of L.spawn ?? []) if (dead(S, s.i)) out.push(`spawner ${s.i} is a dead cell`);
