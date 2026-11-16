@@ -268,7 +268,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Tapping a selected worm or bomb again fires it (`move(S, i, i)`). Dead cells take no input (`cellAt` returns -1, a drag onto one
-  does nothing); worm sparks skip them. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
+  does nothing); worm sparks skip them. Only the `S.w` x `S.h` rectangle is drawn and touched: `fit()` sets `cs = floor(min(wrap width / w, wrap height / h))` and a canvas of `w * cs` by `h * cs` (centred by `#wrap`), the draw loop skips padding cells, `cellAt` and drag targets stop at the rectangle, and worm sparks, beams and the clear-all flash span `w` or `h`. Old saves get `S.w`, `S.h` = `S.n` on load. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
 - Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first
   (`validMoves`) wriggles, the two tiles nudging toward each other; reduced motion outlines them instead. Input,

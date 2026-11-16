@@ -263,9 +263,9 @@ function readPal(){
   PAL.t = paletteFor(store.get('override-palette'));
 }
 function fit(){
-  const w = $('#wrap'), size = Math.floor(Math.min(w.clientWidth, w.clientHeight));
-  dpr = devicePixelRatio || 1; cs = size / (S?.n || 8);
-  cv.style.width = cv.style.height = size + 'px'; cv.width = cv.height = Math.round(size * dpr);
+  const wr = $('#wrap'), bw = S?.w ?? S?.n ?? 8, bh = S?.h ?? S?.n ?? 8;
+  dpr = devicePixelRatio || 1; cs = Math.floor(Math.min(wr.clientWidth / bw, wr.clientHeight / bh));
+  cv.style.width = bw * cs + 'px'; cv.style.height = bh * cs + 'px'; cv.width = Math.round(bw * cs * dpr); cv.height = Math.round(bh * cs * dpr);
 }
 const GLYPHS = ['ロ', 'ハ', 'メ', 'ト', 'Ξ', 'ミ', 'ム'];   // one character per glyph slot (types)
 const MONO = getComputedStyle(document.documentElement).getPropertyValue('--mono');
@@ -439,7 +439,7 @@ function sparks(x, y, col, count, speed, spread = 2 * Math.PI, dir = 0){
 function boom(i, kind, col){
   const n = S.n, r = Math.floor(i / n), c = i % n, cx = c + .5, cy = r + .5, cl = col || GLOW;
   if (kind === 'h' || kind === 'v') {   // worm: sparks shower off the whole line, kicked sideways
-    for (let k = 0; k < n; k++) { if (dead(S, kind === 'h' ? r * n + k : k * n + c)) continue; const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
+    for (let k = 0; k < (kind === 'h' ? S.w : S.h); k++) { if (dead(S, kind === 'h' ? r * n + k : k * n + c)) continue; const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
     kick(4);
   } else if (kind === 'b') { sparks(cx, cy, cl, 34, 11); kick(8) }
   else if (kind === 'bb' || kind === 'bw' || kind === 'ww') { sparks(cx, cy, cl, 50, 14); kick(11) }
@@ -447,10 +447,10 @@ function boom(i, kind, col){
 }
 const GLOW = '#c9ffd9';
 function flashShape(kind, r, c, n, p, col){
-  const w = n * cs, R = (r0, rows) => g.fillRect(0, r0 * cs, w, rows * cs), C = (c0, cols) => g.fillRect(c0 * cs, 0, cols * cs, w);
+  const w = S.w * cs, h = S.h * cs, R = (r0, rows) => g.fillRect(0, r0 * cs, w, rows * cs), C = (c0, cols) => g.fillRect(c0 * cs, 0, cols * cs, h);
   if (kind === 'h' || kind === 'v') {   // worm: a beam shoots out both ways from the worm, then burns out
-    const reach = Math.min(1, p / .3) * w, fade = p < .3 ? 1 : 1 - (p - .3) / .7, th = cs * (.35 + .25 * (1 - fade));
-    const o = (kind === 'h' ? c : r) * cs + cs / 2, a = Math.max(0, o - reach), b = Math.min(w, o + reach), m = (kind === 'h' ? r : c) * cs + cs / 2;
+    const len = kind === 'h' ? w : h, reach = Math.min(1, p / .3) * len, fade = p < .3 ? 1 : 1 - (p - .3) / .7, th = cs * (.35 + .25 * (1 - fade));
+    const o = (kind === 'h' ? c : r) * cs + cs / 2, a = Math.max(0, o - reach), b = Math.min(len, o + reach), m = (kind === 'h' ? r : c) * cs + cs / 2;
     const bar = (t, colr, blur) => { g.fillStyle = g.shadowColor = colr; g.shadowBlur = blur; if (kind === 'h') g.fillRect(a, m - t / 2, b - a, t); else g.fillRect(m - t / 2, a, t, b - a) };
     g.globalAlpha = fade; bar(th, col || GLOW, cs * .5); bar(th * .3, '#ffffff', cs * .3);
     g.globalAlpha = fade * .9; g.fillStyle = '#ffffff'; for (const e of [a, b]) { g.beginPath(); kind === 'h' ? g.arc(e, m, th * .55, 0, 7) : g.arc(m, e, th * .55, 0, 7); g.fill() }
@@ -469,7 +469,7 @@ function flashShape(kind, r, c, n, p, col){
   g.fillStyle = GLOW; g.globalAlpha = (1 - p) * .35;
   if (kind === 'ww') { R(r, 1); C(c, 1) }
   if (kind === 'bw') { R(r - 1, 3); C(c - 1, 3) }
-  if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, w);
+  if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, h);
 }
 // Falling tiles accelerate (GRAV cells/s²), drift sideways for diagonal fills, and hop once on landing.
 // A tile with teleporter hops first sinks out through the bottom of the ingress, then drops in above the egress.
@@ -490,11 +490,12 @@ function frame(ts){
   const dt = Math.min(.05, (ts - last) / 1000) * pace; last = ts;
   if (S) {
     const n = S.n, step = 11 * dt;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, n * cs, n * cs);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, S.w * cs, S.h * cs);
     const sp = RM ? 1 : Math.min(1, (ts - shake.at) / 260);
     if (sp < 1) { const a = shake.amp * (1 - sp) ** 2; g.translate((fxRnd() - .5) * 2 * a, (fxRnd() - .5) * 2 * a) }
     for (let i = 0; i < n * n; i++) {
       const r = Math.floor(i / n), c = i % n, d = S.cell?.[i];
+      if (c >= S.w || r >= S.h) continue;   // padding of the n x n grid
       if (d === 1) { drawHole(c * cs, r * cs); continue }
       if (d === 2) { drawBlock(c * cs + cs / 2, r * cs + cs / 2); continue }
       g.fillStyle = PAL.cell; g.beginPath(); g.roundRect(c * cs + cs * .04, r * cs + cs * .04, cs * .92, cs * .92, cs * .1); g.fill();
@@ -511,10 +512,10 @@ function frame(ts){
       else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
       // shown only below the top of its spawner or egress and above the bottom of the ingress it sinks into
-      const lo = p.top ?? 0, hi = p.hops?.length ? row(p.hops[0].from) + 1 : n;
+      const lo = p.top ?? 0, hi = p.hops?.length ? row(p.hops[0].from) + 1 : S.h;
       if (p.y <= lo - 1 || p.y >= hi) continue;
       const w = wig?.get(p.id), cut = p.y < lo || p.y > hi - 1;
-      if (cut) { g.save(); g.beginPath(); g.rect(0, lo * cs, n * cs, (hi - lo) * cs); g.clip() }
+      if (cut) { g.save(); g.beginPath(); g.rect(0, lo * cs, S.w * cs, (hi - lo) * cs); g.clip() }
       drawTile(p, (p.x + (w?.[0] ?? 0)) * cs + cs / 2, (p.y + (w?.[1] ?? 0)) * cs + cs / 2);
       if (cut) g.restore();
     }
@@ -697,7 +698,7 @@ function wiggle(ts){
   return m;
 }
 const blocked = () => busy || performance.now() < grace || !S || $('#sheet').classList.contains('on') || !$('#menu').hidden;
-const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.clientY - b.top) / cs), c = Math.floor((e.clientX - b.left) / cs); return r >= 0 && c >= 0 && r < S.n && c < S.n && !dead(S, r * S.n + c) ? r * S.n + c : -1 };
+const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.clientY - b.top) / cs), c = Math.floor((e.clientX - b.left) / cs); return r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c) ? r * S.n + c : -1 };
 const adjacent = (a, b) => Math.abs(Math.floor(a / S.n) - Math.floor(b / S.n)) + Math.abs(a % S.n - b % S.n) === 1;
 cv.onpointerdown = e => { idle(); if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
 cv.onpointermove = e => {
@@ -706,7 +707,7 @@ cv.onpointermove = e => {
   if (Math.max(Math.abs(dx), Math.abs(dy)) < cs * .35) return;
   const r = Math.floor(press.p / S.n) + (Math.abs(dx) > Math.abs(dy) ? 0 : Math.sign(dy)), c = press.p % S.n + (Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0);
   const a = press.p; press = null; sel = -1;
-  if (r >= 0 && c >= 0 && r < S.n && c < S.n && !dead(S, r * S.n + c)) play(a, r * S.n + c);
+  if (r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c)) play(a, r * S.n + c);
 };
 cv.onpointerup = () => {
   if (!press) return; const p = press.p; press = null;
@@ -721,7 +722,7 @@ cv.onpointercancel = () => press = null;
 readPal(); fit();
 document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
-if (first.S) { S = first.S; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else begin(first.level, first.fails);
+if (first.S) { S = first.S; S.w ??= S.n; S.h ??= S.n; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else begin(first.level, first.fails);
 requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());
