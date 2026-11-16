@@ -81,7 +81,9 @@ needed anyway: later the player will pick items to take into a level there.
   and `check` already rejects a region nothing fills. Islands may make a match impossible across them,
   which is fine; `check` still demands a legal move on a filled board.
 - The 41 existing templates stay as they are (square).
-- New non-square templates: about 20 to 25, from a second research pass. The first pass
+- New non-square templates: as many as the research yields (owner: "a shitton"; aim for 60 or more
+  candidates and adopt every one that passes `check` and balances), from a second research pass that looks
+  at every saved screenshot again. The first pass
   (`docs/research/2026-11-16-board-designs.md`) looked at about 120 board images but only drew square 7 to
   9 boards, so shapes it saw that are wider, taller, islands or compositions were left out (its family
   table lists islands and offset rooms, columns and lanes, letters, towers). The second pass goes back over
