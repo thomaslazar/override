@@ -174,7 +174,7 @@ test('lower-band fallback picks an easier template', () => {
     const drop = name => TEMPLATES.find(t => t.name === name).tags.includes('drop');
     assert.equal(drop(f.name), drop(b.name), `level ${l} keeps drop goals or their absence`);
     assert.ok(band(f.name) < band(b.name) || band(f.name) === Math.min(...TEMPLATES.filter(t => t.tags.includes('drop') === drop(b.name)).map(t => t.dMin)), `level ${l}`);
-    assert.equal(makeAttempt(l, 0, 0, 0, 0, 2).board.startsWith('square'), true);
+    assert.equal(/^(square|tall|wide)/.test(makeAttempt(l, 0, 0, 0, 0, 2).board), true);
   }
 });
 

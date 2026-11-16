@@ -84,15 +84,16 @@ function load(){
   if (Number.isInteger(q) && q >= 1) return { level: q, fails: 0 };
   const s = fromSave(o);
   if (s) return { S: s };
-  return { level: Number.isInteger(o?.level) && o.level >= 1 && o.level <= 1e6 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0 };
+  return { level: Number.isInteger(o?.level) && o.level >= 1 && o.level <= 1e6 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0,
+    pick: Number.isInteger(o?.pick) && o.pick >= 0 && o.pick < PICKS ? o.pick : undefined };
 }
 // Level start screen for (level, fails): chapter, level, goals, moves, DECKER's line. The attempt starts on Start,
-// so until then the save holds only the level and fails (a reload shows this screen again).
+// so until then the save holds only the level, fails and pick (a reload shows this screen again, same deal).
 let stuck;
-async function brief(level, fails){
+async function brief(level, fails, saved){
   busy = true; closeSheets(); clearTimeout(stuck);
-  store.set('override-v1', JSON.stringify({ level, fails }));
-  const pick = pickFor(level); planned.delete(level);
+  const pick = saved ?? pickFor(level); planned.delete(level);
+  store.set('override-v1', JSON.stringify({ level, fails, pick }));
   const c = commsLine({ level }), info = el('div', null, 'brief'), say = el('p', null, 'comms');
   say.append(el('b', c.who), ' ' + c.line);
   info.append(el('p', t('preparing'), 'preparing'));
@@ -729,7 +730,7 @@ cv.onpointercancel = () => press = null;
 readPal(); fit();
 document.fonts.ready.then(() => { if (S) hud() });
 const first = load();
-if (first.S) { S = first.S; S.w ??= S.n; S.h ??= S.n; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else brief(first.level, first.fails);
+if (first.S) { S = first.S; S.w ??= S.n; S.h ??= S.n; if (won(S) && S.spare === undefined) { finale(S); save() } logStart(false); start() } else brief(first.level, first.fails, first.pick);
 requestAnimationFrame(frame);
 new ResizeObserver(() => S && fit()).observe($('#wrap'));   // the HUD's height changes too, not only the window
 document.addEventListener('gesturestart', e => e.preventDefault());

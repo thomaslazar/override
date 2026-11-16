@@ -99,9 +99,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   (`min(.25, .05 * (chapter - 1))`) to .85, +.1 on every 5th level, -.1 on the level after
   (`breather`). Encrypted cells from `ENC_FROM` (4), firewalls from `FW_FROM` (7).
 - `paramsFor(level, fails, drop)` gives `{ d, k, w, h, n, enc, hp, fw }`: colours 5, or 6 (d > .8), minus
-  one from the 6th fail (min 4, so 4 only by retry easing); plain board a rectangle `w` x `h` (5 to `MAX_W`, `MAX_H`; `n` = max) of about
-  the old square's area (7..9 by difficulty and `hash(level, 1)`), shaped by `hash(level, 1, 7)`: 30 % square, 45 % tall,
-  25 % wide (mostly 9 wide, 5 to 7 high; `hash(level, 1, 9)`, `(level, 1, 10)`), tall 1 or 2 off the side (`hash(level, 1, 8)`); encrypted cell count, hits and firewall count scale with `d`.
+  one from the 6th fail (min 4, so 4 only by retry easing); plain board a rectangle `w` x `h` (5 to `MAX_W`, `MAX_H`; `n` = max) (tall ones about the old square's area, 7..9 by difficulty and `hash(level, 1)`), shaped by `hash(level, 1, 7)`: 30 % square, 45 % tall,
+  25 % wide (always 9 wide, 5 to 7 high, 45 to 63 cells; `hash(level, 1, 10)`), tall 1 or 2 off the side (`hash(level, 1, 8)`); encrypted cell count, hits and firewall count scale with `d`.
   `drop` lowers `d` (the bot's easing). Tune by playtest.
 - `boardFor(level, fb, tags)` picks the board from `level` only (stream `rngFor(level, 31)`, so the
   older streams keep their draws): `{ kind: 'square', pattern }` or `{ kind: 'template', name, mirror }`.
@@ -127,10 +126,10 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `need` is `round(effort * (1 + 3 d) / kinds)`, 1 to 4 each. With two drop kinds there is no firewall goal,
   and a tile goal comes only when fewer than three goals stand (with chance .5, one colour), so a level keeps
   at most three goals. `S.board` is the template name,
-  `square:<pattern>` for a square with blockers, or `square`. Blockers (encrypted cells, firewall
+  `square`, `tall` or `wide` for a plain board (`<shape>:<pattern>` with blockers). Blockers (encrypted cells, firewall
   spots) and goals depend on level, salt and drop; tiles on `deal`, not on fails, so a deal is
   the same board on every retry until easing drops a colour. Square blocker patterns (encrypted
-  cells in mirrored pairs from row 2, at most n - 2 per row): `pairs` is the old random placement,
+  cells in mirrored pairs from row 2, at most w - 2 per row): `pairs` is the old random placement,
   `ring`, `wall` (a middle row), `cross` and `diagonal` (an X) fill the cells nearest the shape
   first, with jitter from the layout stream; firewalls are random from row 1. Square levels without
   blockers draw exactly as before. On a template blockers go only on zone cells that are not
@@ -233,11 +232,11 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   non-dismissable "Reload" sheet. The UI keeps `ready` (answers by `level:fails:pick`), `ask` (once per
   key), `want` (a promise for the latest key only, delivering a copy) and `prefetch(level,
   fails, pick)`, which asks for the next level and the next retry after every start.
-- `brief(level, fails)`: the level start screen, on every start path (next level `brief(level + 1, 0)`, try
+- `brief(level, fails, pick)` (`pick` only from a reload): the level start screen, on every start path (next level `brief(level + 1, 0)`, try
   again `brief(S.level, S.fails + 1)`, Restart level (menu, asks first) `brief(S.level, S.fails)`, not a fail;
   Start over, the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
-  play without it. It picks the board, closes sheets, saves only `{ level, fails }` to `override-v1` (a reload
-  shows the screen again) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
+  play without it. It picks the board, closes sheets, saves only `{ level, fails, pick }` to `override-v1` (a reload
+  shows the screen again, with the same deal) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
   chapter and level, a preparing line and a disabled Start. When `want` answers (at once if prefetched; after
   20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit and
   DECKER's `commsLine({ level })`, and enables Start. Start sets `S`, opens the play log attempt

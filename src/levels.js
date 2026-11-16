@@ -32,10 +32,10 @@ export function paramsFor(level, fails = 0, drop = 0){
   let k = d > .8 ? 6 : 5;
   if (fails >= 6) k = Math.max(4, k - 1);
   const n = d < .33 ? (h < 40 ? 9 : 8) : d < .66 ? (h < 15 ? 9 : h < 30 ? 7 : 8) : (h < 45 ? 7 : 8);
-  // a plain board: 30 % square, 45 % tall (1 or 2 off the square's side), 25 % wide: mostly 9 wide (sometimes 10 or 11), 5 to 7 high
-  const shape = hash(level, 1, 7) % 100, dl = 1 + hash(level, 1, 8) % 2, wide = shape >= 75, u = hash(level, 1, 9) % 10;
+  // a plain board: 30 % square, 45 % tall (1 or 2 off the square's side), 25 % wide: always 9 wide (MAX_W), 5 to 7 high
+  const shape = hash(level, 1, 7) % 100, dl = 1 + hash(level, 1, 8) % 2, wide = shape >= 75;
   const clamp = (v, max) => Math.min(max, Math.max(MIN_SIDE, v));
-  const bw = wide ? clamp(u < 7 ? 9 : u < 9 ? 10 : 11, MAX_W) : clamp(n - (shape < 30 ? 0 : dl), MAX_W);
+  const bw = wide ? MAX_W : clamp(n - (shape < 30 ? 0 : dl), MAX_W);
   const bh = wide ? clamp(4 + dl + hash(level, 1, 10) % 2, MAX_H) : clamp(n + (shape < 30 ? 0 : dl), MAX_H);
   const enc = level < ENC_FROM ? 0 : Math.round(bw * bh * (.05 + .13 * d));
   const hp = 1 + Math.min(2, Math.floor(d * 3));
@@ -177,7 +177,8 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   for (const i of fwSpots) S.grid[i].lock = true;
   if (!hasMove(S)) reshuffle(S, []);
   S.shuffles = 0;
-  S.board = L ? board.name : wantCrack || fwSpots.length ? `square:${board.pattern}` : 'square';
+  const shape = w === h ? 'square' : w > h ? 'wide' : 'tall';
+  S.board = L ? board.name : wantCrack || fwSpots.length ? `${shape}:${board.pattern}` : shape;
   // goals
   const cracks = S.enc.filter(Boolean).length;
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
