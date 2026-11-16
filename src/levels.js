@@ -69,7 +69,7 @@ function pickBoard(level, fb, tags){
   if (tagged.length) pool = tagged;
   if (!pool.length) return square;
   const before = [];   // earlier template boards, newest first
-  for (let l = level - 1; l >= SHAPES_FROM && before.length < 60; l--) if (picks[l].kind === 'template') before.push(picks[l]);
+  for (let l = level - 1; l >= SHAPES_FROM && before.length < 200; l--) if (picks[l].kind === 'template') before.push(picks[l]);
   const recent = before.slice(0, Math.min(RECENT, pool.length - 1)).map(b => b.name), fresh = pool.filter(t => !recent.includes(t.name));
   let t = fresh[Math.floor(pick * fresh.length)];
   // a thin pool (low difficulty) would repeat one of the last two template boards: a square board instead

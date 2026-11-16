@@ -176,6 +176,10 @@ square board (old saves keep working).
   zero-day cannot. A drop leaves the moment it lands on a drop point, not when the whole board has
   settled. The chute was too easy (every drop fell straight in) and drops came too rarely: its bottom
   row now has blocks in the corners and two drop points, so drops need sideways swaps, every 3.
+- Second library (owner, 2026-11-16): 26 more templates from the board design research
+  (`docs/research/2026-11-16-board-designs.md`), 41 in all. Dropped from the research list after balance
+  runs: switchback and fountain (too slow to prepare, cascade-heavy), stagger (two tiny halves) and heist
+  (drops trapped in the vault). Ledge and yoke got more drop points than drawn, so drops are never stuck.
 - Blocker patterns on squares: ring, wall row, cross, diagonal, random mirrored pairs (today), by
   level. Builder-check call: patterns apply to every square level with blockers, so those levels
   get new boards and the bot sets new limits for them; square levels without blockers keep their

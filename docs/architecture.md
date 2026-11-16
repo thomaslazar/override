@@ -162,8 +162,13 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   snake with a drop point bottom right, every 0; flippable), `funnel` (the mirrored funnel: a corner run on each
   side of a block column, kind 0 from the top left, kind 1 from the top right, both ending on drop points by the
   middle, every 3) and `sluice` (a block row with gaps above a bottom row of drop points, every 0). A drop
-  resting on a bottom cell that is not a drop point moves only by a swap that makes a match, which is rare at
-  an edge, so drop templates bring drops to their points by gravity.
+  resting on a bottom cell that is not a drop point moves only by a swap that makes a match (or a worm or bomb
+  swap), so a drop template keeps several drop points within a few swaps of where drops land.
+  Second library (from `docs/research/2026-11-16-board-designs.md`, 26 boards): shapes and walled boards
+  heart, ziggurat, bucket, battlements, offset, bowtie (spawners part way down the sides), goblet, arch, slope,
+  terrace, valley, mask, plus, butterfly, vase, gate, tee, safe; teleporter boards donut (a hole that tiles
+  cross by teleporter) and delta; drop boards hopper, scree, locket, ledge, yoke (one drop kind per leg) and
+  pachinko (block pegs). `effort` and bands are tuned with `tools/sim.mjs` over levels 1 to 150.
 - `parse(t, mirror)` gives `{ n, cell, spawn, tp, exit, zone, drops }`; `cell` and `spawn` are left
   out when the template needs none (plain square semantics). `zone` is the `z` cells, or every live
   cell without a feature. A pair letter used twice on one side throws.

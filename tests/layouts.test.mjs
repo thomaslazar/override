@@ -100,7 +100,7 @@ test('check finds a drop spawner with no path', () => {
 
 test('drop templates: drop points, a schedule, the corner run and the mirrored funnel', () => {
   const drop = TEMPLATES.filter(t => t.tags.includes('drop'));
-  assert.ok(drop.length >= 3 && drop.length <= 4);
+  assert.ok(drop.length >= 3);
   for (const t of drop) assert.ok(parse(t).exit.length && Number.isInteger(t.every), t.name);
   for (const t of TEMPLATES) if (!t.tags.includes('drop')) assert.equal(parse(t).exit.length, 0, t.name);
   const corner = parse(TEMPLATES.find(t => t.name === 'corner')), funnel = parse(TEMPLATES.find(t => t.name === 'funnel'));

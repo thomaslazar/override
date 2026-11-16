@@ -246,12 +246,13 @@ test('drop goals only from DROP_FROM, on drop templates; DROP_FROM is a breather
 });
 
 test('a template\'s starting drops are placed', () => {
-  // no library template starts with drops; place one on a copy of chute
-  const t = TEMPLATES.find(x => x.name === 'chute'), saved = t.rows[1];
-  t.rows[1] = '. . . D2 . . . .';
+  // no library template starts with drops; place one on row 1 of level DROP_FROM's own template
+  const t = TEMPLATES.find(x => x.name === boardFor(DROP_FROM).name), saved = t.rows[1], cells = saved.split(' ');
+  const c = cells.indexOf('.'), i = cells.length + (boardFor(DROP_FROM).mirror ? cells.length - 1 - c : c);
+  t.rows[1] = cells.map((x, j) => j === c ? 'D2' : x).join(' ');
   try {
     const l = DROP_FROM, S = makeAttempt(l);
-    assert.deepEqual(S.grid[11], { id: S.grid[11].id, t: -1, s: null, lock: false, d: 2 });
+    assert.deepEqual(S.grid[i], { id: S.grid[i].id, t: -1, s: null, lock: false, d: 2 });
     assert.ok(S.goals.some(g => g.kind === 'drop' && g.d === 2) && S.drops.wait === 0 && validSave(S));
   } finally { t.rows[1] = saved }
 });
