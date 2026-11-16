@@ -18,7 +18,7 @@ body{
   padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
 }
 /* the obstacle, close enough to touch */
-#strip{flex:none;height:clamp(60px,10dvh,84px);position:relative;background:var(--bg) url(art/lock-closed.webp) 62% calc(-16px + env(safe-area-inset-top))/max(100%,420px) auto no-repeat}
+#strip{flex:none;height:clamp(60px,10dvh,84px);position:relative;background:var(--bg) url(art/lock-closed.webp) 96% calc(-34px + env(safe-area-inset-top))/155% auto no-repeat}
 #strip::before{content:"";position:absolute;inset:env(safe-area-inset-top) 0 auto 0;height:16px;background:linear-gradient(var(--bg),transparent)}
 #strip.open{background-image:url(art/lock-open.webp)}
 #strip::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--bg))}
