@@ -212,3 +212,13 @@ test('validSave: n 5..11 with w and h', () => {
   const old = JSON.parse(JSON.stringify(toSave(sq)));
   assert.ok(validSave(old));
 });
+
+test('tiles fall straight through holes; the top live cell of a column spawns', () => {
+  const S = mk(['o . o', 'A o B', '. C .']);
+  assert.equal(above(S, 6), 3);           // (2,0) pulls from (1,0)
+  assert.equal(above(S, 7), 1);           // (2,1) pulls from (0,1) through the hole at (1,1)
+  assert.ok(isSpawner(S, 3) && isSpawner(S, 1) && isSpawner(S, 5), 'cells with only holes above spawn');
+  assert.ok(!isSpawner(S, 6) && !isSpawner(S, 7));
+  const steps = []; gravity(S, steps);
+  assert.ok(steps.every(s => s.k !== 'fall' || s.moves.every(m => m.from % 3 === m.to % 3)), 'nothing slides sideways');
+});

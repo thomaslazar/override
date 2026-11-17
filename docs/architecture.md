@@ -16,8 +16,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 `{ id, t: -1, s: null, lock: false, d }` (`d` its kind, `0..DROP_KINDS - 1`, `DROP_KINDS = 3`; `isDrop(x)`).
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
-without `spawn` means every live top-row cell). A dead cell never holds a tile, never fills and is
-never matched; blasts pass over it. `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
+without `spawn` means every live cell with only holes above it, the top of its column). A dead cell never holds a tile, never fills and is
+never matched; blasts pass over it. Tiles fall straight through holes (`above` skips them, not blocks). `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
 is the ingress and `above` of the cell below an ingress is `-1`, so gravity and its fed test follow them while
 diagonal slides, matches and blasts keep to board adjacency. `validSave` checks all three when present
 (a dead cell must be empty; spawners and teleporter cells are live, a spawner cell appears once, a
@@ -56,7 +56,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
   firewalled tile; `reaches`, memoised per cell, a cell marked unfed while its own walk runs, so a
-  teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source; a source whose upward walk meets the empty cell is skipped (it is fed from that column through a teleporter, so taking from it would cycle the same tiles between two columns). At most
+  teleporter loop counts as unfed). Dead cells count as occupied when choosing a diagonal source, and a tie alternates sides by pass and row (no side bias); a source whose upward walk meets the empty cell is skipped (it is fed from that column through a teleporter, so taking from it would cycle the same tiles between two columns). At most
   `8 n n` passes, so a teleporter loop (templates must not have one) cannot cycle a gap forever.
   Per settle it caches `above`, the spawner test and fed per cell (they cannot change while tiles
   fall), which keeps long teleporter chains (the snake) cheap. Drops fall like tiles (diagonal slides too).
@@ -65,7 +65,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   `{ k: 'exit', i, id, d, points, got }` step, its goal counts, `SCORE.exit` added flat (no chain factor),
   then gravity goes on and refills the cell. A spawner spawns a drop instead of a tile when one is due
   (`dropDue`: by `S.drops`, of a kind the spawner allows, the first drop goal that still needs more than
-  the drops of its kind on the board); a spawned drop resets `wait`. `move` adds 1 to `wait` per spent move.
+  the drops of its kind on the board); the drop goes to one of the empty spawners allowing its kind, evenly (each in
+  turn takes it with chance 1 / those still empty); a spawned drop resets `wait`. `move` adds 1 to `wait` per spent move.
   Roofed pockets stay empty. Encrypted cells and firewalled tiles never move. Damping at settle time:
   each tile spawned in a gravity call that ends up in a line keeps its colour with chance `DAMP` (0.2),
   else is recoloured (seeded) to a colour that makes no line (kept if none exists), and their spawn records are patched. Player and
@@ -175,8 +176,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   pachinko (block pegs). `effort` and bands are tuned with `tools/sim.mjs` over levels 1 to 150.
   Third library (from `docs/research/2026-11-16-board-shapes-second-pass.md`, 112 boards): non-square boards,
   70 tall (towers, letters, lanes, stacked rooms), 36 wide (bands, crowns, bridges) and a few 9 x 9 island boards;
-  81 shapes and walled boards, 15 teleporter boards (top rows marked `S`), 16 drop boards. Tags `tall`, `wide`,
-  `lanes`, `island` are descriptive only. Each was tuned by forcing it onto up to seven levels in its band
+  81 shapes and walled boards, 15 teleporter boards (top rows marked `S`), 16 drop boards. Tags: `teleport` and `drop` gate
+  boards by level, `walled`, `split`, `funnel` are the every-5th-level picks; `shape`, `tall`, `wide`, `island`,
+  `tower`, `letter`, `lanes`, `snake` are descriptive only (singular, one spelling each). Each was tuned by forcing it onto up to seven levels in its band
   (effort about effort x 90 / average ratio), then checked with `tools/sim.mjs 1-150`; 153 templates in all.
 - `parse(t, mirror)` gives `{ n, w, h, cell, spawn, tp, exit, zone, drops }`: rows give `h`, tokens per row `w`
   (all rows equal, else it throws), `n = max(w, h)`; cells right of `w` and below `h` are holes in `cell`

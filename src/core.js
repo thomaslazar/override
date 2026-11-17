@@ -21,18 +21,21 @@ export const nbrs = (S, i) => { const [r, c] = rc(S, i); return [at(S, r - 1, c)
 export const tile = (S, t, s = null) => ({ id: S.ids++, t, s, lock: false });
 // Static cells (S.cell: 0 live, 1 hole, 2 block; absent: all live). A dead cell never holds a tile.
 export const dead = (S, i) => !!S.cell?.[i];
-// The cell gravity pulls from, or -1. Teleporters (S.tp: [[ingress, egress]]) link the bottom of the
-// ingress to the top of the egress: the egress pulls from the ingress, the cell below an ingress from nothing.
+// The cell gravity pulls from, or -1. Tiles fall straight through holes (not blocks). Teleporters
+// (S.tp: [[ingress, egress]]) link the bottom of the ingress to the top of the egress: the egress pulls from
+// the ingress, the cell below an ingress from nothing.
 export function above(S, i){
-  if (S.tp?.length) {
-    const p = S.tp.find(x => x[1] === i);
-    if (p) return p[0];
-    if (i >= S.n && S.tp.some(x => x[0] === i - S.n)) return -1;
-  }
-  return i < S.n ? -1 : i - S.n;
+  const p = S.tp?.find(x => x[1] === i);
+  if (p) return p[0];
+  let j = i - S.n;
+  while (j >= 0 && S.cell?.[j] === 1) j -= S.n;
+  return j < 0 || S.tp?.some(x => x[0] === j) ? -1 : j;
 }
-// The spawner at i ({ i, d }) or null. Without S.spawn every live top-row cell spawns any kind.
-export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? null : i < S.n && !dead(S, i) ? { i, d: -1 } : null;
+// The spawner at i ({ i, d }) or null. Without S.spawn every live cell with only holes above it (the top of
+// its column) spawns any kind.
+const colTop = (S, i) => { let j = i - S.n; while (j >= 0 && S.cell?.[j] === 1) j -= S.n; return j < 0 };
+export const isSpawner = (S, i) => S.spawn ? S.spawn.find(x => x.i === i) ?? null
+  : !dead(S, i) && colTop(S, i) ? { i, d: -1 } : null;
 export const movable = (S, i) => { const x = S.grid[i]; return !!x && !x.lock };
 // A drop tile ({ t: -1, s: null, d }) never matches, is never cleared and leaves at a drop point (S.exit).
 export const isDrop = x => x?.d !== undefined;
@@ -288,7 +291,7 @@ export function gravity(S, steps, calm = false){
       // prefer a tile that cannot fall straight itself; never take from a cell fed (through a teleporter)
       // from this cell's own column, or the same tiles would cycle between the two columns forever
       const ds = [c - 1, c + 1].filter(cc => cc >= 0 && cc < n && movable(S, (r - 1) * n + cc) && !downstream(i, (r - 1) * n + cc))
-        .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a));
+        .sort((a, b) => occupied(S, r * n + b) - occupied(S, r * n + a) || (pass + r) % 2 * 2 - 1);   // ties: sides alternate
       if (ds.length) shift(S, (r - 1) * n + ds[0], i, step);
     }
     if (!step.moves.length && !step.spawns.length) {
@@ -303,12 +306,17 @@ export function gravity(S, steps, calm = false){
 
 // The drop kind spawner i spawns now, or -1. Due every S.drops.every moves (S.drops.wait counts them), or with
 // every 0 once no drop is on the board; only a kind the spawner allows and the goals still need beyond the drops on the board.
+// The drop lands on one of the empty spawners that allow its kind, evenly: each in turn takes it with chance
+// 1 / (those still empty), so a row-clearing worm does not always hand it to the leftmost spawner.
 function dropDue(S, i){
   if (!S.drops) return -1;
   const on = S.grid.filter(isDrop);
   if (S.drops.every ? S.drops.wait < S.drops.every : on.length) return -1;
   const { d } = isSpawner(S, i);
   for (const g of S.goals) if (g.kind === 'drop' && (d < 0 || d === g.d) && g.got + on.filter(x => x.d === g.d).length < g.need) {
+    let free = 0;
+    for (let j = 0; j < S.n * S.n; j++) { const sp = !S.grid[j] && isSpawner(S, j); if (sp && (sp.d < 0 || sp.d === g.d)) free++ }
+    if (free > 1 && rngFor(S.seed, 17, S.spawns, i)() * free >= 1) return -1;
     S.drops.wait = 0;
     return g.d;
   }

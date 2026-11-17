@@ -233,3 +233,13 @@ test('a drop leaves as soon as it lands on a drop point, while the rest still fa
   assert.ok(steps.slice(ex).some(s => s.k === 'fall'));
   assert.equal(S.goals[0].got, 1);
 });
+
+test('a due drop lands on any of the empty spawners, not always the leftmost', () => {
+  const cols = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    const S = mk(['. . . . .', 'A B C D E', 'B C D E A', 'C D E A B', 'D E A B CX'], { seed, goals: [dropGoal(0, 1)], drops: { every: 0, wait: 0 } });
+    gravity(S, []);
+    cols.add(S.grid.findIndex(isDrop) % 5);
+  }
+  assert.ok(cols.size >= 4, 'drop columns seen: ' + [...cols]);
+});
