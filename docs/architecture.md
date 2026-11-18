@@ -274,10 +274,22 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   play without it. It picks the board, closes sheets, saves only `{ level, fails, pick }` to `override-v1` (a reload
   shows the screen again, with the same deal) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
   chapter and level, a preparing line and a disabled Start. When `want` answers (at once if prefetched; after
-  20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit and
-  DECKER's `commsLine({ level })`, and enables Start. Start sets `S`, opens the play log attempt
-  (`logStart(true)`), sets `run.best` and `run.fails`, saves, then `start()`. The empty room under the text is
-  for later briefing and items.
+  20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit, the gear box,
+  "Loot on first win: {item}" (when `lootFor(level)` and no stored best) and DECKER's `commsLine({ level })`, and
+  enables Start. The sheet is drawn by `show()`, which the shop's Back calls again, so switched-on slots survive the
+  shop. Gear box (`gearBox`): cred (`cred(n)`: the code-drawn ₡ mark, `credMark`, and the amount), a Shop button and
+  the three `gearFor(level)` slots (`itemIcon`, name or `+n moves`, owned count or price, On/Off). A slot not in
+  stock switches on only while the cred covers every switched-on slot that must be paid; a paid slot the cred no
+  longer covers after shopping switches off. Switched-on slots are per visit (retries included) and never saved.
+  Start sets `S`, takes owned gear from stock and pays the rest (slot order), `applyGear(S, chosen)` (always, so
+  `S.gear` is set), `saveDeck()`, opens the play log attempt (`logStart(true)`, which records `gear`), sets
+  `run.best` and `run.fails`, saves, then `start()`.
+- Shop (`shop(back)`, from the start screen only): one row per `ITEMS` entry (icon, name, one-line effect, owned,
+  Buy with the price, disabled when short). Buying calls `buy`, `saveDeck()` and updates the rows in place.
+- Deck: module state `deck` in `ui.js`, loaded once with `deckFrom(JSON.parse(override-deck))` (junk gives the
+  starter set), saved with `saveDeck()` after every change. `itemIcon(id, s)` returns an `s` px canvas: gear is the
+  special as on the board (fixed colours), tools are line icons (hammer, swap arrows, shuffle arrows); `paint(s, draw)`
+  runs any board drawing function on a small canvas (goal icons use it too).
 - View model: `sprites` (by tile id, with target `tx`, `ty`), `vEnc`, `fx`. `sync()` rebuilds
   the view from `S`; it runs at level start and after every move's animation, so the view
   always equals the state. `animate(steps)` plays the `move` steps in order (swap and back,
@@ -309,9 +321,11 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   nearest special;
   `sync()` then clears it.
 - Best scores: `override-best` is `{ "<level>": score }`, read once at boot (junk becomes `{}`);
-  `bestOf(level)` is an integer or `null`. `win()` reads the previous best, then stores the higher one.
+  `bestOf(level)` is an integer or `null`. `win()` reads the previous best `prev`, pays `payout(score, prev)` cred
+  and, when `prev` is `null`, the level's loot, then stores the higher best and the deck together before showing the
+  sheet. A reload of a won level finds the best stored and pays 0.
 - Win rows: below the win text, a grid of `score` (large, glowing, counting up from 0 over 1.2 s, eased),
-  `best` (the previous best; omitted on a first win) with dotted leaders, then `>> NEW BEST <<` (amber,
+  `best` (the previous best; omitted on a first win), `cred` (`+ ₡ n`) with dotted leaders, "{item} added" for loot, then `>> NEW BEST <<` (amber,
   blinking with `alertflash`) when beaten. A tap on the sheet ends the count-up. Reduced motion shows the
   final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,

@@ -91,3 +91,8 @@ test('a drop goal keeps its kind in the log', () => {
   const S = { ...mkS(), goals: [{ kind: 'drop', d: 1, need: 2, got: 0 }] };
   assert.deepEqual(mk(S).goals, [{ kind: 'drop', d: 1, need: 2 }]);
 });
+
+test('attempt records the gear used', () => {
+  assert.deepEqual(attemptOf({ ...mkS(), gear: ['worm', 'moves'] }, 'T').gear, ['worm', 'moves']);
+  assert.deepEqual(attemptOf(mkS(), 'T').gear, []);
+});
