@@ -804,7 +804,7 @@ function renderMenu(){
   if (tab === 0) body.append(
     el('p', t('bestLevel', { n: run.best })),
     btn(t('restart'), () => confirmSheet(t('restartAsk'), () => brief(S.level, S.fails))),
-    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); brief(1, 0) })));
+    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { for (const k of ['override-v1', 'override-run', 'override-best', 'override-deck']) try { localStorage.removeItem(k) } catch {} location.reload() })));
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); renderMenu() };

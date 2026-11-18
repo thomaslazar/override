@@ -88,7 +88,7 @@ Rockets come in the same piece: a fourth special made by a 2 x 2 square, which f
 
 - No cap. Starter set for a new player (and for an existing save that has no stock yet): 2 worms, 1 bomb,
   1 rocket, 1 hammer, 1 shuffle (builder may tune).
-- Start over (back to level 1) keeps cred and stock.
+- Start over is a full reset: level 1, no best scores, the starter stock and ₡ 0 (changed after the first playtest, so the economy can be tested from zero). Settings and the play log stay.
 
 ### Loot
 

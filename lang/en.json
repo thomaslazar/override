@@ -28,7 +28,7 @@
   "restart": "Restart level",
   "restartAsk": "Restart this level? It won’t count as a failed try.",
   "startOver": "Start over",
-  "startOverAsk": "Start over from level 1? Your best level is kept.",
+  "startOverAsk": "Start over from level 1? This wipes your progress, best scores, cred and gear. Settings and the play log stay.",
   "yes": "Yes",
   "cancel": "Cancel",
   "bestLevel": "Best level: {n}",

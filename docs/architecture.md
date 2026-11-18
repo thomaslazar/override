@@ -274,7 +274,7 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   fails, pick)`, which asks for the next level and the next retry after every start.
 - `brief(level, fails, pick)` (`pick` only from a reload): the level start screen, on every start path (next level `brief(level + 1, 0)`, try
   again `brief(S.level, S.fails + 1)`, Restart level (menu, asks first) `brief(S.level, S.fails)`, not a fail;
-  Start over, the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
+  the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
   play without it. It picks the board, closes sheets, saves only `{ level, fails, pick }` to `override-v1` (a reload
   shows the screen again, with the same deal) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
   chapter and level, a preparing line and a disabled Start. When `want` answers (at once if prefetched; after
@@ -353,7 +353,7 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   never on the winning move and never on load.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (level picker up to the best level, or `MAX_LEVEL` 9999 on
-  a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
+  a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, a full reset that removes `override-v1`, `override-run`, `override-best` and `override-deck` and reloads; settings and the play log stay), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
   goal and `d` for a drop goal, `gear` (applied ids), `limit` (the bot's, `S.base`) and `extra` (moves gear added);
