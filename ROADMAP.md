@@ -121,7 +121,6 @@ These are the genre’s pay-to-win parts, which Override exists to leave out:
   - Shuffle does nothing in the first 0.4 s of a level (input grace).
   - A selected tool stays selected through the menu.
   - The shop does not hold back cred for paid gear slots switched on.
-  - Blocker-only levels (bot needs about half the target) and drop levels (75 to 80%) run short.
 - Toast sits over the Share button in the menu.
 - Sheets and the menu have no dialog roles for screen readers.
 

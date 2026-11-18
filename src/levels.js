@@ -181,6 +181,17 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
     const j = Math.floor(lr() * w * (h - 1)), i = (1 + Math.floor(j / w)) * n + j % w;
     if (!S.enc[i] && !fwSpots.includes(i)) fwSpots.push(i);
   }
+  // goals decided here, before the fill: a level with no tile goal ends quickly, as rockets aim at blockers first;
+  // blocker-only levels get a layer more on every encrypted cell (up to 3) and twice the firewalls, drop levels the layer
+  const cracks = S.enc.filter(Boolean).length;
+  const tileGoal = kinds.length ? (cracks ? 1 : 0) + (fwSpots.length ? 1 : 0) + kinds.length < 3 && gr() < .5
+    : (cracks ? 1 : 0) + (fwSpots.length ? 1 : 0) < 2 || gr() < .5 || L && cracks + fwSpots.length < n;
+  if (!tileGoal) {
+    for (let i = 0; i < nn; i++) if (S.enc[i]) S.enc[i] = Math.min(3, S.enc[i] + 1);
+    const pool = (L ? L.zone.filter(i => !isSpawner(S, i)) : Array.from({ length: w * (h - 1) }, (_, j) => (1 + Math.floor(j / w)) * n + j % w))
+      .filter(i => !S.enc[i] && !fwSpots.includes(i) && !L?.drops.some(x => x.i === i));
+    for (let k = fwSpots.length; !kinds.length && k > 0 && pool.length; k--) fwSpots.push(pool.splice(Math.floor(lr() * pool.length), 1)[0]);
+  }
   fillBoard(S, rngFor(level, salt, 3, deal));
   for (const { i, d } of L?.drops ?? []) S.grid[i] = dropTile(S, d);
   for (const i of fwSpots) S.grid[i].lock = true;
@@ -189,11 +200,10 @@ export function makeAttempt(level, fails = 0, salt = 0, drop = 0, deal = 0, fb =
   const shape = w === h ? 'square' : w > h ? 'wide' : 'tall';
   S.board = L ? board.name : wantCrack || fwSpots.length ? `${shape}:${board.pattern}` : shape;
   // goals
-  const cracks = S.enc.filter(Boolean).length;
   if (cracks) S.goals.push({ kind: 'crack', need: cracks, got: 0 });
   if (fwSpots.length) S.goals.push({ kind: 'firewall', need: fwSpots.length, got: 0 });
   // a template level with only a few blockers always gets a tile goal too, so it is never near free (drops are work enough)
-  if (kinds.length ? S.goals.length + kinds.length < 3 && gr() < .5 : S.goals.length < 2 || gr() < .5 || L && cracks + fwSpots.length < n) {
+  if (tileGoal) {
     // goals ignore fails: size from the fails-0 colour count, colours from those that survive easing
     const kBase = paramsFor(level, 0, drop).k, kGoal = Math.max(4, kBase - 1);
     const need = Math.round(effort * GOAL * (15 + 25 * p.d) * 5 / kBase), t = Math.floor(gr() * kGoal);
