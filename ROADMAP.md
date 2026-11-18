@@ -6,18 +6,7 @@ the fiction are still working names.
 
 ## Next, in order
 
-1. **Funds, gear and shop** (one piece of work, next). The level score turns into funds; funds buy gear
-   taken into a level from the level start screen, and tools used during a level.
-   - Funds: earned only by playing, never bought. Open: the name, the conversion (flat, or weighted to
-     spare moves so playing well pays more than grinding), whether replaying a won level pays, a
-     per-level cap so funds can’t be farmed.
-   - Gear taken into a level: start with a worm, bomb or zero-day on the board, or a few extra moves.
-   - Tools used during a level: break one cell, swap any two tiles without a match, reshuffle.
-   - Fixed, visible prices, a small stockpile cap per item, no sales, bundles or timers.
-   - Every level stays beatable without gear, verified by the bot. Gear makes a level easier,
-     never possible.
-
-2. **More blockers.** The genre’s usual set, in the fiction:
+1. **More blockers.** The genre’s usual set, in the fiction:
    - **ICE:** a hardened cell that matches next to it do not touch; only worms, bombs and
      zero-days break it. One to three layers. The wall around a set piece.
    - **Logs** (a mark under a tile, cleared by a match on top of it, one or two layers) with a
@@ -38,7 +27,7 @@ the fiction are still working names.
    - Later candidates: conveyor buses that move tiles each turn, tunnels that link two cells,
      nodes that keep producing a blocker.
 
-3. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
+2. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
    - An intro card the first time something new shows up: each blocker (encrypted cells, firewalls,
      later ICE, logs, trace, malware), each special (worm, logic bomb, zero-day) the first time one is
      made, each goal kind, and later mechanics (drops, teleporters). A short terminal window with the
@@ -51,27 +40,34 @@ the fiction are still working names.
      should show on any board and be switchable in settings.
    - Open: whether the first levels also get a guided first move (a pointing hand on a set swap).
 
-4. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
+3. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
    The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
 
-5. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
+4. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
    ASCII style, picked at random per win: REKT, OWNED, ROOTED, ACCESS GRANTED, GG and similar,
    each with its own small ASCII picture next to the padlock (an open door, a skull, a terminal).
    Decoration, not translated, static under reduced motion like PWNED.
 
-6. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
+5. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
    open plate in the same framing as the maglock (`docs/art.md`).
 
-7. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
+6. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
    progress; crew members on comms with names; backgrounds that change with the obstacle
    (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
    last level of a run.
 
-8. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
+7. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
    for matches, specials and the payout; mute in settings.
+
+8. **More specials** (from `docs/research/2026-11-18-specials-and-boosters.md`).
 
 ## Done
 
+- **Funds, gear and shop, and rockets** (2026-11-18). Spec:
+  `docs/superpowers/specs/2026-11-18-cred-gear-rockets-design.md`. Cred from the level score (paid once per best),
+  a shop with fixed prices, loot on first wins, gear on the level start screen (worm, bomb, rocket, zero-day, extra
+  moves), tools during a level (hammer, free swap, shuffle) in the soft-key row, and rockets from 2 x 2 squares that
+  fire at targets that matter.
 - **Board layouts, drops and teleporters** (merged 2026-11-16). Spec:
   `docs/superpowers/specs/2026-11-14-board-layouts-design.md`. Holes, blocks, spawners anywhere, blocker
   patterns, teleporters (from level 16), drop tiles and drop points (from level 21), the template library.

@@ -45,7 +45,7 @@
   "on": "On",
   "off": "Off",
   "howTitle": "How to play",
-  "howText": "Swap two neighbouring tiles to line up three or more of one kind. Four in a line makes a worm, an L or T makes a logic bomb, five makes a zero-day. Swap a special to set it off, or swap two together. Meet every goal before the patrol comes back.",
+  "howText": "Swap two neighbouring tiles to line up three or more of one kind. Four in a line makes a worm, an L or T makes a logic bomb, five makes a zero-day, a square of four makes a rocket that hits three targets. Swap a special to set it off, or swap two together. Meet every goal before the patrol comes back.",
   "fair": "Hit a wall and the level eases off: more moves, then one colour fewer. Nothing is built to make you fail, and there’s nothing to buy with money. No ads, no accounts, no tracking. Progress stays on this device.",
   "share": "Share Override",
   "shareText": "Override: an ad-free match-3 with endless levels. No ads, no accounts.",
@@ -103,5 +103,9 @@
   "aboutMoves": "Three to five more moves, by level.",
   "aboutHammer": "Breaks one cell. Costs no move.",
   "aboutSwap": "Swaps any two neighbours. Costs no move.",
-  "aboutShuffle": "Reshuffles the board. Costs no move."
+  "aboutShuffle": "Reshuffles the board. Costs no move.",
+  "toolUse": "{item}, {n} left",
+  "toolHammer": "Tap a cell to break it.",
+  "toolSwap": "Tap or drag two neighbours.",
+  "toolNo": "Can’t use that there."
 }

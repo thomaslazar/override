@@ -96,3 +96,9 @@ test('attempt records the gear used', () => {
   assert.deepEqual(attemptOf({ ...mkS(), gear: ['worm', 'moves'] }, 'T').gear, ['worm', 'moves']);
   assert.deepEqual(attemptOf(mkS(), 'T').gear, []);
 });
+
+test('a tool entry carries the tool and the usual counts', () => {
+  const steps = [{ k: 'wave', fired: [], cleared: [{}], created: [] }];
+  assert.deepEqual(entryOf(mkS(), steps, 3, 'hammer'), { n: 3, w: 1, c: 1, sm: 0, sf: 0, g: [4, 1], sh: 0, tool: 'hammer' });
+  assert.equal('tool' in entryOf(mkS(), steps, 3), false);
+});

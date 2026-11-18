@@ -1,4 +1,4 @@
-// Opt-in play log: pure, mutates only the log passed in. Move entry: {n, w, c, sm, sf, g, sh}.
+// Opt-in play log: pure, mutates only the log passed in. Move entry: {n, w, c, sm, sf, g, sh, tool?}.
 export const PLAYS_V = 1, PLAYS_MAX = 1e6;
 export const logFrom = o => {
   const l = o && typeof o === 'object' ? o : {};
@@ -15,10 +15,10 @@ export const close = (log, end, S, seconds) => { const a = open(log); if (a) { a
 export const startAttempt = (log, attempt) => { close(log, 'left'); log.attempts.push(attempt); };
 export const resume = (log, S) => { const a = open(log); if (a && a.level === S.level && a.fails === S.fails) return true; close(log, 'left'); return false; };
 export const logMove = (log, entry) => open(log)?.moves.push(entry);
-export const entryOf = (S, steps, n) => {
+export const entryOf = (S, steps, n, tool) => {
   const sum = (k, f) => steps.reduce((x, s) => x + (s.k === k ? f(s) : 0), 0);
   return { n, w: sum('wave', () => 1), c: sum('wave', s => s.cleared.length), sm: sum('wave', s => s.created.length),
-    sf: sum('wave', s => s.fired.length), g: S.goals.map(g => g.got), sh: steps.some(s => s.k === 'shuffle') ? 1 : 0 };
+    sf: sum('wave', s => s.fired.length), g: S.goals.map(g => g.got), sh: steps.some(s => s.k === 'shuffle') ? 1 : 0, ...(tool && { tool }) };
 };
 export const setOn = (log, on) => { log.on = on; if (!on && open(log)) log.attempts.pop(); };
 export const trim = (log, max = PLAYS_MAX) => {

@@ -303,10 +303,12 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), exit (played
   inside the fall run: the drop's target becomes the row below its drop point, so it keeps falling with no landing
   hop, clipped at the drop point's bottom edge; when it is through, the sprite goes, a light bar flares on the edge
-  with sparks and the HUD takes its `points` and `got`), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  with sparks and the HUD takes its `points` and `got`), shuffle with a toast, none when it is the first step, which is the shuffle tool). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
-  move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
+  move, then `playFinale`, syncs, then shows the win or loss sheet. `play(a, b, kind)` with a tool kind calls
+  `tool` instead: when refused it toasts "Can’t use that there." and the item stays; else it takes one from stock
+  (`take`, `saveDeck()`) and goes on like a move (the log entry gets `tool: kind`; no patrol warning, no loss). A won save without `spare` (from before
   the finale) runs `finale` silently at boot.
 - Finale: `playFinale(steps)` plays the steps sped up so the whole finale takes
   at most about `FINALE_MS` (10 s; `finaleMs` estimates the normal length from `STEP_MS`). A tap anywhere
@@ -332,6 +334,12 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   then an adjacent tile, also swaps. Tapping a selected worm or bomb again fires it (`move(S, i, i)`). Dead cells take no input (`cellAt` returns -1, a drag onto one
   does nothing); worm sparks skip them. Only the `S.w` x `S.h` rectangle is drawn and touched: `fit()` sets `cs = floor(min(wrap width / w, wrap height / h))` and a canvas of `w * cs` by `h * cs` (centred by `#wrap`), the draw loop skips padding cells, `cellAt` and drag targets stop at the rectangle, and worm sparks, beams and the clear-all flash span `w` or `h`. Old saves get `S.w`, `S.h` = `S.n` on load. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
+- Tool bar: `#tools` in `#soft` next to Menu, one button per tool (`itemIcon` 18 px and the count, `aria-label`
+  "{item}, {n} left", `aria-pressed`), drawn by `toolBar()` from `hud()`; disabled at 0 in stock, at 0 moves, while
+  `busy`, after a win or loss. A tap arms hammer or swap (`armed`, highlighted, a toast says what to do; tap again
+  disarms) and runs shuffle at once. Armed, board input goes to the tool: hammer takes the next tapped cell (drags
+  are ignored); swap takes a drag or a tap on two neighbours (a second tap on a special does not fire it). `play`
+  and `start` disarm.
 - Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first
   (`validMoves`) wriggles, the two tiles nudging toward each other; reduced motion outlines them instead. Input,
   moves, sheets and the menu reset the wait.
@@ -343,7 +351,7 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
-  goal and `d` for a drop goal) and Info (how to play, Share, GitHub, licence, font).
+  goal and `d` for a drop goal; a tool use is a move entry with `tool`) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip (a thin band, `clamp(60px,10dvh,84px)`) shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`

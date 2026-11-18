@@ -1,5 +1,5 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead, isDrop, applyGear } from './core.js';
+import { move, tool, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead, isDrop, applyGear } from './core.js';
 import { ITEMS, deckFrom, payout, lootFor, gearFor, buy, take, add } from './deck.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
@@ -176,8 +176,8 @@ function shop(back){
   refresh(); $('#card').insertBefore(have, $('#card .btn')); $('#card').insertBefore(list, $('#card .btn'));
 }
 function start(){
+  busy = false; grace = performance.now() + 400; sel = -1; armed = null;
   sync(); fit(); hud(); unlockScene(false);
-  busy = false; grace = performance.now() + 400; sel = -1;
   prefetch(S.level, S.fails, Number.isInteger(S.pick) ? S.pick : 0);
   if (won(S)) win(); else if (lost(S)) lose(true);
 }
@@ -258,7 +258,7 @@ async function animate(steps, speed = 1){
       hud(); await wait(inFinale ? 120 : 190);
     }
     if (s.k === 'shuffle') {
-      toast(t('noMoves')); await wait(600);
+      if (j) { toast(t('noMoves')); await wait(600) }   // a shuffle as the first step is the shuffle tool
       for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; delete p.top; place(p, x.i); idAt.set(x.i, x.id) }
       await settle();
     }
@@ -278,12 +278,16 @@ async function playFinale(steps){
 }
 
 /* ---------- moves ---------- */
-async function play(a, b){
+// kind: a tool ('hammer', 'swap', 'shuffle') instead of a move; it costs no move, takes one from stock and cannot lose.
+async function play(a, b, kind){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
-  busy = true;
-  const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = move(S, a, b);
+  busy = true; armed = null;
+  const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = kind ? tool(S, kind, a, b) : move(S, a, b);
+  if (kind && !r.ok) { busy = false; hud(); toast(t('toolNo')); return }   // the item stays
+  if (kind) { take(deck, kind); saveDeck() }
   shown = { score: from, moves: S.moves, got };   // the HUD ticks from here while the steps play, not from the final state
-  const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1);   // before the finale
+  hud();
+  const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1, kind);   // before the finale
   const end = r.ok && won(S) ? finale(S) : null;   // the finale runs now: the save holds the end state
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
@@ -293,7 +297,7 @@ async function play(a, b){
     const quarter = Math.ceil(S.limit * .25);
     if (before > 3 && S.moves <= 3) alert('crit'); else if (before > quarter && S.moves <= quarter) alert('warn');
   }
-  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { shown = null; sync(); hud(); busy = false }
+  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { shown = null; sync(); busy = false; hud() }
   if (!r.ok) return;
   if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
 }
@@ -715,6 +719,7 @@ function hud(){
   $('#score').textContent = best === null ? t('hudScore', { s: fmt(shown ? shown.score : S.score) }) : t('hudScoreBest', { s: fmt(shown ? shown.score : S.score), b: fmt(best) });
   $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
   $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
+  toolBar();
 }
 export function commsLine(S){
   const lines = [t('comms1'), t('comms2'), t('comms3'), t('comms4'), t('comms5'), t('comms6'), t('comms7'), t('comms8'), t('comms9'), t('comms10'), t('comms11'), t('comms12')];
@@ -846,21 +851,44 @@ const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.cl
 const adjacent = (a, b) => Math.abs(Math.floor(a / S.n) - Math.floor(b / S.n)) + Math.abs(a % S.n - b % S.n) === 1;
 cv.onpointerdown = e => { idle(); if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
 cv.onpointermove = e => {
-  if (!press || e.pointerId !== press.id) return;
+  if (!press || e.pointerId !== press.id || armed === 'hammer') return;
   const dx = e.clientX - press.x, dy = e.clientY - press.y;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < cs * .35) return;
   const r = Math.floor(press.p / S.n) + (Math.abs(dx) > Math.abs(dy) ? 0 : Math.sign(dy)), c = press.p % S.n + (Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0);
   const a = press.p; press = null; sel = -1;
-  if (r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c)) play(a, r * S.n + c);
+  if (r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c)) play(a, r * S.n + c, armed);
 };
 cv.onpointerup = () => {
   if (!press) return; const p = press.p; press = null;
   const x = S.grid[p];
-  if (sel >= 0 && adjacent(sel, p)) { const s = sel; sel = -1; play(s, p) }
+  if (armed === 'hammer') { sel = -1; play(p, undefined, 'hammer') }
+  else if (sel >= 0 && adjacent(sel, p)) { const s = sel; sel = -1; play(s, p, armed) }
+  else if (armed) sel = sel === p ? -1 : p;
   else if (sel === p && x?.s && x.s !== 'z' && !x.lock) { sel = -1; play(p, p) }   // a second tap fires a worm or bomb
   else sel = sel === p ? -1 : p;
 };
 cv.onpointercancel = () => press = null;
+// Tool bar: tap arms a tool (tap again disarms); armed, board input goes to it. Shuffle runs at once.
+const TOOLS = ['hammer', 'swap', 'shuffle'];
+let armed = null;
+const toolBtns = TOOLS.map(id => {
+  const b = document.createElement('button'); b.className = 'tool'; b.append(itemIcon(id, 18), el('span'));
+  b.onclick = () => {
+    if (blocked()) return; idle(); sel = -1;
+    if (id === 'shuffle') return play(undefined, undefined, 'shuffle');
+    armed = armed === id ? null : id; toolBar();
+    if (armed) toast(armed === 'hammer' ? t('toolHammer') : t('toolSwap'));
+  };
+  return b;
+});
+$('#tools').append(...toolBtns);
+function toolBar(){
+  const off = busy || S.moves <= 0 || won(S) || lost(S);
+  toolBtns.forEach((b, k) => { const id = TOOLS[k], n = deck.items[id];
+    b.disabled = off || n <= 0; b.lastChild.textContent = n;
+    b.classList.toggle('on', armed === id); b.setAttribute('aria-pressed', armed === id);
+    b.setAttribute('aria-label', t('toolUse', { item: itemName(id), n })) });
+}
 
 /* ---------- boot ---------- */
 readPal(); fit();
