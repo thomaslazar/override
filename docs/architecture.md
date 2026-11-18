@@ -12,7 +12,7 @@ the spec): `n` board side (7..9), `k` colours, `types` glyph slot per colour, `g
 null, index `r * n + c`), `enc` (encrypted hits left per cell), `goals`, `moves`, `limit`,
 `need`, `seed`, `salt`, `drop`, `deal` (which seeded board), `pick` (set by the UI), counters `spawns`, `shuffles`, `ids`, and `nice` (helpful refill on for the
 player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`'v'` (worm),
-`'b'` (logic bomb) or `'z'` (zero-day, `t === -1`); `lock` is a firewall. A drop tile is
+`'b'` (logic bomb), `'r'` (rocket) or `'z'` (zero-day, `t === -1`); `lock` is a firewall. A drop tile is
 `{ id, t: -1, s: null, lock: false, d }` (`d` its kind, `0..DROP_KINDS - 1`, `DROP_KINDS = 3`; `isDrop(x)`).
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
@@ -28,14 +28,16 @@ means the next comes once no drop is on the board) are optional too; `validSave`
 and drop goals `{ kind: 'drop', d, need, got }`.
 
 - **random**: `mulberry32`, `hash`, `rngFor`. No `Math.random` anywhere in `src/`.
-- **matching**: `findGroups` merges horizontal and vertical runs of 3+ that share a cell into
-  one group; encrypted cells, empty cells, zero-days and drops never match. `specialOf(group, swipe)`:
-  5+ run makes a zero-day, an L or T (a horizontal and a vertical run) a bomb, a run of 4 a
-  worm along the swipe (or its own direction). `spotOf` puts it on a swapped cell, else the
-  crossing (bomb), else the middle of the longest run. `swapLegal` needs a match, or a special.
+- **matching**: `findGroups` merges horizontal and vertical runs of 3+ and 2 x 2 squares of one colour
+  (`{ sq: true, cells }`) that share a cell into one group; encrypted cells, empty cells, zero-days and drops
+  never match. `specialOf(group, swipe)` looks at the line runs first: 5+ run makes a zero-day, an L or T (a
+  horizontal and a vertical run) a bomb, a run of 4 a worm along the swipe (or its own direction); else a group
+  with a square makes a rocket. `spotOf` puts it on a swapped cell, else the crossing (bomb), else the square's
+  top-left cell (rocket), else the middle of the longest line. `lineAt` (used by `swapLegal`, `setsUp` and
+  damping) also counts a square; `fillBoard` deals no square. `swapLegal` needs a match, or a special.
   A swap with a drop is legal when the other tile lands in a line, or is a worm or bomb (it fires); a zero-day
   needs the line; drop with drop never.
-- **move**: `move(S, a, b)` returns `{ ok, steps }`. `a === b` taps a worm or bomb: it fires in place for one
+- **move**: `move(S, a, b)` returns `{ ok, steps }`. `a === b` taps a worm, bomb or rocket: it fires in place for one
   move (a `wave` from that cell, gravity, cascade at chain 2); a zero-day, a locked or a plain tile is not ok. Steps are `swap`, `back`, `combo`,
   `convert`, `wave`, `fall`, `exit`, `shuffle` (contract in the plan). Flow: swap; a legal swap with a drop
   resolves as the other tile's match (no combo), or fires the worm or bomb like a lone special swap; a lone worm or bomb
@@ -43,9 +45,26 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
   exists, `reshuffle` runs.
-- **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`
-  zero-day with a worm or bomb converts every tile of that colour into worms (random h or v) or
-  bombs, then fires them, `zz` clears the board. Zero-day with a plain tile clears that colour.
+- **gear**: `applyGear(S, gear)` takes `[{ id, n? }]` (from `gearFor` in `deck.js`). `worm`, `bomb`, `rocket`
+  and `zero` each turn one random plain tile (no special, drop or firewall, cell not encrypted) into that special,
+  keeping its colour (a zero-day gets `t: -1`), so no match appears; seeded by `rngFor(S.seed, 37, k)` per item,
+  worm direction too. `moves` adds `n` to `S.moves` and `S.limit`; `S.base` keeps the limit from before the gear
+  (the bot's). Fewer plain tiles than items: the rest is skipped. It returns the ids it applied (`moves` always
+  applies) and `S.gear` records them; `GEAR_IDS` lists the gear ids (`validSave` checks `gear` and `base` with it,
+  `deck.js` offers from it).
+- **tools**: `tool(S, kind, a, b)` returns `{ ok, steps }` like `move` and never spends a move; it refuses with no
+  change at 0 moves or after a win. `hammer` on a tile that is not a drop, or on an encrypted cell, runs a one-cell
+  `wave` (a firewall is only unlocked, an encrypted cell loses a layer, a special fires), then gravity and a
+  cascade at chain 2. `swap` takes two movable neighbours (drops too, firewalls not), swaps them and resolves
+  through `resolve`, the body `move` uses, without paying; a swap that resolves nothing stays (no `back`), and
+  gravity then lets a drop swapped onto a drop point leave. `shuffle` is `reshuffle`. Afterwards, as after a move,
+  the free reshuffle runs when the level is not won and no move exists.
+- **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`/`zr`
+  zero-day with a worm, bomb or rocket converts every tile of that colour into worms (random h or v),
+  bombs or rockets, then fires them, `zz` clears the board. With a rocket (the kind names it first):
+  `rr` fires 8 rockets from the dragged tile's cell, `rw`/`rb` fire 3 and set off a worm (h or v by
+  `rngFor(S.seed, 23, S.spawns, target)`) or a 3x3 blast at each target; each of their flights carries `s`
+  (`h`, `v` or `b`), what goes off there. Zero-day with a plain tile clears that colour.
   A zero-day fired by a blast clears a random colour still on the board (seeded by its id).
 - **wave**: fires specials in a chain (each id once), cracks encrypted cells (hits from a fired
   area, plus neighbours of matched cells and of a zero-day's tiles), unlocks firewalled tiles (a firewalled tile hit is unlocked,
@@ -53,6 +72,13 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   created on a cell whose firewalled tile was only unlocked consumes that tile: it appears in
   the wave's `cleared` and counts for the tiles goal. No wave clears a drop (blasts and zero-days pass it
   by; a zero-day's random colour is never a drop's).
+- **rockets**: a fired rocket hits `rocketTargets(S, from, 3, cells)` (exported): distinct cells, never dead,
+  a drop, empty and not encrypted, the rocket's own cell or one the wave already clears (`cells`), by tier:
+  firewalled tiles, encrypted cells, tiles of a colour a tiles goal still needs, the tile directly under a drop,
+  any other tile; within a tier seeded by `rngFor(S.seed, 19, S.spawns, from, k)`. Fewer candidates, fewer
+  targets. Targets join the wave like a blast's cells (cleared, unlocked or cracked one layer; a special hit
+  fires). Rockets ignore board adjacency (they fly over holes, blocks and teleporters). A wave step with
+  rockets carries `rockets: [{ from, to }]` (combo flights first), for the UI.
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
@@ -145,7 +171,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
-  firewall goal. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
+  firewall goal. Tile goals are `GOAL` (1.8, raised from 1.2 when rockets made goals faster) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
   colour, or two at 60% each on harder levels). Tile goals show in `goalColours(level)` (`levels.js`): the colour
   slots in `S.types` are remapped (the deal is unchanged) so neighbouring levels never share a goal colour; odd
   levels draw two colours freely, even levels draw from what both odd neighbours leave.
@@ -227,6 +253,15 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   easing. The bot plays with `nice` off.
 
 
+## Economy (`src/deck.js`)
+
+Pure; the UI owns storage (`override-deck`). `deckFrom` repairs a stored `{ cred, items }` field by field (a bad cred or
+item count becomes 0, unknown ids are dropped, every id present); a missing or non-object value gives cred 0 and the
+starter stock. `payout(score, best)` is the cred for a win: score / 100 on a first
+win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is the one reward item: always on every
+5th level and the chapter's last, 35 % in the chapter's ten hardest, else 10 %, weighted by item. `gearFor(level)`
+(channel 53) offers three of worm, bomb, rocket, zero, moves; `moves` carries 3 to 5. `buy`, `take`, `add` change a deck in place.
+
 ## Worker and UI (`src/worker.js`, `src/ui.js`)
 
 - Boards: each attempt plays one of a level's 10 deals by `pick` (stored in `S.pick`). A level's first attempt
@@ -239,30 +274,46 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   fails, pick)`, which asks for the next level and the next retry after every start.
 - `brief(level, fails, pick)` (`pick` only from a reload): the level start screen, on every start path (next level `brief(level + 1, 0)`, try
   again `brief(S.level, S.fails + 1)`, Restart level (menu, asks first) `brief(S.level, S.fails)`, not a fail;
-  Start over, the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
+  the level picker, `?level=N`, and boot when no attempt is saved). Boot with a saved attempt resumes
   play without it. It picks the board, closes sheets, saves only `{ level, fails, pick }` to `override-v1` (a reload
   shows the screen again, with the same deal) and opens the sheet (class `brief`: opaque backdrop, the board is not seen) with the
   chapter and level, a preparing line and a disabled Start. When `want` answers (at once if prefetched; after
-  20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit and
-  DECKER's `commsLine({ level })`, and enables Start. Start sets `S`, opens the play log attempt
-  (`logStart(true)`), sets `run.best` and `run.fails`, saves, then `start()`. The empty room under the text is
-  for later briefing and items.
+  20 s the Reload sheet instead) it shows the goals (`icon(goal, types)`, full counts), the move limit, the gear box,
+  "Loot on first win: {item}" (when `lootFor(level)` and no stored best) and DECKER's `commsLine({ level })`, and
+  enables Start. The sheet is drawn by `show()`, which the shop's Back calls again, so switched-on slots survive the
+  shop. Gear box (`gearBox`): cred (`cred(n)`: the code-drawn ₡ mark, `credMark`, and the amount), a Shop button and
+  the three `gearFor(level)` slots (`itemIcon`, name or `+n moves`, owned count or price, On/Off). A slot not in
+  stock switches on only while the cred covers every switched-on slot that must be paid; a paid slot the cred no
+  longer covers after shopping switches off. Switched-on slots are per visit (retries included) and never saved.
+  Start sets `S`, picks the switched-on slots stock or cred covers (slot order), `applyGear(S, chosen)` (always, so
+  `S.gear` is set), then takes from stock or charges cred only for the ids it applied, `saveDeck()`, opens the play log attempt (`logStart(true)`, which records `gear`), sets
+  `run.best` and `run.fails`, saves, then `start()`.
+- Shop (`shop(back)`, from the start screen only): one row per `ITEMS` entry (icon, name, one-line effect, owned,
+  Buy with the price, disabled when short). Buying calls `buy`, `saveDeck()` and updates the rows in place.
+- Deck: module state `deck` in `ui.js`, loaded once with `deckFrom(JSON.parse(override-deck))` (junk gives the
+  starter set), saved with `saveDeck()` after every change. `itemIcon(id, s)` returns an `s` px canvas: gear is the
+  special as on the board (fixed colours), tools are line icons (hammer, swap arrows, shuffle arrows); `paint(s, draw)`
+  runs any board drawing function on a small canvas (goal icons use it too).
 - View model: `sprites` (by tile id, with target `tx`, `ty`), `vEnc`, `fx`. `sync()` rebuilds
   the view from `S`; it runs at level start and after every move's animation, so the view
   always equals the state. `animate(steps)` plays the `move` steps in order (swap and back,
   combo flash, convert, wave with flashes, cracks, unlocks, pops and created specials (blasts: worm beams
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
-  tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
+  tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it; a wave with `rockets` first draws a bright
+  streak per flight, `flight` fx, and waits 180 ms, 90 in the finale, none with reduced motion, before the hits pop,
+  then a flight with `s` (from `rw`/`rb`) flashes a worm beam or bomb blast at its target; rocket combos flash shock rings like a bomb), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
   and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
   the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), exit (played
   inside the fall run: the drop's target becomes the row below its drop point, so it keeps falling with no landing
   hop, clipped at the drop point's bottom edge; when it is through, the sprite goes, a light bar flares on the edge
-  with sparks and the HUD takes its `points` and `got`), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  with sparks and the HUD takes its `points` and `got`), shuffle with a toast, none when it is the first step, which is the shuffle tool). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
-  move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
+  move, then `playFinale`, syncs, then shows the win or loss sheet. `play(a, b, kind)` with a tool kind calls
+  `tool` instead (it returns at once when the stock holds none of that tool): when refused it toasts "Can’t use that there." and the item stays; else it takes one from stock
+  (`take`, `saveDeck()`) and goes on like a move (the log entry gets `tool: kind`; no patrol warning, no loss). A won save without `spare` (from before
   the finale) runs `finale` silently at boot.
 - Finale: `playFinale(steps)` plays the steps sped up so the whole finale takes
   at most about `FINALE_MS` (10 s; `finaleMs` estimates the normal length from `STEP_MS`). A tap anywhere
@@ -277,15 +328,23 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   nearest special;
   `sync()` then clears it.
 - Best scores: `override-best` is `{ "<level>": score }`, read once at boot (junk becomes `{}`);
-  `bestOf(level)` is an integer or `null`. `win()` reads the previous best, then stores the higher one.
+  `bestOf(level)` is an integer or `null`. `win()` reads the previous best `prev`, pays `payout(score, prev)` cred
+  and, when `prev` is `null`, the level's loot, then stores the higher best and the deck together before showing the
+  sheet. A reload of a won level finds the best stored and pays 0.
 - Win rows: below the win text, a grid of `score` (large, glowing, counting up from 0 over 1.2 s, eased),
-  `best` (the previous best; omitted on a first win) with dotted leaders, then `>> NEW BEST <<` (amber,
+  `best` (the previous best; omitted on a first win), `cred` (`+ ₡ n`) with dotted leaders, "{item} added" for loot, then `>> NEW BEST <<` (amber,
   blinking with `alertflash`) when beaten. A tap on the sheet ends the count-up. Reduced motion shows the
   final number at once and no blink.
 - Input: pointer down then drag past a third of a cell swaps with that neighbour; tap a tile,
   then an adjacent tile, also swaps. Tapping a selected worm or bomb again fires it (`move(S, i, i)`). Dead cells take no input (`cellAt` returns -1, a drag onto one
   does nothing); worm sparks skip them. Only the `S.w` x `S.h` rectangle is drawn and touched: `fit()` sets `cs = floor(min(wrap width / w, wrap height / h))` and a canvas of `w * cs` by `h * cs` (centred by `#wrap`), the draw loop skips padding cells, `cellAt` and drag targets stop at the rectangle, and worm sparks, beams and the clear-all flash span `w` or `h`. Old saves get `S.w`, `S.h` = `S.n` on load. Gates: `busy`, a 400 ms `grace` after a sheet closes or a
   level starts, any open sheet or menu (`blocked()`), a won or lost state.
+- Tool bar: `#tools` in `#soft` next to Menu, one button per tool (`itemIcon` 18 px and the count, `aria-label`
+  "{item}, {n} left", `aria-pressed`), drawn by `toolBar()` from `hud()`; disabled at 0 in stock, at 0 moves, while
+  `busy`, after a win or loss. A tap arms hammer or swap (`armed`, highlighted, a toast says what to do; tap again
+  disarms) and runs shuffle at once. Armed, board input goes to the tool: hammer takes the next tapped cell (drags
+  are ignored); swap takes a drag or a tap on two neighbours (a second tap on a special does not fire it). `play`
+  and `start` disarm.
 - Hint: after `HINT_MS` (10 s) without input, if the board has at most `HINT_MAX` (2) legal swaps, the first
   (`validMoves`) wriggles, the two tiles nudging toward each other; reduced motion outlines them instead. Input,
   moves, sheets and the menu reset the wait.
@@ -294,14 +353,17 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   never on the winning move and never on load.
 - Sheets: one sheet for win ("Door’s open" with a note at a new chapter), loss (Try again) and
   the confirmations. The menu has tabs Run (level picker up to the best level, or `MAX_LEVEL` 9999 on
-  a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
+  a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, a full reset that removes `override-v1`, `override-run`, `override-best` and `override-deck` and reloads; settings and the play log stay), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
-  goal and `d` for a drop goal) and Info (how to play, Share, GitHub, licence, font).
+  goal and `d` for a drop goal, `gear` (applied ids), `limit` (the bot's, `S.base`) and `extra` (moves gear added);
+  a tool use is a move entry with `tool`, which `tools/plays.mjs` leaves out of used moves and per-move stats and
+  counts in its `tools` column) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip (a thin band, `clamp(60px,10dvh,84px)`) shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
-  (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
+  (data packet along its line), `drawBomb` (chip with lit pins), `drawRocket` (slim rocket outline tilted up and right, fins, a
+  flickering exhaust, the colour's glyph in the free corner), `drawZero` (turning ring in the
   level's colours); blockers are `drawEnc` (static slab, amber outline for hits left) and
   `drawFw` (flames and cage bars). Dead cells: a hole is `drawHole` (faint back-slash hatching, no cell background, running on across neighbouring holes), so the board's
   edge follows the shape; a block is `drawBlock` (a dark riveted steel plate with faint hatching, no

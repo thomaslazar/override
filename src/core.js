@@ -45,19 +45,26 @@ export const dropTile = (S, d) => ({ ...tile(S, -1), d });
 export const colourAt = (S, r, c) => { const i = at(S, r, c), x = i < 0 ? null : S.grid[i]; return x && x.s !== 'z' ? x.t : -1 };
 
 /* ---------- matching ---------- */
+// The 2 x 2 block with top-left (r, c) is all colour t (t >= 0).
+const squareAt = (S, r, c, t) => t >= 0 && colourAt(S, r, c) === t && colourAt(S, r, c + 1) === t && colourAt(S, r + 1, c) === t && colourAt(S, r + 1, c + 1) === t;
 export function findGroups(S){
-  const { n } = S, runs = [];
+  const { n } = S, runs = [], col = S.grid.map(x => x && x.s !== 'z' ? x.t : -1);   // colourAt, read once per cell
   for (let r = 0; r < n; r++) for (let c = 0; c < n;) {
-    const t = colourAt(S, r, c); let e = c + 1;
-    while (t >= 0 && e < n && colourAt(S, r, e) === t) e++;
+    const t = col[r * n + c]; let e = c + 1;
+    while (t >= 0 && e < n && col[r * n + e] === t) e++;
     if (t >= 0 && e - c >= 3) runs.push({ h: true, cells: range(c, e).map(x => r * n + x) });
     c = e;
   }
   for (let c = 0; c < n; c++) for (let r = 0; r < n;) {
-    const t = colourAt(S, r, c); let e = r + 1;
-    while (t >= 0 && e < n && colourAt(S, e, c) === t) e++;
+    const t = col[r * n + c]; let e = r + 1;
+    while (t >= 0 && e < n && col[e * n + c] === t) e++;
     if (t >= 0 && e - r >= 3) runs.push({ h: false, cells: range(r, e).map(x => x * n + c) });
     r = e;
+  }
+  // 2 x 2 squares of one colour (a 2 x 3 block is two squares, merged below)
+  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+    const i = r * n + c, t = col[i];
+    if (t >= 0 && col[i + 1] === t && col[i + n] === t && col[i + n + 1] === t) runs.push({ sq: true, cells: [i, i + 1, i + n, i + n + 1] });
   }
   // runs that share a cell form one group
   const owner = new Map(), groups = [];
@@ -77,22 +84,26 @@ export function findGroups(S){
   }
   return groups.filter(g => !g.dead);
 }
-// The special a group makes. `swipe` ('h' | 'v') is set when the group came from the player's swap.
+// The special a group makes, from its lines first (zero-day, bomb, worm), else a rocket for a square.
+// `swipe` ('h' | 'v') is set when the group came from the player's swap.
 export function specialOf(g, swipe){
-  const max = Math.max(...g.runs.map(x => x.cells.length));
+  const lines = g.runs.filter(x => !x.sq), max = Math.max(...lines.map(x => x.cells.length));
   if (max >= 5) return 'z';
-  if (g.runs.some(x => x.h) && g.runs.some(x => !x.h)) return 'b';
-  if (max === 4) return swipe || (g.runs.find(x => x.cells.length === 4).h ? 'h' : 'v');
-  return null;
+  if (lines.some(x => x.h) && lines.some(x => !x.h)) return 'b';
+  if (max === 4) return swipe || (lines.find(x => x.cells.length === 4).h ? 'h' : 'v');
+  return g.runs.some(x => x.sq) ? 'r' : null;
 }
-// Where the special goes: a swapped cell in the group, else the crossing (bomb), else the middle of the longest run.
+// Where the special goes: a swapped cell in the group, else the crossing (bomb), else the square's top-left
+// (rocket), else the middle of the longest line.
 export function spotOf(g, s, prefer = []){
   for (const i of prefer) if (g.cells.has(i)) return i;
+  if (s === 'r') return g.runs.find(x => x.sq).cells[0];
+  const lines = g.runs.filter(x => !x.sq);
   if (s === 'b') {
-    const hs = new Set(g.runs.filter(x => x.h).flatMap(x => x.cells));
-    for (const x of g.runs) if (!x.h) for (const i of x.cells) if (hs.has(i)) return i;
+    const hs = new Set(lines.filter(x => x.h).flatMap(x => x.cells));
+    for (const x of lines) if (!x.h) for (const i of x.cells) if (hs.has(i)) return i;
   }
-  const L = g.runs.reduce((a, b) => b.cells.length > a.cells.length ? b : a);
+  const L = lines.reduce((a, b) => b.cells.length > a.cells.length ? b : a);
   return L.cells[L.cells.length >> 1];
 }
 export function lineAt(S, i){
@@ -103,7 +114,7 @@ export function lineAt(S, i){
   for (let k = c + 1; colourAt(S, r, k) === t; k++) h++;
   for (let k = r - 1; colourAt(S, k, c) === t; k--) v++;
   for (let k = r + 1; colourAt(S, k, c) === t; k++) v++;
-  return h >= 3 || v >= 3;
+  return h >= 3 || v >= 3 || [[0, 0], [0, 1], [1, 0], [1, 1]].some(([a, b]) => squareAt(S, r - a, c - b, t));
 }
 export function swapLegal(S, a, b){
   if (!movable(S, a) || !movable(S, b)) return false;
@@ -185,7 +196,8 @@ export function fillBoard(S, rnd){
       const [r, c] = rc(S, i);
       let t;
       do t = Math.floor(rnd() * S.k);
-      while ((colourAt(S, r, c - 1) === t && colourAt(S, r, c - 2) === t) || (colourAt(S, r - 1, c) === t && colourAt(S, r - 2, c) === t));
+      while ((colourAt(S, r, c - 1) === t && colourAt(S, r, c - 2) === t) || (colourAt(S, r - 1, c) === t && colourAt(S, r - 2, c) === t)
+        || (colourAt(S, r - 1, c - 1) === t && colourAt(S, r - 1, c) === t && colourAt(S, r, c - 1) === t));
       S.grid[i] = tile(S, t);
     }
   } while (!hasMove(S));
@@ -202,12 +214,28 @@ function square(S, i, d){
   for (let a = r - d; a <= r + d; a++) for (let b = c - d; b <= c + d; b++) { const j = at(S, a, b); if (j >= 0) out.push(j) }
   return out;
 }
-// Cells a fired special clears.
-function area(S, i, x){
+// Up to `count` distinct cells a rocket fired from `from` hits, by tier: firewalled tiles, encrypted cells, tiles a
+// tile goal still needs, the tile under a drop, any other tile. Never a dead cell, a drop, `from` or a cell in `exclude`.
+export function rocketTargets(S, from, count, exclude){
+  const tiers = [[], [], [], [], []];
+  for (let i = 0; i < S.n * S.n; i++) {
+    const x = S.grid[i];
+    if (i === from || exclude.has(i) || dead(S, i) || isDrop(x) || !(x || S.enc[i])) continue;
+    tiers[x?.lock ? 0 : S.enc[i] ? 1 : x.s !== 'z' && S.goals.some(g => g.kind === 'tiles' && g.t === x.t && g.got < g.need) ? 2
+      : isDrop(S.grid[i - S.n]) ? 3 : 4].push(i);
+  }
+  const out = [];
+  for (const tier of tiers) while (tier.length && out.length < count)
+    out.push(tier.splice(Math.floor(rngFor(S.seed, 19, S.spawns, from, out.length)() * tier.length), 1)[0]);
+  return out;
+}
+// Cells a fired special clears; `cells` is the wave's set so far (rocket targets skip it).
+function area(S, i, x, cells){
   const [r, c] = rc(S, i), n = S.n;
   if (x.s === 'h') return range(0, n).map(k => r * n + k);
   if (x.s === 'v') return range(0, n).map(k => k * n + c);
   if (x.s === 'b') return square(S, i, 1);
+  if (x.s === 'r') return rocketTargets(S, i, 3, cells);
   const t = x.target ?? randomColour(S, x.id);   // zero-day: the swapped tile's colour, else a random one
   return range(0, n * n).filter(j => S.grid[j] && S.grid[j].s !== 'z' && S.grid[j].t === t);
 }
@@ -229,7 +257,8 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
     const i = queue.pop(), x = S.grid[i];
     if (!x || !x.s || fired.has(x.id)) continue;
     fired.add(x.id); step.fired.push({ i, s: x.s });
-    const a = area(S, i, x);
+    const a = area(S, i, x, cells);
+    if (x.s === 'r') (step.rockets ??= []).push(...a.map(to => ({ from: i, to })));   // flights, for the UI
     if (x.s === 'z') a.forEach(j => near.add(j));   // a zero-day's tiles count as matched
     for (const j of a) if (!cells.has(j)) { cells.add(j); queue.push(j) }
   }
@@ -403,7 +432,7 @@ export function finale(S){
 }
 // A swap with at least one special. A is the dragged tile (now at pa), B the other (now at pb).
 function combo(S, A, pa, B, pb, steps){
-  const cells = new Set(), fired = new Set(), [r, c] = rc(S, pa), n = S.n;
+  const cells = new Set(), fired = new Set(), [r, c] = rc(S, pa), n = S.n, flights = [];
   if (!A.s || !B.s) {
     const [sp, p, other, q] = A.s ? [A, pa, B, pb] : [B, pb, A, pa];
     cells.add(p);
@@ -418,13 +447,20 @@ function combo(S, A, pa, B, pb, steps){
       for (let i = 0; i < n * n; i++) {
         const y = S.grid[i];
         if (!y || y.s === 'z' || y.t !== o.t) continue;
-        if (!y.s) { y.s = o.s === 'b' ? 'b' : rnd() < .5 ? 'h' : 'v'; conv.push({ i, s: y.s }) }
+        if (!y.s) { y.s = o.s === 'b' || o.s === 'r' ? o.s : rnd() < .5 ? 'h' : 'v'; conv.push({ i, s: y.s }) }
         cells.add(i);
       }
-      steps.push({ k: 'combo', i: pa, kind: o.s === 'b' ? 'zb' : 'zw' }, { k: 'convert', cells: conv });
+      steps.push({ k: 'combo', i: pa, kind: o.s === 'b' ? 'zb' : o.s === 'r' ? 'zr' : 'zw' }, { k: 'convert', cells: conv });
     } else {
       fired.add(A.id); fired.add(B.id);
-      const kind = [A.s, B.s].map(s => s === 'b' ? 'b' : 'w').sort().join('');
+      // 'ww', 'bw', 'bb', or a rocket first: 'rr', 'rw', 'rb'
+      const ks = [A.s, B.s].map(s => s === 'h' || s === 'v' ? 'w' : s), kind = ks.includes('r') ? 'r' + ks[ks[0] === 'r' ? 1 : 0] : ks.sort().join('');
+      if (kind[0] === 'r') for (const to of rocketTargets(S, pa, kind === 'rr' ? 8 : 3, cells)) {   // rockets fly; a worm or bomb goes off at each target
+        if (kind === 'rr') { flights.push({ from: pa, to }); cells.add(to); continue }
+        const s = kind === 'rb' ? 'b' : rngFor(S.seed, 23, S.spawns, to)() < .5 ? 'h' : 'v';   // s: what goes off there, for the UI
+        flights.push({ from: pa, to, s }); cells.add(to);
+        area(S, to, { s }, cells).forEach(j => cells.add(j));
+      }
       if (kind === 'ww') for (let k = 0; k < n; k++) { cells.add(r * n + k); cells.add(k * n + c) }
       if (kind === 'bw') for (let d = -1; d <= 1; d++) for (let k = 0; k < n; k++) {
         if (r + d >= 0 && r + d < n) cells.add((r + d) * n + k);
@@ -434,12 +470,14 @@ function combo(S, A, pa, B, pb, steps){
       steps.push({ k: 'combo', i: pa, kind });
     }
   }
-  steps.push(wave(S, cells, new Set(), [], fired));
+  const w = wave(S, cells, new Set(), [], fired);
+  if (flights.length) w.rockets = [...flights, ...w.rockets ?? []];
+  steps.push(w);
   gravity(S, steps);
 }
 // A move is spent: one fewer left, one more towards the next scheduled drop.
 const spend = S => { S.moves--; if (S.drops) S.drops.wait++ };
-// A worm or bomb fired in place (a double tap): costs a move like a swap. Zero-days need a swap.
+// A worm, bomb or rocket fired in place (a double tap): costs a move like a swap. Zero-days need a swap.
 function tap(S, i){
   const steps = [], x = S.grid[i];
   if (!x || x.lock || !x.s || x.s === 'z') return { ok: false, steps };
@@ -460,15 +498,65 @@ export function move(S, a, b){
   if (drop && !swapLegal(S, a, b)) { steps.push({ k: 'swap', a, b }, { k: 'back', a, b }); return { ok: false, steps } }
   S.grid[a] = B; S.grid[b] = A;
   steps.push({ k: 'swap', a, b });
-  const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z';
+  if (!resolve(S, A, a, B, b, steps, true)) { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
+  if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
+  return { ok: true, steps };
+}
+// Resolves a swap already made (A from a now at b, B at a); spends a move when `pay`. False when nothing happens.
+function resolve(S, A, a, B, b, steps, pay){
+  const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z', drop = isDrop(A) || isDrop(B);
+  const go = () => { if (pay) spend(S) };
   // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
   // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
-  if (drop && !A.s && !B.s) { spend(S); cascade(S, steps, [b, a], swipe) }
-  else if (lone && findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
-  else if (A.s || B.s) { spend(S); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
-  else if (findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe) }
-  else { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
-  if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
+  if (drop && !A.s && !B.s) { go(); cascade(S, steps, [b, a], swipe) }
+  else if (lone && findGroups(S).length) { go(); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
+  else if ((A.s || B.s) && !(drop && (A.s === 'z' || B.s === 'z'))) { go(); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }   // a zero-day has no colour to take from a drop
+  else if (findGroups(S).length) { go(); cascade(S, steps, [b, a], swipe) }
+  else return false;
+  return true;
+}
+
+/* ---------- gear and tools ---------- */
+// Gear on the start screen: each special goes on a random plain tile (no special, drop, firewall or encryption),
+// keeping its colour so no match appears; `moves` adds n moves. Seeded, so the same deal gets the same cells.
+export const GEAR_IDS = ['worm', 'bomb', 'rocket', 'zero', 'moves'];
+// Returns the ids it applied (a special needs a plain tile; moves always applies); S.base keeps the limit before gear.
+export function applyGear(S, gear){
+  const plain = [], done = [];
+  S.base = S.limit;
+  S.grid.forEach((x, i) => { if (x && !x.s && !x.lock && !isDrop(x) && !S.enc[i]) plain.push(i) });
+  gear.forEach((g, k) => {
+    const rnd = rngFor(S.seed, 37, k);
+    if (g.id === 'moves') { S.moves += g.n; S.limit += g.n; done.push(g.id); return }
+    if (!plain.length) return;
+    done.push(g.id);
+    const x = S.grid[plain.splice(Math.floor(rnd() * plain.length), 1)[0]];
+    if (g.id === 'zero') { x.s = 'z'; x.t = -1 }
+    else x.s = g.id === 'bomb' ? 'b' : g.id === 'rocket' ? 'r' : rnd() < .5 ? 'h' : 'v';
+  });
+  S.gear = done;
+  return done;
+}
+// In-level tools: never spend a move, so they cannot lose the level; they can win it.
+export function tool(S, kind, a, b){
+  const steps = [], no = { ok: false, steps };
+  if (S.moves <= 0 || won(S)) return no;
+  if (kind === 'hammer') {
+    const x = S.grid[a];
+    if (!(a >= 0 && a < S.n * S.n) || dead(S, a) || (x ? isDrop(x) : !S.enc[a])) return no;
+    // a one-cell wave: a firewall is only unlocked (its special does not fire), a special fires
+    steps.push(wave(S, new Set([a]), new Set(), [], new Set(x?.lock ? [x.id] : [])));
+    gravity(S, steps); cascade(S, steps, [], null, [], 2);
+  } else if (kind === 'swap') {
+    if (!nextTo(S, a, b) || !movable(S, a) || !movable(S, b)) return no;
+    const A = S.grid[a], B = S.grid[b];
+    S.grid[a] = B; S.grid[b] = A;
+    steps.push({ k: 'swap', a, b });
+    resolve(S, A, a, B, b, steps, false);   // nothing to resolve: it stays swapped
+    gravity(S, steps); cascade(S, steps, [], null, [], 2);   // a drop swapped onto a drop point leaves
+  } else if (kind === 'shuffle') reshuffle(S, steps);
+  else return no;
+  if (!won(S) && !hasMove(S)) reshuffle(S, steps);
   return { ok: true, steps };
 }
 // Shuffles movable tiles except drops (seeded) until no match and a valid move; after 200 tries also redraws colours.
@@ -489,7 +577,7 @@ export function reshuffle(S, steps){
 const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
 const validTile = (x, k) => x === null || (x && typeof x === 'object' && Number.isInteger(x.id) && typeof x.lock === 'boolean'
   && (x.d !== undefined ? int(x.d, 0, DROP_KINDS - 1) && x.t === -1 && x.s === null && !x.lock
-    : (x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b'].includes(x.s) && int(x.t, 0, k - 1))));
+    : (x.s === 'z' && x.t === -1) || ([null, 'h', 'v', 'b', 'r'].includes(x.s) && int(x.t, 0, k - 1))));
 export function validSave(o){
   if (!o || typeof o !== 'object' || o.v !== 1) return false;
   if (!int(o.level, 1, 1e6) || !int(o.fails, 0, 1e6) || !int(o.n, 5, 11) || !int(o.k, 2, TYPES)) return false;
@@ -497,6 +585,8 @@ export function validSave(o){
   if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
   if (o.score !== undefined && !int(o.score, 0, 1e9)) return false;
   if (o.spare !== undefined && !int(o.spare, 0, 999)) return false;
+  if (o.gear !== undefined && !(Array.isArray(o.gear) && o.gear.every(x => GEAR_IDS.includes(x)))) return false;
+  if (o.base !== undefined && !int(o.base, 0, 999)) return false;
   if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
   const w = o.w ?? o.n, h = o.h ?? o.n;   // sides: MIN_SIDE..MAX in layouts.js; missing means square
   if (!int(w, 5, o.n) || !int(h, 5, o.n) || Math.max(w, h) !== o.n) return false;

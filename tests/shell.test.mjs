@@ -17,6 +17,6 @@ test('the workflow copies art', () => {
   assert.match(wf.split('\n').find(l => l.includes('cp -r')), / art /);
 });
 
-test('cache name is override-6', () => {
-  assert.ok(sw.includes("const CACHE = 'override-6'"));
+test('cache name is override-7', () => {
+  assert.ok(sw.includes("const CACHE = 'override-7'"));
 });

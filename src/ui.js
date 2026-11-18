@@ -1,5 +1,6 @@
 // Override UI: language, worker client, rendering, step animation, input, sheets, saving.
-import { move, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead, isDrop } from './core.js';
+import { move, tool, finale, won, lost, fromSave, toSave, hash, mulberry32, validMoves, dead, isDrop, applyGear } from './core.js';
+import { ITEMS, deckFrom, payout, lootFor, gearFor, buy, take, add } from './deck.js';
 import { paletteFor } from './palette.js';
 import { PLAYS_MAX, logFrom, attemptOf, startAttempt, resume, logMove, entryOf, close, setOn, trim, fileOf } from './plays.js';
 import { chapterOf, ENC_FROM, FW_FROM, DROP_FROM, MAX_LEVEL, clampLevel } from './levels.js';
@@ -62,6 +63,10 @@ const save = () => store.set('override-v1', JSON.stringify(toSave(S)));
 let bests = {}; try { const o = JSON.parse(store.get('override-best')); if (o && typeof o === 'object' && !Array.isArray(o)) bests = o } catch {}
 const bestOf = level => Number.isInteger(bests[level]) && bests[level] >= 0 ? bests[level] : null;
 const fmt = n => String(n);
+// Cred and stock: { cred, items }, validated by deckFrom (junk gives the starter set). Saved on every change.
+let deck; try { deck = deckFrom(JSON.parse(store.get('override-deck'))) } catch { deck = deckFrom(null) }
+export const saveDeck = () => store.set('override-deck', JSON.stringify(deck));
+const priceOf = id => ITEMS.find(x => x.id === id).price;
 /* ---------- play log ---------- */
 let plog; try { plog = logFrom(JSON.parse(store.get('override-plays'))) } catch { plog = logFrom(null) }
 let t0 = Date.now(), base = 0;   // seconds played: base from before a reload, plus time since t0 (page visible)
@@ -87,31 +92,96 @@ function load(){
   return { level: Number.isInteger(o?.level) && o.level >= 1 && o.level <= 1e6 ? o.level : 1, fails: Number.isInteger(o?.fails) && o.fails >= 0 ? o.fails : 0,
     pick: Number.isInteger(o?.pick) && o.pick >= 0 && o.pick < PICKS ? o.pick : undefined };
 }
-// Level start screen for (level, fails): chapter, level, goals, moves, DECKER's line. The attempt starts on Start,
-// so until then the save holds only the level, fails and pick (a reload shows this screen again, same deal).
+// Level start screen for (level, fails): chapter, level, goals, moves, gear slots, loot, DECKER's line. The attempt
+// starts on Start, so until then the save holds only the level, fails and pick (a reload shows this screen again, same
+// deal). Gear switched on is per visit and never saved: paid and taken from stock on Start.
 let stuck;
 async function brief(level, fails, saved){
   busy = true; closeSheets(); clearTimeout(stuck);
   const pick = saved ?? pickFor(level); planned.delete(level);
   store.set('override-v1', JSON.stringify({ level, fails, pick }));
-  const c = commsLine({ level }), info = el('div', null, 'brief'), say = el('p', null, 'comms');
-  say.append(el('b', c.who), ' ' + c.line);
-  info.append(el('p', t('preparing'), 'preparing'));
-  showSheet(t('level', { c: chapterOf(level).n, n: level }), '', [[t('start'), () => {
-    S = s; logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save(); start();
-  }, true]]);
-  $('#sheet').classList.add('brief');
-  const go = $('#card .btn'); go.disabled = true; $('#card').insertBefore(info, go);
+  const gear = gearFor(level), on = new Set();
+  let s = null;
+  const go = () => {
+    S = s;
+    // offers switched on that stock or cred covers (offer ids are distinct); paid only for what applyGear placed
+    let cred = deck.cred;
+    const chosen = gear.filter((x, k) => {
+      if (!on.has(k)) return false;
+      if (deck.items[x.id] > 0) return true;
+      if (cred < priceOf(x.id)) return false;
+      cred -= priceOf(x.id); return true;
+    });
+    for (const id of applyGear(S, chosen)) if (!take(deck, id)) deck.cred -= priceOf(id);
+    saveDeck();
+    logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save(); start();
+  };
+  const show = () => {
+    const c = commsLine({ level }), info = el('div', null, 'brief'), say = el('p', null, 'comms');
+    say.append(el('b', c.who), ' ' + c.line);
+    showSheet(t('level', { c: chapterOf(level).n, n: level }), '', [[t('start'), go, true]]);
+    $('#sheet').classList.add('brief');
+    const goB = $('#card .btn'); $('#card').insertBefore(info, goB);
+    if (!s) { info.append(el('p', t('preparing'), 'preparing')); goB.disabled = true; return }
+    const goals = el('div', null, 'goals');
+    for (const goal of s.goals) { const d = el('span', null, 'goal'); d.append(icon(goal, s.types), String(goal.need)); goals.append(d) }
+    info.append(goals, el('p', t('briefMoves', { n: s.moves })), gearBox(gear, on, show));
+    const loot = lootFor(level);
+    if (loot && bestOf(level) === null) info.append(el('p', t('loot', { item: itemName(loot) }), 'loot'));
+    info.append(say);
+  };
+  show();
   stuck = setTimeout(failed, 20000);   // never hang on the start screen: offer a reload instead
-  const s = await want(level, fails, pick); clearTimeout(stuck);
-  const goals = el('div', null, 'goals');
-  for (const goal of s.goals) { const d = el('span', null, 'goal'); d.append(icon(goal, s.types), String(goal.need)); goals.append(d) }
-  info.textContent = ''; info.append(goals, el('p', t('briefMoves', { n: s.moves })), say);
-  go.disabled = false;
+  s = await want(level, fails, pick); clearTimeout(stuck);
+  show();
+}
+// The three gear slots: tap to switch on or off. A slot not in stock shows its price and switches on only while
+// the cred covers every switched-on slot that must be paid.
+function gearBox(gear, on, back){
+  const box = el('div', null, 'gear'), head = el('div', null, 'gearhead'), have = el('span'), slots = el('div', null, 'slots');
+  head.append(el('span', t('gear')), have, btn(t('shop'), () => shop(back)));
+  const owned = k => deck.items[gear[k].id] > 0, owe = () => [...on].reduce((a, k) => a + (owned(k) ? 0 : priceOf(gear[k].id)), 0);
+  const views = gear.map((x, k) => {
+    const b = el('button', null, 'slot'), what = el('span', null, 'what'), state = el('span', null, 'state');
+    b.append(itemIcon(x.id, 30), el('span', x.id === 'moves' ? t('gearMoves', { n: x.n }) : itemName(x.id), 'name'), what, state);
+    b.onclick = () => { on.has(k) ? on.delete(k) : on.add(k); refresh() };
+    slots.append(b); return { b, what, state };
+  });
+  const refresh = () => {
+    for (const k of [...on]) if (!owned(k) && owe() > deck.cred) on.delete(k);   // cred spent in the shop
+    have.replaceChildren(cred(deck.cred));
+    views.forEach(({ b, what, state }, k) => {
+      const id = gear[k].id, n = deck.items[id], lit = on.has(k);
+      b.classList.toggle('on', lit); b.setAttribute('aria-pressed', String(lit));
+      b.disabled = !lit && !n && owe() + priceOf(id) > deck.cred;
+      what.replaceChildren(n ? t('owned', { n }) : cred(priceOf(id)));
+      state.textContent = lit ? t('on') : t('off');
+    });
+  };
+  refresh(); box.append(head, slots); return box;
+}
+// Shop (from the start screen only): buy any item with cred; Back returns to the start screen as it was.
+function shop(back){
+  showSheet(t('shop'), '', [[t('back'), back, true]]);
+  $('#sheet').classList.add('brief');
+  const have = el('p', null, 'credline'), list = el('div', null, 'shop');
+  const rows = ITEMS.map(({ id, price }) => {
+    const text = el('div', null, 'about'), n = el('span', null, 'have'), buyB = btn('', () => { if (buy(deck, id)) { saveDeck(); refresh() } }, 'btn buy');
+    text.append(el('b', itemName(id)), el('span', itemText(id)));
+    buyB.append(t('buy') + ' ', cred(price));
+    const right = el('div', null, 'deal'); right.append(n, buyB);
+    list.append(itemIcon(id, 30), text, right);
+    return { id, price, n, buyB };
+  });
+  const refresh = () => {
+    have.replaceChildren(cred(deck.cred));
+    for (const r of rows) { r.n.textContent = t('owned', { n: deck.items[r.id] }); r.buyB.disabled = deck.cred < r.price }
+  };
+  refresh(); $('#card').insertBefore(have, $('#card .btn')); $('#card').insertBefore(list, $('#card .btn'));
 }
 function start(){
+  busy = false; grace = performance.now() + 400; sel = -1; armed = null;
   sync(); fit(); hud(); unlockScene(false);
-  busy = false; grace = performance.now() + 400; sel = -1;
   prefetch(S.level, S.fails, Number.isInteger(S.pick) ? S.pick : 0);
   if (won(S)) win(); else if (lost(S)) lose(true);
 }
@@ -172,6 +242,12 @@ async function animate(steps, speed = 1){
     if (s.k === 'wave') {
       const fire = f => { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) };
       const pop = c => { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) };
+      if (s.rockets) {   // rockets streak to their targets before the hits pop
+        const q = sprites.get(idAt.get(s.rockets[0].from)), col = q && q.t >= 0 ? PAL.t[S.types[q.t]] : GLOW;
+        for (const f of s.rockets) fx.push({ k: 'flight', ...f, col, at: performance.now() });
+        if (!RM) await wait(inFinale ? 90 : 180);
+        for (const f of s.rockets) if (f.s) flash(f.to, f.s, col);   // rocket + worm or bomb: it goes off at each target
+      }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
       if (inFinale && s.fired.length > 1) {
@@ -187,7 +263,7 @@ async function animate(steps, speed = 1){
       hud(); await wait(inFinale ? 120 : 190);
     }
     if (s.k === 'shuffle') {
-      toast(t('noMoves')); await wait(600);
+      if (j) { toast(t('noMoves')); await wait(600) }   // a shuffle as the first step is the shuffle tool
       for (const x of s.tiles) { const p = sprites.get(x.id); p.t = x.t; delete p.top; place(p, x.i); idAt.set(x.i, x.id) }
       await settle();
     }
@@ -207,12 +283,17 @@ async function playFinale(steps){
 }
 
 /* ---------- moves ---------- */
-async function play(a, b){
+// kind: a tool ('hammer', 'swap', 'shuffle') instead of a move; it costs no move, takes one from stock and cannot lose.
+async function play(a, b, kind){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
-  busy = true;
-  const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = move(S, a, b);
+  if (kind && !(deck.items[kind] > 0)) return;
+  busy = true; armed = null;
+  const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = kind ? tool(S, kind, a, b) : move(S, a, b);
+  if (kind && !r.ok) { busy = false; hud(); toast(t('toolNo')); return }   // the item stays
+  if (kind) { take(deck, kind); saveDeck() }
   shown = { score: from, moves: S.moves, got };   // the HUD ticks from here while the steps play, not from the final state
-  const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1);   // before the finale
+  hud();
+  const cur = r.ok && plog.on ? openAttempt() : null, entry = cur && entryOf(S, r.steps, cur.moves.length + 1, kind);   // before the finale
   const end = r.ok && won(S) ? finale(S) : null;   // the finale runs now: the save holds the end state
   if (r.ok) {                 // saved before animating: closing mid-cascade loses nothing
     save();
@@ -222,7 +303,7 @@ async function play(a, b){
     const quarter = Math.ceil(S.limit * .25);
     if (before > 3 && S.moves <= 3) alert('crit'); else if (before > quarter && S.moves <= quarter) alert('warn');
   }
-  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { shown = null; sync(); hud(); busy = false }
+  try { await animate(r.steps); if (end) await playFinale(end.steps) } finally { shown = null; sync(); busy = false; hud() }
   if (!r.ok) return;
   if (won(S)) { logEnd('won'); win() } else if (lost(S)) { logEnd('lost'); lose() }
 }
@@ -238,13 +319,17 @@ let countUp = null;
 $('#sheet').addEventListener('pointerdown', () => countUp?.());
 function win(){
   unlockScene(true);
-  const prev = bestOf(S.level), end = S.score;
-  bests[S.level] = Math.max(prev ?? 0, end); store.set('override-best', JSON.stringify(bests)); hud();
+  // paid once: from the previous best, stored together with the new best, so a reload of a won level pays 0
+  const prev = bestOf(S.level), end = S.score, got = payout(end, prev), loot = prev === null ? lootFor(S.level) : null;
+  bests[S.level] = Math.max(prev ?? 0, end); deck.cred += got; if (loot) add(deck, loot);
+  store.set('override-best', JSON.stringify(bests)); saveDeck(); hud();
   const text = t('winText', { n: S.spare ?? S.moves }) + (chapterOf(S.level + 1).pos === 1 ? ' ' + t('winChapter', { n: chapterOf(S.level + 1).n }) : '');
   showSheet(t('winTitle'), text, [[t('next'), () => { run.fails = 0; brief(S.level + 1, 0) }, true]], false, true);
   const rows = el('div', null, 'scores'), row = (label, n, cls) => { const r = el('div', null, cls); r.append(el('span', label), el('i'), el('b', fmt(n))); rows.append(r); return r.lastChild };
   const v = row(t('score'), RM ? end : 0, 'now');
   if (prev !== null) row(t('best'), prev, 'best');
+  row(t('credLabel'), 0, 'paid').replaceChildren('+ ', cred(got));
+  if (loot) rows.append(el('p', t('lootAdded', { item: itemName(loot) }), 'loot'));
   $('#card').insertBefore(rows, $('#card .btn'));
   if (prev !== null && end > prev) $('#card').insertBefore(el('div', t('newBest'), 'newbest'), $('#card .btn'));
   const stop = () => { countUp = null; v.textContent = fmt(end) };
@@ -307,12 +392,24 @@ function drawBomb(ty, cx, cy, sz){
   if (Math.floor(T / 500) % 2) { g.fillStyle = '#ff4040'; g.shadowColor = '#ff4040'; g.beginPath(); g.arc(cx + a * .7, cy - a * .7, sz * .05, 0, 7); g.fill() }
   g.restore(); glyph(ty, cx, cy, sz * .34);
 }
+// rocket: a slim rocket outline in the tile's colour, tilted to fly up and right, fins and a flickering exhaust
+function drawRocket(ty, cx, cy, sz){
+  const c = PAL.t[ty], u = sz / 100, fl = 1 + .3 * Math.sin(now() / 60);
+  g.save(); g.translate(cx, cy); g.rotate(Math.PI / 4); g.lineJoin = 'round'; g.shadowColor = c; g.shadowBlur = sz * .25;
+  g.beginPath(); g.moveTo(-6 * u, 24 * u); g.lineTo(0, 24 * u + 16 * u * fl); g.lineTo(6 * u, 24 * u); g.fillStyle = '#fff'; g.fill();   // exhaust
+  g.beginPath(); for (const d of [-1, 1]) { g.moveTo(d * 9 * u, 4 * u); g.lineTo(d * 21 * u, 22 * u); g.lineTo(d * 21 * u, 30 * u); g.lineTo(d * 9 * u, 22 * u) }   // fins
+  g.fillStyle = c; g.fill();
+  g.beginPath(); g.moveTo(0, -40 * u); g.bezierCurveTo(14 * u, -26 * u, 12 * u, 4 * u, 9 * u, 24 * u); g.lineTo(-9 * u, 24 * u); g.bezierCurveTo(-12 * u, 4 * u, -14 * u, -26 * u, 0, -40 * u);   // body
+  g.fillStyle = tint(c, .3); g.fill(); g.lineWidth = sz * .05; g.strokeStyle = c; g.stroke();
+  g.beginPath(); g.arc(0, -12 * u, 5 * u, 0, 7); g.fillStyle = '#fff'; g.fill();   // window
+  g.restore(); glyph(ty, cx + 24 * u, cy + 24 * u, sz * .28);   // the colour's glyph in the free corner
+}
 // zero-day: a turning ring in the level's colours around a white core
-function drawZero(cx, cy, sz){
+function drawZero(cx, cy, sz, types = S.types.slice(0, S.k)){
   const T = now(); g.save(); g.translate(cx, cy); g.rotate(T / 320);
-  const n = S.k;
+  const n = types.length;
   for (let i = 0; i < n; i++) {
-    const c = PAL.t[S.types[i]]; g.beginPath(); g.arc(0, 0, sz * .36, i * 2 * Math.PI / n + .06, (i + 1) * 2 * Math.PI / n - .06);
+    const c = PAL.t[types[i]]; g.beginPath(); g.arc(0, 0, sz * .36, i * 2 * Math.PI / n + .06, (i + 1) * 2 * Math.PI / n - .06);
     g.strokeStyle = c; g.lineWidth = sz * .12; g.shadowColor = c; g.shadowBlur = sz * .2; g.stroke();
   }
   g.restore(); g.save(); g.beginPath(); g.arc(cx, cy, sz * .22, 0, 7); g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.shadowBlur = sz * .4; g.fill();
@@ -382,6 +479,7 @@ function drawTile(x, cx, cy, sc = 1){
   else if (x.s === 'z') drawZero(cx, cy, sz);
   else if (x.s === 'h' || x.s === 'v') drawWorm(S.types[x.t], cx, cy, sz, x.s === 'v');
   else if (x.s === 'b') drawBomb(S.types[x.t], cx, cy, sz);
+  else if (x.s === 'r') drawRocket(S.types[x.t], cx, cy, sz);
   else glyph(S.types[x.t], cx, cy, sz * .5);
   if (x.lock) drawFw(cx, cy, sz);
 }
@@ -447,8 +545,9 @@ function boom(i, kind, col){
     for (let k = 0; k < (kind === 'h' ? S.w : S.h); k++) { if (dead(S, kind === 'h' ? r * n + k : k * n + c)) continue; const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
     kick(4);
   } else if (kind === 'b') { sparks(cx, cy, cl, 34, 11); kick(8) }
-  else if (kind === 'bb' || kind === 'bw' || kind === 'ww') { sparks(cx, cy, cl, 50, 14); kick(11) }
-  else if (kind === 'z' || kind === 'zw' || kind === 'zb' || kind === 'zz') { for (let t = 0; t < S.k; t++) sparks(cx, cy, PAL.t[S.types[t]], 12, 12); kick(kind === 'zz' ? 14 : 9) }
+  else if (kind === 'r') { sparks(cx, cy, cl, 14, 7); kick(3) }
+  else if (kind === 'bb' || kind === 'bw' || kind === 'ww' || kind === 'rr' || kind === 'rw' || kind === 'rb') { sparks(cx, cy, cl, 50, 14); kick(11) }
+  else if (kind === 'z' || kind === 'zw' || kind === 'zb' || kind === 'zz' || kind === 'zr') { for (let t = 0; t < S.k; t++) sparks(cx, cy, PAL.t[S.types[t]], 12, 12); kick(kind === 'zz' ? 14 : 9) }
 }
 const GLOW = '#c9ffd9';
 function flashShape(kind, r, c, n, p, col){
@@ -461,7 +560,7 @@ function flashShape(kind, r, c, n, p, col){
     g.globalAlpha = fade * .9; g.fillStyle = '#ffffff'; for (const e of [a, b]) { g.beginPath(); kind === 'h' ? g.arc(e, m, th * .55, 0, 7) : g.arc(m, e, th * .55, 0, 7); g.fill() }
     g.shadowBlur = 0; return;
   }
-  if (kind === 'b' || kind === 'bb') {   // bomb: white flash, then two shock rings racing out past the blast area
+  if (kind === 'b' || kind === 'bb' || /^r.$/.test(kind)) {   // bomb, rocket combo: white flash, then two shock rings racing out
     const X = (c + .5) * cs, Y = (r + .5) * cs, big = kind === 'bb' ? 5 : 3;
     if (p < .25) { g.globalAlpha = 1 - p / .25; g.fillStyle = '#ffffff'; g.shadowColor = col || GLOW; g.shadowBlur = cs; g.beginPath(); g.arc(X, Y, cs * big * .45 * (.5 + p * 2), 0, 7); g.fill(); g.shadowBlur = 0 }
     for (const [lag, lw] of [[0, .16], [.18, .07]]) {
@@ -474,7 +573,7 @@ function flashShape(kind, r, c, n, p, col){
   g.fillStyle = GLOW; g.globalAlpha = (1 - p) * .35;
   if (kind === 'ww') { R(r, 1); C(c, 1) }
   if (kind === 'bw') { R(r - 1, 3); C(c - 1, 3) }
-  if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, h);
+  if (kind[0] === 'z') g.fillRect(0, 0, w, h);
 }
 // Falling tiles accelerate (GRAV cells/s²), drift sideways for diagonal fills, and hop once on landing.
 // A tile with teleporter hops first sinks out through the bottom of the ingress, then drops in above the egress.
@@ -534,7 +633,7 @@ function frame(ts){
     if (hint && RM) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.setLineDash([5, 4]); for (const i of hint) g.strokeRect(i % n * cs + 2, Math.floor(i / n) * cs + 2, cs - 4, cs - 4); g.setLineDash([]) }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
-      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : f.k === 'exit' ? 380 : 240); if (p >= 1 || RM) return false;
+      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : f.k === 'exit' ? 380 : f.k === 'flight' ? 180 : 240); if (p >= 1 || RM) return false;
       g.globalAlpha = 1 - p;
       if (f.k === 'spark') {   // a glowing streak along its velocity, falling and slowing
         const t = (ts - f.at) / 1000, x = f.x + f.vx * t * (1 - t * .6), y = f.y + f.vy * t + SPARK_G * t * t / 2, vy = f.vy + SPARK_G * t;
@@ -542,6 +641,13 @@ function frame(ts){
         g.beginPath(); g.moveTo(x * cs, y * cs); g.lineTo((x - f.vx * .05) * cs, (y - vy * .05) * cs); g.stroke(); g.shadowBlur = 0;
       }
       else if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .9);
+      else if (f.k === 'flight') {   // a bright streak: the head runs from the rocket to its target, the tail follows
+        const [r0, c0] = [Math.floor(f.from / n), f.from % n], [r1, c1] = [Math.floor(f.to / n), f.to % n], e = 1 - (1 - p) ** 2, b = Math.max(0, e - .4);
+        const X = t => (c0 + (c1 - c0) * t + .5) * cs, Y = t => (r0 + (r1 - r0) * t + .5) * cs;
+        g.globalAlpha = 1; g.lineCap = 'round'; g.shadowColor = f.col; g.shadowBlur = cs * .4;
+        for (const [col, lw] of [[f.col, .16], ['#ffffff', .06]]) { g.strokeStyle = col; g.lineWidth = cs * lw; g.beginPath(); g.moveTo(X(b), Y(b)); g.lineTo(X(e), Y(e)); g.stroke() }
+        g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X(e), Y(e), cs * .09, 0, 7); g.fill(); g.shadowBlur = 0;
+      }
       else if (f.k === 'exit') {   // a light bar flares on the drop point's bottom edge
         const X = f.x * cs, Y = f.y * cs;
         g.globalAlpha = 1 - p; g.fillStyle = '#ffffff'; g.shadowColor = PAL.acc; g.shadowBlur = cs * .6;
@@ -559,15 +665,51 @@ function frame(ts){
 }
 
 /* ---------- hud, comms, sheets ---------- */
-function icon(goal, types = S.types){
-  const c = document.createElement('canvas'), s = 22, d = devicePixelRatio || 1; c.width = c.height = s * d; c.style.width = c.style.height = s + 'px';
+// A small canvas (s CSS px square) drawn with the board's drawing functions.
+function paint(s, draw){
+  const c = document.createElement('canvas'), d = devicePixelRatio || 1; c.width = c.height = s * d; c.style.width = c.style.height = s + 'px';
   const g2 = g, cs2 = cs; g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); cs = s;
+  try { draw(s) } finally { g = g2; cs = cs2 }
+  return c;
+}
+const icon = (goal, types = S.types) => paint(22, s => {
   if (goal.kind === 'crack') drawEnc(s / 2, s / 2, 2, s);
   else if (goal.kind === 'firewall') drawFw(s / 2, s / 2, s);
   else if (goal.kind === 'drop') drawDrop(goal.d, s / 2, s / 2, s * 1.15);
   else glyph(types[goal.t], s / 2, s / 2, s * .8);
-  g = g2; cs = cs2; return c;
+});
+// Item icons: gear as the special on the board (fixed colours), tools as simple terminal line icons.
+export const itemIcon = (id, s = 22) => paint(s, sz => {
+  const c = sz / 2;
+  if (id === 'worm') return drawWorm(2, c, c, sz, false);
+  if (id === 'bomb') return drawBomb(0, c, c, sz);
+  if (id === 'rocket') return drawRocket(4, c, c, sz);
+  if (id === 'zero') return drawZero(c, c, sz, [0, 1, 2, 3, 4]);
+  const u = sz / 100, ink = '#7dffb0';
+  g.save(); g.strokeStyle = g.fillStyle = id === 'moves' ? PAL.acc : ink; g.shadowColor = g.strokeStyle; g.shadowBlur = sz * .2;
+  g.lineWidth = 8 * u; g.lineCap = g.lineJoin = 'round'; g.translate(c, c); g.beginPath();
+  const arrow = (x0, y0, x1, y1) => { const a = Math.atan2(y1 - y0, x1 - x0), h = 14 * u;
+    g.moveTo(x0, y0); g.lineTo(x1, y1); g.moveTo(x1 - h * Math.cos(a - .6), y1 - h * Math.sin(a - .6)); g.lineTo(x1, y1); g.lineTo(x1 - h * Math.cos(a + .6), y1 - h * Math.sin(a + .6)) };
+  if (id === 'moves') { g.moveTo(-28 * u, 0); g.lineTo(28 * u, 0); g.moveTo(0, -28 * u); g.lineTo(0, 28 * u) }
+  else if (id === 'hammer') { g.rotate(-Math.PI / 4); g.moveTo(0, -12 * u); g.lineTo(0, 38 * u); g.stroke(); g.beginPath(); g.rect(-24 * u, -32 * u, 48 * u, 20 * u) }
+  else if (id === 'swap') { arrow(-30 * u, -12 * u, 30 * u, -12 * u); arrow(30 * u, 12 * u, -30 * u, 12 * u) }
+  else if (id === 'shuffle') { arrow(-32 * u, 22 * u, 32 * u, -22 * u); arrow(-32 * u, -22 * u, 32 * u, 22 * u) }
+  g.stroke(); g.restore();
+});
+// Cred: a C with two vertical strokes (the fonts have no U+20A1), amber, followed by the amount.
+const credMark = () => paint(12, s => {
+  const u = s / 100; g.save(); g.strokeStyle = PAL.acc; g.shadowColor = PAL.acc; g.shadowBlur = 3; g.lineWidth = 11 * u; g.lineCap = 'round';
+  g.beginPath(); g.arc(50 * u, 50 * u, 36 * u, Math.PI * .27, Math.PI * 1.73); g.stroke();
+  g.beginPath(); for (const x of [42, 60]) { g.moveTo(x * u, 6 * u); g.lineTo(x * u, 94 * u) } g.stroke(); g.restore();
+});
+function cred(n){
+  const e = el('span', null, 'cred'), m = credMark(); m.setAttribute('aria-hidden', 'true');
+  e.setAttribute('aria-label', t('credAmount', { n })); e.append(m, el('span', fmt(n))); return e;
 }
+const itemName = id => ({ worm: t('itemWorm'), bomb: t('itemBomb'), rocket: t('itemRocket'), zero: t('itemZero'), moves: t('itemMoves'),
+  hammer: t('itemHammer'), swap: t('itemSwap'), shuffle: t('itemShuffle') })[id];
+const itemText = id => ({ worm: t('aboutWorm'), bomb: t('aboutBomb'), rocket: t('aboutRocket'), zero: t('aboutZero'), moves: t('aboutMoves'),
+  hammer: t('aboutHammer'), swap: t('aboutSwap'), shuffle: t('aboutShuffle') })[id];
 function hud(){
   $('#deckName').textContent = t('deck'); $('#patrolLabel').textContent = t('patrol'); $('#menuBtn').textContent = t('menu'); $('#wip').textContent = t('wip'); $('#log3').textContent = t('logInject');
   $('#turnText').textContent = t('turnPhone');
@@ -583,6 +725,7 @@ function hud(){
   $('#score').textContent = best === null ? t('hudScore', { s: fmt(shown ? shown.score : S.score) }) : t('hudScoreBest', { s: fmt(shown ? shown.score : S.score), b: fmt(best) });
   $('#patrol').classList.toggle('warn', !won(S) && S.moves <= Math.ceil(S.limit * .25));
   $('#patrol').classList.toggle('low', !won(S) && S.moves <= 3);
+  toolBar();
 }
 export function commsLine(S){
   const lines = [t('comms1'), t('comms2'), t('comms3'), t('comms4'), t('comms5'), t('comms6'), t('comms7'), t('comms8'), t('comms9'), t('comms10'), t('comms11'), t('comms12')];
@@ -661,7 +804,7 @@ function renderMenu(){
   if (tab === 0) body.append(
     el('p', t('bestLevel', { n: run.best })),
     btn(t('restart'), () => confirmSheet(t('restartAsk'), () => brief(S.level, S.fails))),
-    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { run.fails = 0; saveRun(); brief(1, 0) })));
+    btn(t('startOver'), () => confirmSheet(t('startOverAsk'), () => { for (const k of ['override-v1', 'override-run', 'override-best', 'override-deck']) try { localStorage.removeItem(k) } catch {} location.reload() })));
   if (tab === 1) {
     const sel = el('select'); for (const [c, n] of Object.entries(LANGS)) { const o = el('option', n); o.value = c; o.selected = c === document.documentElement.lang; sel.append(o) }
     sel.onchange = async () => { store.set('override-lang', sel.value); await setLang(sel.value); hud(); renderMenu() };
@@ -714,21 +857,44 @@ const cellAt = e => { const b = cv.getBoundingClientRect(), r = Math.floor((e.cl
 const adjacent = (a, b) => Math.abs(Math.floor(a / S.n) - Math.floor(b / S.n)) + Math.abs(a % S.n - b % S.n) === 1;
 cv.onpointerdown = e => { idle(); if (blocked()) return; const p = cellAt(e); if (p < 0) return; press = { p, x: e.clientX, y: e.clientY, id: e.pointerId }; cv.setPointerCapture(e.pointerId) };
 cv.onpointermove = e => {
-  if (!press || e.pointerId !== press.id) return;
+  if (!press || e.pointerId !== press.id || armed === 'hammer') return;
   const dx = e.clientX - press.x, dy = e.clientY - press.y;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < cs * .35) return;
   const r = Math.floor(press.p / S.n) + (Math.abs(dx) > Math.abs(dy) ? 0 : Math.sign(dy)), c = press.p % S.n + (Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) : 0);
   const a = press.p; press = null; sel = -1;
-  if (r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c)) play(a, r * S.n + c);
+  if (r >= 0 && c >= 0 && r < S.h && c < S.w && !dead(S, r * S.n + c)) play(a, r * S.n + c, armed);
 };
 cv.onpointerup = () => {
   if (!press) return; const p = press.p; press = null;
   const x = S.grid[p];
-  if (sel >= 0 && adjacent(sel, p)) { const s = sel; sel = -1; play(s, p) }
+  if (armed === 'hammer') { sel = -1; play(p, undefined, 'hammer') }
+  else if (sel >= 0 && adjacent(sel, p)) { const s = sel; sel = -1; play(s, p, armed) }
+  else if (armed) sel = sel === p ? -1 : p;
   else if (sel === p && x?.s && x.s !== 'z' && !x.lock) { sel = -1; play(p, p) }   // a second tap fires a worm or bomb
   else sel = sel === p ? -1 : p;
 };
 cv.onpointercancel = () => press = null;
+// Tool bar: tap arms a tool (tap again disarms); armed, board input goes to it. Shuffle runs at once.
+const TOOLS = ['hammer', 'swap', 'shuffle'];
+let armed = null;
+const toolBtns = TOOLS.map(id => {
+  const b = document.createElement('button'); b.className = 'tool'; b.append(itemIcon(id, 18), el('span'));
+  b.onclick = () => {
+    if (blocked()) return; idle(); sel = -1;
+    if (id === 'shuffle') return play(undefined, undefined, 'shuffle');
+    armed = armed === id ? null : id; toolBar();
+    if (armed) toast(armed === 'hammer' ? t('toolHammer') : t('toolSwap'));
+  };
+  return b;
+});
+$('#tools').append(...toolBtns);
+function toolBar(){
+  const off = busy || S.moves <= 0 || won(S) || lost(S);
+  toolBtns.forEach((b, k) => { const id = TOOLS[k], n = deck.items[id];
+    b.disabled = off || n <= 0; b.lastChild.textContent = n;
+    b.classList.toggle('on', armed === id); b.setAttribute('aria-pressed', armed === id);
+    b.setAttribute('aria-label', t('toolUse', { item: itemName(id), n })) });
+}
 
 /* ---------- boot ---------- */
 readPal(); fit();

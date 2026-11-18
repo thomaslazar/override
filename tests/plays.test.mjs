@@ -91,3 +91,21 @@ test('a drop goal keeps its kind in the log', () => {
   const S = { ...mkS(), goals: [{ kind: 'drop', d: 1, need: 2, got: 0 }] };
   assert.deepEqual(mk(S).goals, [{ kind: 'drop', d: 1, need: 2 }]);
 });
+
+test('attempt records the gear used', () => {
+  assert.deepEqual(attemptOf({ ...mkS(), gear: ['worm', 'moves'] }, 'T').gear, ['worm', 'moves']);
+  assert.deepEqual(attemptOf(mkS(), 'T').gear, []);
+});
+
+test('a tool entry carries the tool and the usual counts', () => {
+  const steps = [{ k: 'wave', fired: [], cleared: [{}], created: [] }];
+  assert.deepEqual(entryOf(mkS(), steps, 3, 'hammer'), { n: 3, w: 1, c: 1, sm: 0, sf: 0, g: [4, 1], sh: 0, tool: 'hammer' });
+  assert.equal('tool' in entryOf(mkS(), steps, 3), false);
+});
+
+test('attempt logs the bot limit and the moves gear added', () => {
+  assert.equal(attemptOf({ ...mkS(), limit: 24, base: 20 }, 'T').limit, 20);
+  assert.equal(attemptOf({ ...mkS(), limit: 24, base: 20 }, 'T').extra, 4);
+  assert.equal(attemptOf({ ...mkS(), base: 20 }, 'T').extra, undefined);
+  assert.equal(attemptOf(mkS(), 'T').limit, 20);
+});

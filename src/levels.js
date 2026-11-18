@@ -98,7 +98,7 @@ function patternScore(pattern, w, h, r, c){
 }
 
 /* ---------- attempts ---------- */
-export const GOAL = 1.2; // tile goal size factor, tuned by playtest
+export const GOAL = 1.8; // tile goal size factor, tuned by playtest and the sim (1.2 before rockets)
 
 // Board kind and template depend on level (and the fallback fb) only; blockers and goals on level, salt
 // and drop; tiles on the deal (one of the level's seeded boards) and the colour count (fails ease it from the 6th).
