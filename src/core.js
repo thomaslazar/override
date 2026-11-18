@@ -21,14 +21,15 @@ export const nbrs = (S, i) => { const [r, c] = rc(S, i); return [at(S, r - 1, c)
 export const tile = (S, t, s = null) => ({ id: S.ids++, t, s, lock: false });
 // Static cells (S.cell: 0 live, 1 hole, 2 block; absent: all live). A dead cell never holds a tile.
 export const dead = (S, i) => !!S.cell?.[i];
-// The cell gravity pulls from, or -1. Tiles fall straight through holes (not blocks). Teleporters
+// The cell gravity pulls from, or -1. Without marked spawners (S.spawn) tiles fall straight through holes
+// (not blocks); with them a hole separates regions, each fed by its own spawners or teleporters. Teleporters
 // (S.tp: [[ingress, egress]]) link the bottom of the ingress to the top of the egress: the egress pulls from
 // the ingress, the cell below an ingress from nothing.
 export function above(S, i){
   const p = S.tp?.find(x => x[1] === i);
   if (p) return p[0];
   let j = i - S.n;
-  while (j >= 0 && S.cell?.[j] === 1) j -= S.n;
+  while (!S.spawn && j >= 0 && S.cell?.[j] === 1) j -= S.n;
   return j < 0 || S.tp?.some(x => x[0] === j) ? -1 : j;
 }
 // The spawner at i ({ i, d }) or null. Without S.spawn every live cell with only holes above it (the top of

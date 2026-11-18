@@ -17,7 +17,8 @@ player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
 without `spawn` means every live cell with only holes above it, the top of its column). A dead cell never holds a tile, never fills and is
-never matched; blasts pass over it. Tiles fall straight through holes (`above` skips them, not blocks). `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
+never matched; blasts pass over it. Without marked spawners tiles fall straight through holes (`above` skips them, not blocks); with them a hole
+separates regions, each fed by its own spawners or teleporters. `tp` (`[[ingress, egress]]`): one-way teleporters; `above(S, egress)`
 is the ingress and `above` of the cell below an ingress is `-1`, so gravity and its fed test follow them while
 diagonal slides, matches and blasts keep to board adjacency. `validSave` checks all three when present
 (a dead cell must be empty; spawners and teleporter cells are live, a spawner cell appears once, a

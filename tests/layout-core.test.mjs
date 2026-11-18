@@ -222,3 +222,10 @@ test('tiles fall straight through holes; the top live cell of a column spawns', 
   const steps = []; gravity(S, steps);
   assert.ok(steps.every(s => s.k !== 'fall' || s.moves.every(m => m.from % 3 === m.to % 3)), 'nothing slides sideways');
 });
+
+test('with marked spawners a hole row separates regions: nothing falls through it', () => {
+  const S = mk(['AS BS CS', 'B C A', 'o o o', '.S .S .S', 'C A B']);
+  assert.equal(above(S, 3 * S.n), 2 * S.n);   // the hole itself, which never holds a tile
+  const steps = []; gravity(S, steps);
+  assert.ok(steps.every(s => s.k !== 'fall' || s.moves.every(m => Math.floor(m.from / S.n) > 2)), 'no tile crosses the hole row');
+});
