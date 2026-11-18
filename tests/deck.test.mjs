@@ -11,7 +11,7 @@ test('payout', () => {
 
 test('deckFrom', () => {
   const ids = ITEMS.map(i => i.id);
-  for (const bad of [undefined, null, 'x', { cred: -1, items: {} }, { cred: 1.5, items: {} }, { cred: 1, items: { worm: -2 } }]) {
+  for (const bad of [undefined, null, 'x', 5]) {
     const d = deckFrom(bad);
     assert.equal(d.cred, 0);
     assert.deepEqual(Object.keys(d.items).sort(), [...ids].sort());
@@ -57,4 +57,21 @@ test('buy and take', () => {
   assert.equal(take(d, 'worm'), false);
   add(d, 'bomb', 2);
   assert.equal(d.items.bomb, 2);
+});
+
+test('deckFrom keeps the valid fields', () => {
+  const d = deckFrom({ cred: 40, items: { worm: 5, bomb: -2, rocket: 1.5, hammer: 3 } });
+  assert.equal(d.cred, 40);
+  assert.equal(d.items.worm, 5); assert.equal(d.items.bomb, 0); assert.equal(d.items.rocket, 0); assert.equal(d.items.hammer, 3);
+  const e = deckFrom({ cred: -1, items: { worm: 4 } });
+  assert.equal(e.cred, 0); assert.equal(e.items.worm, 4);
+  const f = deckFrom({ cred: 7, items: 'x' });
+  assert.equal(f.cred, 7);
+  for (const { id } of ITEMS) assert.equal(f.items[id], 0);
+});
+
+test('buy refuses an unknown id', () => {
+  const d = { cred: 1000, items: {} };
+  assert.equal(buy(d, 'laser'), false);
+  assert.equal(d.cred, 1000);
 });

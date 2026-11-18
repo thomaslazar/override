@@ -48,8 +48,10 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 - **gear**: `applyGear(S, gear)` takes `[{ id, n? }]` (from `gearFor` in `deck.js`). `worm`, `bomb`, `rocket`
   and `zero` each turn one random plain tile (no special, drop or firewall, cell not encrypted) into that special,
   keeping its colour (a zero-day gets `t: -1`), so no match appears; seeded by `rngFor(S.seed, 37, k)` per item,
-  worm direction too. `moves` adds `n` to `S.moves` and `S.limit`. Fewer plain tiles than items: the rest is
-  skipped. `S.gear` records the ids (checked by `validSave`).
+  worm direction too. `moves` adds `n` to `S.moves` and `S.limit`; `S.base` keeps the limit from before the gear
+  (the bot's). Fewer plain tiles than items: the rest is skipped. It returns the ids it applied (`moves` always
+  applies) and `S.gear` records them; `GEAR_IDS` lists the gear ids (`validSave` checks `gear` and `base` with it,
+  `deck.js` offers from it).
 - **tools**: `tool(S, kind, a, b)` returns `{ ok, steps }` like `move` and never spends a move; it refuses with no
   change at 0 moves or after a win. `hammer` on a tile that is not a drop, or on an encrypted cell, runs a one-cell
   `wave` (a firewall is only unlocked, an encrypted cell loses a layer, a special fires), then gravity and a
@@ -61,7 +63,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   zero-day with a worm, bomb or rocket converts every tile of that colour into worms (random h or v),
   bombs or rockets, then fires them, `zz` clears the board. With a rocket (the kind names it first):
   `rr` fires 8 rockets from the dragged tile's cell, `rw`/`rb` fire 3 and set off a worm (h or v by
-  `rngFor(S.seed, 19, S.spawns, target)`) or a 3x3 blast at each target. Zero-day with a plain tile clears that colour.
+  `rngFor(S.seed, 23, S.spawns, target)`) or a 3x3 blast at each target; each of their flights carries `s`
+  (`h`, `v` or `b`), what goes off there. Zero-day with a plain tile clears that colour.
   A zero-day fired by a blast clears a random colour still on the board (seeded by its id).
 - **wave**: fires specials in a chain (each id once), cracks encrypted cells (hits from a fired
   area, plus neighbours of matched cells and of a zero-day's tiles), unlocks firewalled tiles (a firewalled tile hit is unlocked,
@@ -252,8 +255,9 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 
 ## Economy (`src/deck.js`)
 
-Pure; the UI owns storage (`override-deck`). `deckFrom` validates a stored `{ cred, items }` (bad or missing gives
-cred 0 and the starter stock, every id present). `payout(score, best)` is the cred for a win: score / 100 on a first
+Pure; the UI owns storage (`override-deck`). `deckFrom` repairs a stored `{ cred, items }` field by field (a bad cred or
+item count becomes 0, unknown ids are dropped, every id present); a missing or non-object value gives cred 0 and the
+starter stock. `payout(score, best)` is the cred for a win: score / 100 on a first
 win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is the one reward item: always on every
 5th level and the chapter's last, 35 % in the chapter's ten hardest, else 10 %, weighted by item. `gearFor(level)`
 (channel 53) offers three of worm, bomb, rocket, zero, moves; `moves` carries 3 to 5. `buy`, `take`, `add` change a deck in place.
@@ -281,8 +285,8 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   the three `gearFor(level)` slots (`itemIcon`, name or `+n moves`, owned count or price, On/Off). A slot not in
   stock switches on only while the cred covers every switched-on slot that must be paid; a paid slot the cred no
   longer covers after shopping switches off. Switched-on slots are per visit (retries included) and never saved.
-  Start sets `S`, takes owned gear from stock and pays the rest (slot order), `applyGear(S, chosen)` (always, so
-  `S.gear` is set), `saveDeck()`, opens the play log attempt (`logStart(true)`, which records `gear`), sets
+  Start sets `S`, picks the switched-on slots stock or cred covers (slot order), `applyGear(S, chosen)` (always, so
+  `S.gear` is set), then takes from stock or charges cred only for the ids it applied, `saveDeck()`, opens the play log attempt (`logStart(true)`, which records `gear`), sets
   `run.best` and `run.fails`, saves, then `start()`.
 - Shop (`shop(back)`, from the start screen only): one row per `ITEMS` entry (icon, name, one-line effect, owned,
   Buy with the price, disabled when short). Buying calls `buy`, `saveDeck()` and updates the rows in place.
@@ -296,7 +300,8 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   combo flash, convert, wave with flashes, cracks, unlocks, pops and created specials (blasts: worm beams
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
   tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it; a wave with `rockets` first draws a bright
-  streak per flight, `flight` fx, and waits 180 ms, 90 in the finale, none with reduced motion, before the hits pop; rocket combos flash shock rings like a bomb), fall (a run of
+  streak per flight, `flight` fx, and waits 180 ms, 90 in the finale, none with reduced motion, before the hits pop,
+  then a flight with `s` (from `rw`/`rb`) flashes a worm beam or bomb blast at its target; rocket combos flash shock rings like a bomb), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
   and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
@@ -307,7 +312,7 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. `play(a, b, kind)` with a tool kind calls
-  `tool` instead: when refused it toasts "Can’t use that there." and the item stays; else it takes one from stock
+  `tool` instead (it returns at once when the stock holds none of that tool): when refused it toasts "Can’t use that there." and the item stays; else it takes one from stock
   (`take`, `saveDeck()`) and goes on like a move (the log entry gets `tool: kind`; no patrol warning, no loss). A won save without `spare` (from before
   the finale) runs `finale` silently at boot.
 - Finale: `playFinale(steps)` plays the steps sped up so the whole finale takes
@@ -351,7 +356,9 @@ win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is t
   a local build, via `clampLevel` in `src/levels.js`; best level; Restart level; Start over, which keeps the best level), Settings
   (language, colours standard/colour-blind, Play log: on/off, attempts count, Download log, Clear log;
   `override-plays`, opt-in, `src/plays.js`; an attempt records the board name and its goals, with `t` for a tile
-  goal and `d` for a drop goal; a tool use is a move entry with `tool`) and Info (how to play, Share, GitHub, licence, font).
+  goal and `d` for a drop goal, `gear` (applied ids), `limit` (the bot's, `S.base`) and `extra` (moves gear added);
+  a tool use is a move entry with `tool`, which `tools/plays.mjs` leaves out of used moves and per-move stats and
+  counts in its `tools` column) and Info (how to play, Share, GitHub, licence, font).
 - Look: dark only, a hacker terminal. The strip (a thin band, `clamp(60px,10dvh,84px)`) shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`

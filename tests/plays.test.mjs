@@ -102,3 +102,10 @@ test('a tool entry carries the tool and the usual counts', () => {
   assert.deepEqual(entryOf(mkS(), steps, 3, 'hammer'), { n: 3, w: 1, c: 1, sm: 0, sf: 0, g: [4, 1], sh: 0, tool: 'hammer' });
   assert.equal('tool' in entryOf(mkS(), steps, 3), false);
 });
+
+test('attempt logs the bot limit and the moves gear added', () => {
+  assert.equal(attemptOf({ ...mkS(), limit: 24, base: 20 }, 'T').limit, 20);
+  assert.equal(attemptOf({ ...mkS(), limit: 24, base: 20 }, 'T').extra, 4);
+  assert.equal(attemptOf({ ...mkS(), base: 20 }, 'T').extra, undefined);
+  assert.equal(attemptOf(mkS(), 'T').limit, 20);
+});

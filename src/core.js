@@ -456,8 +456,10 @@ function combo(S, A, pa, B, pb, steps){
       // 'ww', 'bw', 'bb', or a rocket first: 'rr', 'rw', 'rb'
       const ks = [A.s, B.s].map(s => s === 'h' || s === 'v' ? 'w' : s), kind = ks.includes('r') ? 'r' + ks[ks[0] === 'r' ? 1 : 0] : ks.sort().join('');
       if (kind[0] === 'r') for (const to of rocketTargets(S, pa, kind === 'rr' ? 8 : 3, cells)) {   // rockets fly; a worm or bomb goes off at each target
-        flights.push({ from: pa, to }); cells.add(to);
-        if (kind !== 'rr') area(S, to, { s: kind === 'rb' ? 'b' : rngFor(S.seed, 19, S.spawns, to)() < .5 ? 'h' : 'v' }, cells).forEach(j => cells.add(j));
+        if (kind === 'rr') { flights.push({ from: pa, to }); cells.add(to); continue }
+        const s = kind === 'rb' ? 'b' : rngFor(S.seed, 23, S.spawns, to)() < .5 ? 'h' : 'v';   // s: what goes off there, for the UI
+        flights.push({ from: pa, to, s }); cells.add(to);
+        area(S, to, { s }, cells).forEach(j => cells.add(j));
       }
       if (kind === 'ww') for (let k = 0; k < n; k++) { cells.add(r * n + k); cells.add(k * n + c) }
       if (kind === 'bw') for (let d = -1; d <= 1; d++) for (let k = 0; k < n; k++) {
@@ -517,18 +519,23 @@ function resolve(S, A, a, B, b, steps, pay){
 /* ---------- gear and tools ---------- */
 // Gear on the start screen: each special goes on a random plain tile (no special, drop, firewall or encryption),
 // keeping its colour so no match appears; `moves` adds n moves. Seeded, so the same deal gets the same cells.
+export const GEAR_IDS = ['worm', 'bomb', 'rocket', 'zero', 'moves'];
+// Returns the ids it applied (a special needs a plain tile; moves always applies); S.base keeps the limit before gear.
 export function applyGear(S, gear){
-  const plain = [];
+  const plain = [], done = [];
+  S.base = S.limit;
   S.grid.forEach((x, i) => { if (x && !x.s && !x.lock && !isDrop(x) && !S.enc[i]) plain.push(i) });
   gear.forEach((g, k) => {
     const rnd = rngFor(S.seed, 37, k);
-    if (g.id === 'moves') { S.moves += g.n; S.limit += g.n; return }
+    if (g.id === 'moves') { S.moves += g.n; S.limit += g.n; done.push(g.id); return }
     if (!plain.length) return;
+    done.push(g.id);
     const x = S.grid[plain.splice(Math.floor(rnd() * plain.length), 1)[0]];
     if (g.id === 'zero') { x.s = 'z'; x.t = -1 }
     else x.s = g.id === 'bomb' ? 'b' : g.id === 'rocket' ? 'r' : rnd() < .5 ? 'h' : 'v';
   });
-  S.gear = gear.map(g => g.id);
+  S.gear = done;
+  return done;
 }
 // In-level tools: never spend a move, so they cannot lose the level; they can win it.
 export function tool(S, kind, a, b){
@@ -578,7 +585,8 @@ export function validSave(o){
   if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
   if (o.score !== undefined && !int(o.score, 0, 1e9)) return false;
   if (o.spare !== undefined && !int(o.spare, 0, 999)) return false;
-  if (o.gear !== undefined && !(Array.isArray(o.gear) && o.gear.every(x => ['worm', 'bomb', 'rocket', 'zero', 'moves'].includes(x)))) return false;
+  if (o.gear !== undefined && !(Array.isArray(o.gear) && o.gear.every(x => GEAR_IDS.includes(x)))) return false;
+  if (o.base !== undefined && !int(o.base, 0, 999)) return false;
   if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
   const w = o.w ?? o.n, h = o.h ?? o.n;   // sides: MIN_SIDE..MAX in layouts.js; missing means square
   if (!int(w, 5, o.n) || !int(h, 5, o.n) || Math.max(w, h) !== o.n) return false;

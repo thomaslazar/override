@@ -167,3 +167,18 @@ test('a rocket wave step lists its flights', () => {
   assert.ok(w.rockets.every(f => f.from === 0));
   assert.deepEqual(sorted(w.rockets.map(f => f.to)), sorted(w.cleared.map(c => c.i).filter(i => i !== 0)));
 });
+
+test('a 2x3 block of one colour is one group making one rocket', () => {
+  const gs = findGroups(mk(['A A A', 'A A A', 'B C D']));
+  assert.equal(gs.length, 1);
+  assert.equal(gs[0].cells.size, 6);
+  assert.equal(specialOf(gs[0], null), 'r');
+});
+
+test('rocket + worm: each flight names the worm it sets off (seed channel 23)', () => {
+  const S = big({ 40: 'Ar', 41: 'Bh' }), spawns = S.spawns;
+  const w = waves(move(S, 40, 41).steps)[0];
+  for (const f of w.rockets) assert.equal(f.s, rngFor(S.seed, 23, spawns, f.to)() < .5 ? 'h' : 'v');
+  const T = big({ 40: 'Ab', 41: 'Br' });
+  assert.ok(waves(move(T, 40, 41).steps)[0].rockets.every(f => f.s === 'b'));
+});

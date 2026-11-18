@@ -1,5 +1,5 @@
 // Cred, stock, loot and gear offers. Pure: no DOM, no storage.
-import { rngFor } from './core.js';
+import { rngFor, GEAR_IDS } from './core.js';
 import { chapterOf, difficulty, CHAPTER } from './levels.js';
 
 export const ITEMS = [
@@ -10,19 +10,16 @@ export const ITEMS = [
 ];
 export const STARTER = { worm: 2, bomb: 1, rocket: 1, hammer: 1, shuffle: 1 };
 const LOOT = { shuffle: 3, worm: 3, rocket: 2, bomb: 2, hammer: 2, moves: 2, swap: 1, zero: 1 };
-const GEAR = ['worm', 'bomb', 'rocket', 'zero', 'moves'];
 const nat = v => Number.isInteger(v) && v >= 0;
 
+// A stored deck, repaired field by field: a bad cred or item count becomes 0, unknown ids are dropped;
+// a missing or non-object value gives the starter set.
 export function deckFrom(o){
   const items = {};
-  for (const { id } of ITEMS) items[id] = STARTER[id] || 0;
-  if (!o || !nat(o.cred) || !o.items || typeof o.items !== 'object') return { cred: 0, items };
-  const got = {};
-  for (const { id } of ITEMS) {
-    if (id in o.items && !nat(o.items[id])) return { cred: 0, items };
-    got[id] = o.items[id] ?? 0;
-  }
-  return { cred: o.cred, items: got };
+  if (!o || typeof o !== 'object') { for (const { id } of ITEMS) items[id] = STARTER[id] || 0; return { cred: 0, items } }
+  const got = o.items && typeof o.items === 'object' ? o.items : {};
+  for (const { id } of ITEMS) items[id] = nat(got[id]) ? got[id] : 0;
+  return { cred: nat(o.cred) ? o.cred : 0, items };
 }
 
 export const payout = (score, best) => best == null ? Math.floor(score / 100) : Math.max(0, Math.floor((score - best) / 100));
@@ -40,7 +37,7 @@ export function lootFor(level){
 }
 
 export function gearFor(level){
-  const r = rngFor(level, 53), pool = [...GEAR], out = [];
+  const r = rngFor(level, 53), pool = [...GEAR_IDS], out = [];
   while (out.length < 3) {
     const id = pool.splice(Math.floor(r() * pool.length), 1)[0];
     out.push(id === 'moves' ? { id, n: 3 + Math.floor(r() * 3) } : { id });

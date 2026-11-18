@@ -32,6 +32,8 @@ test('applyGear turns plain tiles into the gear specials, keeping colour, making
   assert.deepEqual(S.gear, ['worm', 'bomb', 'rocket', 'zero', 'moves']);
   assert.ok(validSave(toSave(S)));
   assert.ok(!validSave({ ...toSave(S), gear: ['laser'] }));
+  assert.equal(S.base, 30);
+  assert.ok(!validSave({ ...toSave(S), base: -1 }));
 });
 
 test('applyGear: same seed, same cells', () => {
@@ -120,4 +122,27 @@ test('every tool refuses at 0 moves and after a win', () => {
     for (const [k, a, b] of [['hammer', 0], ['swap', 0, 1], ['shuffle']]) assert.equal(tool(S, k, a, b).ok, false);
     assert.equal(JSON.stringify(S), snap);
   }
+});
+
+test('applyGear returns the ids it applied and keeps the bot limit', () => {
+  const S = mk(['Ah Bv', 'C Dr']);
+  assert.deepEqual(applyGear(S, [{ id: 'worm' }, { id: 'bomb' }, { id: 'moves', n: 3 }]), ['worm', 'moves']);
+  assert.deepEqual(S.gear, ['worm', 'moves']);
+  assert.equal(S.base, 30); assert.equal(S.limit, 33);
+});
+
+test('hammer on a firewalled special unlocks it only', () => {
+  const S = mk(['A B C', 'B Cb! A', 'C A B']), id = S.grid[4].id;
+  const r = tool(S, 'hammer', 4);
+  assert.ok(r.ok);
+  assert.deepEqual(r.steps.find(s => s.k === 'wave').fired, []);
+  assert.equal(S.grid[4].id, id); assert.equal(S.grid[4].s, 'b'); assert.equal(S.grid[4].lock, false);
+});
+
+test('swap tool moving a drop onto a drop point lets it leave', () => {
+  const S = mk(['A B C', 'D0 E A', 'BX C D'], { goals: [{ kind: 'drop', d: 0, need: 1, got: 0 }] });
+  const r = tool(S, 'swap', 3, 6);
+  assert.ok(r.ok);
+  assert.ok(r.steps.some(s => s.k === 'exit'));
+  assert.equal(S.goals[0].got, 1);
 });

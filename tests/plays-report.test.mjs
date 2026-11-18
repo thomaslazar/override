@@ -22,3 +22,15 @@ test('report by board: old logs count as square', () => {
   const rows = report([log], 'board');
   assert.deepEqual(rows.map(r => [r.level, r.attempts]), [['pocket', 1], ['square', 3], ['all', 4]]);
 });
+
+test('tool entries are not moves; gear moves count towards used', () => {
+  const a = { level: 1, limit: 10, extra: 3, need: 8, end: 'won', left: 4, moves: [{ w: 2 }, { w: 2, tool: 'hammer' }, { w: 2 }] };
+  const b = { level: 1, limit: 10, need: 8, end: 'left', left: null, moves: [{ w: 2, tool: 'swap' }, { w: 4 }] };
+  const [r] = report([{ attempts: [a] }]);
+  assert.equal(r.used, 9);
+  assert.equal(r.tools, 1);
+  const [s] = report([{ attempts: [{ ...a, moves: [{ w: 2 }, { w: 2 }] }] }]);
+  assert.equal(r.wpm, s.wpm); assert.equal(r.big, s.big);
+  const [u] = report([{ attempts: [b] }]);
+  assert.equal(u.wpm, 4); assert.equal(u.big, 100); assert.equal(u.tools, 1);
+});

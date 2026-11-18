@@ -103,13 +103,17 @@ async function brief(level, fails, saved){
   const gear = gearFor(level), on = new Set();
   let s = null;
   const go = () => {
-    S = s; const chosen = [];
-    gear.forEach((x, k) => {
-      if (!on.has(k)) return;
-      if (take(deck, x.id)) chosen.push(x);
-      else if (deck.cred >= priceOf(x.id)) { deck.cred -= priceOf(x.id); chosen.push(x) }
+    S = s;
+    // offers switched on that stock or cred covers (offer ids are distinct); paid only for what applyGear placed
+    let cred = deck.cred;
+    const chosen = gear.filter((x, k) => {
+      if (!on.has(k)) return false;
+      if (deck.items[x.id] > 0) return true;
+      if (cred < priceOf(x.id)) return false;
+      cred -= priceOf(x.id); return true;
     });
-    applyGear(S, chosen); saveDeck();
+    for (const id of applyGear(S, chosen)) if (!take(deck, id)) deck.cred -= priceOf(id);
+    saveDeck();
     logStart(true); run.best = Math.max(run.best, level); run.fails = fails; saveRun(); save(); start();
   };
   const show = () => {
@@ -242,6 +246,7 @@ async function animate(steps, speed = 1){
         const q = sprites.get(idAt.get(s.rockets[0].from)), col = q && q.t >= 0 ? PAL.t[S.types[q.t]] : GLOW;
         for (const f of s.rockets) fx.push({ k: 'flight', ...f, col, at: performance.now() });
         if (!RM) await wait(inFinale ? 90 : 180);
+        for (const f of s.rockets) if (f.s) flash(f.to, f.s, col);   // rocket + worm or bomb: it goes off at each target
       }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
@@ -281,6 +286,7 @@ async function playFinale(steps){
 // kind: a tool ('hammer', 'swap', 'shuffle') instead of a move; it costs no move, takes one from stock and cannot lose.
 async function play(a, b, kind){
   if (busy || performance.now() < grace || !S || won(S) || lost(S)) return;
+  if (kind && !(deck.items[kind] > 0)) return;
   busy = true; armed = null;
   const before = S.moves, from = S.score, got = S.goals.map(g => g.got), r = kind ? tool(S, kind, a, b) : move(S, a, b);
   if (kind && !r.ok) { busy = false; hud(); toast(t('toolNo')); return }   // the item stays
