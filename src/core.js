@@ -496,15 +496,60 @@ export function move(S, a, b){
   if (drop && !swapLegal(S, a, b)) { steps.push({ k: 'swap', a, b }, { k: 'back', a, b }); return { ok: false, steps } }
   S.grid[a] = B; S.grid[b] = A;
   steps.push({ k: 'swap', a, b });
-  const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z';
+  if (!resolve(S, A, a, B, b, steps, true)) { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
+  if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
+  return { ok: true, steps };
+}
+// Resolves a swap already made (A from a now at b, B at a); spends a move when `pay`. False when nothing happens.
+function resolve(S, A, a, B, b, steps, pay){
+  const swipe = rc(S, a)[0] === rc(S, b)[0] ? 'h' : 'v', lone = !A.s !== !B.s && A.s !== 'z' && B.s !== 'z', drop = isDrop(A) || isDrop(B);
+  const go = () => { if (pay) spend(S) };
   // A lone worm or bomb swapped into a match resolves as that match (it fires in the wave, and the
   // special the match makes is placed after the clear, so it survives). Otherwise a special swap is a combo.
-  if (drop && !A.s && !B.s) { spend(S); cascade(S, steps, [b, a], swipe) }
-  else if (lone && findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
-  else if (A.s || B.s) { spend(S); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }
-  else if (findGroups(S).length) { spend(S); cascade(S, steps, [b, a], swipe) }
-  else { S.grid[a] = A; S.grid[b] = B; steps.push({ k: 'back', a, b }); return { ok: false, steps } }
-  if (!won(S) && S.moves > 0 && !hasMove(S)) reshuffle(S, steps);
+  if (drop && !A.s && !B.s) { go(); cascade(S, steps, [b, a], swipe) }
+  else if (lone && findGroups(S).length) { go(); cascade(S, steps, [b, a], swipe, [A.s ? b : a]) }
+  else if ((A.s || B.s) && !(drop && (A.s === 'z' || B.s === 'z'))) { go(); combo(S, A, b, B, a, steps); cascade(S, steps, [], null, [], 2) }   // a zero-day has no colour to take from a drop
+  else if (findGroups(S).length) { go(); cascade(S, steps, [b, a], swipe) }
+  else return false;
+  return true;
+}
+
+/* ---------- gear and tools ---------- */
+// Gear on the start screen: each special goes on a random plain tile (no special, drop, firewall or encryption),
+// keeping its colour so no match appears; `moves` adds n moves. Seeded, so the same deal gets the same cells.
+export function applyGear(S, gear){
+  const plain = [];
+  S.grid.forEach((x, i) => { if (x && !x.s && !x.lock && !isDrop(x) && !S.enc[i]) plain.push(i) });
+  gear.forEach((g, k) => {
+    const rnd = rngFor(S.seed, 37, k);
+    if (g.id === 'moves') { S.moves += g.n; S.limit += g.n; return }
+    if (!plain.length) return;
+    const x = S.grid[plain.splice(Math.floor(rnd() * plain.length), 1)[0]];
+    if (g.id === 'zero') { x.s = 'z'; x.t = -1 }
+    else x.s = g.id === 'bomb' ? 'b' : g.id === 'rocket' ? 'r' : rnd() < .5 ? 'h' : 'v';
+  });
+  S.gear = gear.map(g => g.id);
+}
+// In-level tools: never spend a move, so they cannot lose the level; they can win it.
+export function tool(S, kind, a, b){
+  const steps = [], no = { ok: false, steps };
+  if (S.moves <= 0 || won(S)) return no;
+  if (kind === 'hammer') {
+    const x = S.grid[a];
+    if (!(a >= 0 && a < S.n * S.n) || dead(S, a) || (x ? isDrop(x) : !S.enc[a])) return no;
+    // a one-cell wave: a firewall is only unlocked (its special does not fire), a special fires
+    steps.push(wave(S, new Set([a]), new Set(), [], new Set(x?.lock ? [x.id] : [])));
+    gravity(S, steps); cascade(S, steps, [], null, [], 2);
+  } else if (kind === 'swap') {
+    if (!nextTo(S, a, b) || !movable(S, a) || !movable(S, b)) return no;
+    const A = S.grid[a], B = S.grid[b];
+    S.grid[a] = B; S.grid[b] = A;
+    steps.push({ k: 'swap', a, b });
+    resolve(S, A, a, B, b, steps, false);   // nothing to resolve: it stays swapped
+    gravity(S, steps); cascade(S, steps, [], null, [], 2);   // a drop swapped onto a drop point leaves
+  } else if (kind === 'shuffle') reshuffle(S, steps);
+  else return no;
+  if (!won(S) && !hasMove(S)) reshuffle(S, steps);
   return { ok: true, steps };
 }
 // Shuffles movable tiles except drops (seeded) until no match and a valid move; after 200 tries also redraws colours.
@@ -533,6 +578,7 @@ export function validSave(o){
   if (!int(o.spawns, 0, 1e9) || !int(o.shuffles, 0, 1e9) || typeof o.nice !== 'boolean') return false;
   if (o.score !== undefined && !int(o.score, 0, 1e9)) return false;
   if (o.spare !== undefined && !int(o.spare, 0, 999)) return false;
+  if (o.gear !== undefined && !(Array.isArray(o.gear) && o.gear.every(x => ['worm', 'bomb', 'rocket', 'zero', 'moves'].includes(x)))) return false;
   if (!Array.isArray(o.types) || o.types.length < o.k || !o.types.every(x => int(x, 0, TYPES - 1))) return false;
   const w = o.w ?? o.n, h = o.h ?? o.n;   // sides: MIN_SIDE..MAX in layouts.js; missing means square
   if (!int(w, 5, o.n) || !int(h, 5, o.n) || Math.max(w, h) !== o.n) return false;

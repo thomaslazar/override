@@ -45,6 +45,18 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
   exists, `reshuffle` runs.
+- **gear**: `applyGear(S, gear)` takes `[{ id, n? }]` (from `gearFor` in `deck.js`). `worm`, `bomb`, `rocket`
+  and `zero` each turn one random plain tile (no special, drop or firewall, cell not encrypted) into that special,
+  keeping its colour (a zero-day gets `t: -1`), so no match appears; seeded by `rngFor(S.seed, 37, k)` per item,
+  worm direction too. `moves` adds `n` to `S.moves` and `S.limit`. Fewer plain tiles than items: the rest is
+  skipped. `S.gear` records the ids (checked by `validSave`).
+- **tools**: `tool(S, kind, a, b)` returns `{ ok, steps }` like `move` and never spends a move; it refuses with no
+  change at 0 moves or after a win. `hammer` on a tile that is not a drop, or on an encrypted cell, runs a one-cell
+  `wave` (a firewall is only unlocked, an encrypted cell loses a layer, a special fires), then gravity and a
+  cascade at chain 2. `swap` takes two movable neighbours (drops too, firewalls not), swaps them and resolves
+  through `resolve`, the body `move` uses, without paying; a swap that resolves nothing stays (no `back`), and
+  gravity then lets a drop swapped onto a drop point leave. `shuffle` is `reshuffle`. Afterwards, as after a move,
+  the free reshuffle runs when the level is not won and no move exists.
 - **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`/`zr`
   zero-day with a worm, bomb or rocket converts every tile of that colour into worms (random h or v),
   bombs or rockets, then fires them, `zz` clears the board. With a rocket (the kind names it first):
