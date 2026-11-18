@@ -214,3 +214,12 @@ Rockets come in the same piece: a fourth special made by a 2 x 2 square, which f
 - Loot weights, the starter set, the exact "top third of the chapter" test.
 - How the swap tool takes its two cells (tap-tap or drag).
 - Whether to split the work into stages (suggested: cred, stock, shop, loot; then gear and tools; then rockets).
+
+## Changed in building
+
+- Balance: rockets made levels clear faster (sim median ratio 100 % fell to about 70 %). Tile goals grew instead of
+  touching the bot's `K`/`C`: `GOAL` 1.2 to 1.8 brings the median back to 100 %. Levels with only blocker goals (about
+  49 %) and drop levels (75 to 80 %) stay shorter than the target; parked for play.
+- `applyGear` returns the gear it placed and only that is charged; `S.gear` lists placed gear; `S.base` keeps the
+  bot's limit for the play log, which logs `extra` gear moves and keeps tool entries out of the move statistics.
+- `deckFrom` keeps every valid field of a stored deck (a bad count resets only that item).
