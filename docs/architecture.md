@@ -12,7 +12,7 @@ the spec): `n` board side (7..9), `k` colours, `types` glyph slot per colour, `g
 null, index `r * n + c`), `enc` (encrypted hits left per cell), `goals`, `moves`, `limit`,
 `need`, `seed`, `salt`, `drop`, `deal` (which seeded board), `pick` (set by the UI), counters `spawns`, `shuffles`, `ids`, and `nice` (helpful refill on for the
 player, off for the bot). A tile is `{ id, t, s, lock }`; `s` is `null`, `'h'`/`'v'` (worm),
-`'b'` (logic bomb) or `'z'` (zero-day, `t === -1`); `lock` is a firewall. A drop tile is
+`'b'` (logic bomb), `'r'` (rocket) or `'z'` (zero-day, `t === -1`); `lock` is a firewall. A drop tile is
 `{ id, t: -1, s: null, lock: false, d }` (`d` its kind, `0..DROP_KINDS - 1`, `DROP_KINDS = 3`; `isDrop(x)`).
 Optional static layout (absent on square boards and old saves): `cell` (per cell `0` live, `1` hole,
 `2` block; `dead(S, i)`) and `spawn` (`[{ i, d }]`, `d` drop kind or `-1`; `isSpawner(S, i)`, which
@@ -28,14 +28,16 @@ means the next comes once no drop is on the board) are optional too; `validSave`
 and drop goals `{ kind: 'drop', d, need, got }`.
 
 - **random**: `mulberry32`, `hash`, `rngFor`. No `Math.random` anywhere in `src/`.
-- **matching**: `findGroups` merges horizontal and vertical runs of 3+ that share a cell into
-  one group; encrypted cells, empty cells, zero-days and drops never match. `specialOf(group, swipe)`:
-  5+ run makes a zero-day, an L or T (a horizontal and a vertical run) a bomb, a run of 4 a
-  worm along the swipe (or its own direction). `spotOf` puts it on a swapped cell, else the
-  crossing (bomb), else the middle of the longest run. `swapLegal` needs a match, or a special.
+- **matching**: `findGroups` merges horizontal and vertical runs of 3+ and 2 x 2 squares of one colour
+  (`{ sq: true, cells }`) that share a cell into one group; encrypted cells, empty cells, zero-days and drops
+  never match. `specialOf(group, swipe)` looks at the line runs first: 5+ run makes a zero-day, an L or T (a
+  horizontal and a vertical run) a bomb, a run of 4 a worm along the swipe (or its own direction); else a group
+  with a square makes a rocket. `spotOf` puts it on a swapped cell, else the crossing (bomb), else the square's
+  top-left cell (rocket), else the middle of the longest line. `lineAt` (used by `swapLegal`, `setsUp` and
+  damping) also counts a square; `fillBoard` deals no square. `swapLegal` needs a match, or a special.
   A swap with a drop is legal when the other tile lands in a line, or is a worm or bomb (it fires); a zero-day
   needs the line; drop with drop never.
-- **move**: `move(S, a, b)` returns `{ ok, steps }`. `a === b` taps a worm or bomb: it fires in place for one
+- **move**: `move(S, a, b)` returns `{ ok, steps }`. `a === b` taps a worm, bomb or rocket: it fires in place for one
   move (a `wave` from that cell, gravity, cascade at chain 2); a zero-day, a locked or a plain tile is not ok. Steps are `swap`, `back`, `combo`,
   `convert`, `wave`, `fall`, `exit`, `shuffle` (contract in the plan). Flow: swap; a legal swap with a drop
   resolves as the other tile's match (no combo), or fires the worm or bomb like a lone special swap; a lone worm or bomb
@@ -53,6 +55,12 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   created on a cell whose firewalled tile was only unlocked consumes that tile: it appears in
   the wave's `cleared` and counts for the tiles goal. No wave clears a drop (blasts and zero-days pass it
   by; a zero-day's random colour is never a drop's).
+- **rockets**: a fired rocket hits `rocketTargets(S, from, 3, cells)` (exported): distinct cells, never dead,
+  a drop, empty and not encrypted, the rocket's own cell or one the wave already clears (`cells`), by tier:
+  firewalled tiles, encrypted cells, tiles of a colour a tiles goal still needs, the tile directly under a drop,
+  any other tile; within a tier seeded by `rngFor(S.seed, 19, S.spawns, from, k)`. Fewer candidates, fewer
+  targets. Targets join the wave like a blast's cells (cleared, unlocked or cracked one layer; a special hit
+  fires). Rockets ignore board adjacency (they fly over holes, blocks and teleporters).
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or

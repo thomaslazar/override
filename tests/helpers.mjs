@@ -1,7 +1,7 @@
 import { tile, dropTile } from '../src/core.js';
 
 // Builds a state from rows of space-separated tokens:
-// 'A'..'F' colour 0..5, suffix 'h' | 'v' | 'b' makes that special, suffix '!' locks it (firewall),
+// 'A'..'F' colour 0..5, suffix 'h' | 'v' | 'b' | 'r' makes that special, suffix '!' locks it (firewall),
 // 'Z' zero-day, '#1'..'#3' encrypted cell with that many hits, '.' empty cell,
 // 'o' hole, '#B' block, suffix 'S' on a tile or '.' makes a spawner (then only marked cells spawn).
 // 'D0'..'D2' drop tile of that kind; suffix 'X' on any token makes a drop point.
@@ -25,7 +25,7 @@ export function mk(rows, o = {}){
     if (tok[0] === '#') { S.enc[i] = +tok.slice(1) || 1; return }
     if (tok === 'Z') { S.grid[i] = tile(S, -1, 'z'); return }
     if (/^D[0-2]$/.test(tok)) { S.grid[i] = dropTile(S, +tok[1]); return }
-    const m = tok.match(/^([A-F])([hvb])?(!)?$/);
+    const m = tok.match(/^([A-F])([hvbr])?(!)?$/);
     if (!m) throw new Error('bad token ' + tok);
     const x = tile(S, m[1].charCodeAt(0) - 65, m[2] || null);
     if (m[3]) x.lock = true;
