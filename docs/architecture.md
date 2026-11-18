@@ -165,7 +165,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   (a packed pocket stalls). The counts from `paramsFor` are scaled from its `w * h` board to the
   template's live cells and by the template's `effort`, which also scales the tile goals: boards with
   few cascades (wall, pocket, split) or few cells (notch) get less to do, tuned with the sim to the
-  effort target `8 + 14 d`. A template level whose blockers number under `n` always gets a tile goal.
+  effort target `8 + 14 d`. A template level whose blockers number under `n` always gets a tile goal. The tile goal is decided before the fill; a level without one (rockets aim at blockers first, so it would end early) gets one layer more on every encrypted cell (up to 3) and, without drop goals, twice the firewalls.
   In a small zone (under `2n` cells, a walled pocket) encrypted cells take one
   hit: few matches reach such a zone, and the bot only values a crack once it breaks. Goals use the
   fails-0 colour count for their size, and goal colours never include the colour that easing
