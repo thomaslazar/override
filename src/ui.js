@@ -140,16 +140,19 @@ async function animate(steps, speed = 1){
   let inFinale = false;   // in the finale each convert step spends s.spent spare moves
   try { for (let j = 0; j < steps.length && !skip; j++) {
     const s = steps[j];
-    if (s.k === 'fall') {
-      // one gravity pass moves tiles a single row: play a whole run of passes as one drop
+    if (s.k === 'fall' || s.k === 'exit') {
+      // one gravity pass moves tiles a single row: play a whole run of passes as one drop. A drop that
+      // leaves keeps falling straight through the bottom edge of its drop point (no landing hop).
       const above = new Map();   // spawner cell -> new tiles queued above it in this run
-      for (; j < steps.length && steps[j].k === 'fall'; j++) {
-        for (const m of steps[j].moves) {
+      for (; j < steps.length && (steps[j].k === 'fall' || steps[j].k === 'exit'); j++) {
+        const st = steps[j];
+        if (st.k === 'exit') { const sp = sprites.get(st.id); sp.ty = row(st.i) + 1; sp.falling = true; sp.sink = st; idAt.delete(st.i); continue }
+        for (const m of st.moves) {
           const sp = sprites.get(m.id);
           if (S.tp?.some(p => p[0] === m.from && p[1] === m.to)) (sp.hops ??= []).push(m);   // through a teleporter
           place(sp, m.to); sp.falling = true; if (idAt.get(m.from) === m.id) idAt.delete(m.from); idAt.set(m.to, m.id);
         }
-        for (const p of steps[j].spawns) {
+        for (const p of st.spawns) {
           const x = p.i % S.n, y = Math.floor(p.i / S.n), k = (above.get(p.i) || 0) + 1; above.set(p.i, k);
           sprites.set(p.tile.id, { ...p.tile, x, y: y - k, tx: x, ty: y, top: y, vy: 0, falling: true }); idAt.set(p.i, p.tile.id);
         }
@@ -182,12 +185,6 @@ async function animate(steps, speed = 1){
       for (const c of s.created) { const y = Math.floor(c.i / S.n), x = c.i % S.n; sprites.set(c.tile.id, { ...c.tile, x, y, tx: x, ty: y }); idAt.set(c.i, c.tile.id) }
       if (shown) { shown.score += s.points ?? 0; shown.got = s.got }
       hud(); await wait(inFinale ? 120 : 190);
-    }
-    if (s.k === 'exit') {   // a drop leaves: it slides out through the cell's bottom edge with a short flash
-      const p = sprites.get(s.id); fx.push({ k: 'exit', p, at: performance.now() }); sprites.delete(s.id); idAt.delete(s.i);
-      sparks(p.x + .5, p.y + 1, PAL.acc, 10, 7, 1.6, -Math.PI / 2);
-      if (shown) { shown.score += s.points ?? 0; shown.got = s.got }
-      hud(); await wait(220);
     }
     if (s.k === 'shuffle') {
       toast(t('noMoves')); await wait(600);
@@ -490,6 +487,7 @@ function fall(p, dt){
   if (p.y < ty) return;
   if (h) { p.hops.shift(); p.x = h.to % S.n; p.top = row(h.to); p.y += p.top - 1 - ty; return }
   p.y = p.ty; p.x = p.tx; delete p.top;
+  if (p.sink) { p.gone = true; return }   // a leaving drop is through the drop point's bottom edge
   if (p.vy > 6 && !p.hopped) { p.vy *= -HOP; p.hopped = true }
   else { p.vy = 0; p.hopped = p.falling = false }
 }
@@ -516,11 +514,17 @@ function frame(ts){
     else if (hint === undefined && ts - idleAt > HINT_MS) { const v = validMoves(S); hint = v.length && v.length <= HINT_MAX ? v[0] : null }
     const wig = hint ? wiggle(ts) : null;
     for (const p of sprites.values()) {
-      if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false; p.hops = null; delete p.top }
+      if (RM) { p.x = p.tx; p.y = p.ty; p.vy = 0; p.falling = false; p.hops = null; delete p.top; if (p.sink) p.gone = true }
       else if (p.falling) fall(p, dt);
       else { p.x += Math.max(-step, Math.min(step, p.tx - p.x)); p.y += Math.max(-step, Math.min(step, p.ty - p.y)) }
+      if (p.gone) {   // the drop left: a light bar flares on the edge, the goal and score count
+        sprites.delete(p.id); fx.push({ k: 'exit', x: p.x, y: p.y - 1, at: performance.now() });
+        sparks(p.x + .5, p.y, PAL.acc, 10, 7, 1.6, -Math.PI / 2);
+        if (shown) { shown.score += p.sink.points ?? 0; shown.got = p.sink.got }
+        hud(); continue;
+      }
       // shown only below the top of its spawner or egress and above the bottom of the ingress it sinks into
-      const lo = p.top ?? 0, hi = p.hops?.length ? row(p.hops[0].from) + 1 : S.h;
+      const lo = p.top ?? 0, hi = p.hops?.length ? row(p.hops[0].from) + 1 : p.sink ? p.ty : S.h;
       if (p.y <= lo - 1 || p.y >= hi) continue;
       const w = wig?.get(p.id), cut = p.y < lo || p.y > hi - 1;
       if (cut) { g.save(); g.beginPath(); g.rect(0, lo * cs, S.w * cs, (hi - lo) * cs); g.clip() }
@@ -538,9 +542,8 @@ function frame(ts){
         g.beginPath(); g.moveTo(x * cs, y * cs); g.lineTo((x - f.vx * .05) * cs, (y - vy * .05) * cs); g.stroke(); g.shadowBlur = 0;
       }
       else if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .9);
-      else if (f.k === 'exit') {   // the drop sinks out through the bottom edge; a light bar flares on the edge
-        const X = f.p.x * cs, Y = f.p.y * cs, q = Math.min(1, p / .7);
-        g.globalAlpha = 1; g.save(); g.beginPath(); g.rect(X, Y, cs, cs); g.clip(); drawDrop(f.p.d, X + cs / 2, Y + cs / 2 + q * q * cs, cs); g.restore();
+      else if (f.k === 'exit') {   // a light bar flares on the drop point's bottom edge
+        const X = f.x * cs, Y = f.y * cs;
         g.globalAlpha = 1 - p; g.fillStyle = '#ffffff'; g.shadowColor = PAL.acc; g.shadowBlur = cs * .6;
         g.fillRect(X + cs * (.1 - .1 * p), Y + cs * .9, cs * (.8 + .2 * p), cs * .08); g.shadowBlur = 0;
       }

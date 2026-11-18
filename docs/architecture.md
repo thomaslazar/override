@@ -256,9 +256,10 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
   and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
-  the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), exit (the
-  drop tile leaves the view at once; an `exit` effect slides it out through the cell's bottom edge, clipped to the
-  cell, with a light bar flaring on the edge and sparks; the HUD adds its `points`; 220 ms per exit), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
+  the ingress's bottom edge (clipped there), then drops in above the egress, clipped to below its top edge), exit (played
+  inside the fall run: the drop's target becomes the row below its drop point, so it keeps falling with no landing
+  hop, clipped at the drop point's bottom edge; when it is through, the sprite goes, a light bar flares on the edge
+  with sparks and the HUD takes its `points` and `got`), shuffle with a toast). `animate(steps, speed)`: `speed` divides every
   wait and speeds tile motion (`pace`). `play(a, b)` calls `move`, logs the move (before the finale), runs
   `finale(S)` at once if the move won, saves (closing mid-cascade or mid-finale loses nothing), animates the
   move, then `playFinale`, syncs, then shows the win or loss sheet. A won save without `spare` (from before
