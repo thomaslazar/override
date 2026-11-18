@@ -6,22 +6,16 @@ the fiction are still working names.
 
 ## Next, in order
 
-1. **Board layouts, drops and teleporters.** Done, awaiting the owner’s test on `feat/board-layouts`. Spec:
-   `docs/superpowers/specs/2026-11-14-board-layouts-design.md`. Levels stop being plain squares; built in three stages.
-   - Stage 1, geometry and spawners: done. Holes and unbreakable blocks, spawners anywhere,
-     blocker patterns on square boards (ring, wall, cross, diagonal), the first shape and
-     geometry templates (notch, pillars, diamond, hourglass, frame, split, wall, pocket), bot and
-     sim support, drawing.
-   - Stage 2, teleporters: done. An ingress and an egress anywhere; whatever falls out of the ingress
-     comes in at the egress. Matches and blasts never reach across. Teleporter templates (crossing,
-     snake, relay), from level 16.
-   - Stage 3, drop goal: done. Drop tiles (keycard, drive, disk, each its own drawn piece) come from
-     spawners and leave at drop points. They never match and cannot be destroyed; they swap only when
-     the swap makes a match for the other tile. Never more on the board than the goals still need.
-     Drop templates (chute, corner run, mirrored funnel, sluice), from level 21; the bot steers drops
-     towards their drop points.
-   - Research: `docs/research/2026-11-11-level-layouts.md`; 50 real levels transcribed and 26
-     template candidates: `docs/research/2026-11-11-layout-gallery.md`.
+1. **Funds, gear and shop** (one piece of work, next). The level score turns into funds; funds buy gear
+   taken into a level from the level start screen, and tools used during a level.
+   - Funds: earned only by playing, never bought. Open: the name, the conversion (flat, or weighted to
+     spare moves so playing well pays more than grinding), whether replaying a won level pays, a
+     per-level cap so funds can’t be farmed.
+   - Gear taken into a level: start with a worm, bomb or zero-day on the board, or a few extra moves.
+   - Tools used during a level: break one cell, swap any two tiles without a match, reshuffle.
+   - Fixed, visible prices, a small stockpile cap per item, no sales, bundles or timers.
+   - Every level stays beatable without gear, verified by the bot. Gear makes a level easier,
+     never possible.
 
 2. **More blockers.** The genre’s usual set, in the fiction:
    - **ICE:** a hardened cell that matches next to it do not touch; only worms, bombs and
@@ -44,35 +38,7 @@ the fiction are still working names.
    - Later candidates: conveyor buses that move tiles each turn, tunnels that link two cells,
      nodes that keep producing a blocker.
 
-3. **Level score.** Done. A score per level from what you clear: tiles, specials fired, combos,
-   blockers broken, with cascades worth more. Shown in the HUD and on the win sheet, best score
-   per level kept. Stars were dropped. Goals still decide win or loss; the score never does.
-
-4. **End-of-level payout.** Done as the finale (the payout into funds is the next item). When a level is won with moves to spare, the board plays out: every
-   special on the board fires, then spare moves go in rounds of 5: each round turns that many
-   random tiles into worms or bombs that fire together, and tiles keep dropping and cascading until
-   the board stands still. Everything scores.
-   - Part of the pure core (`finale(S)`, seeded), so the result is fixed the moment the level
-     is won. The UI only animates its steps.
-   - A tap skips the animation and jumps to the final board and score. Skipping never changes
-     the result.
-   - Saved before it animates, so closing the app mid-payout loses nothing.
-
-5. **Funds.** The level score turns into the in-game currency at the end of each level.
-   - Open: the name, the conversion (flat, or weighted to spare moves so playing well pays
-     more than grinding), whether replaying a won level pays, a per-level cap so funds can’t be
-     farmed.
-   - Earned only by playing, never bought.
-
-6. **Gear and shop.** What funds buy.
-   - Gear taken into a level: start with a worm, bomb or zero-day on the board, or a few extra
-     moves.
-   - Tools used during a level: break one cell, swap any two tiles without a match, reshuffle.
-   - Fixed, visible prices, a small stockpile cap per item, no sales, bundles or timers.
-   - Every level stays beatable without gear, verified by the bot. Gear makes a level easier,
-     never possible.
-
-7. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
+3. **New player experience (NPE).** No dedicated tutorial mission like Splice's; teach in place.
    - An intro card the first time something new shows up: each blocker (encrypted cells, firewalls,
      later ICE, logs, trace, malware), each special (worm, logic bomb, zero-day) the first time one is
      made, each goal kind, and later mechanics (drops, teleporters). A short terminal window with the
@@ -85,24 +51,42 @@ the fiction are still working names.
      should show on any board and be switchable in settings.
    - Open: whether the first levels also get a guided first move (a pointing hand on a set swap).
 
-8. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
-    The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
+4. **Sticker collecting.** One sticker per corporation hacked, collected on a sticker wall.
+   The deck's four stickers are fixed decoration today; see `docs/art.md` for how they are made.
 
-9. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
-    ASCII style, picked at random per win: REKT, OWNED, ROOTED, ACCESS GRANTED, GG and similar,
-    each with its own small ASCII picture next to the padlock (an open door, a skull, a terminal).
-    Decoration, not translated, static under reduced motion like PWNED.
+5. **More win screens.** PWNED is the only win art today. Add a few more in the same block-letter
+   ASCII style, picked at random per win: REKT, OWNED, ROOTED, ACCESS GRANTED, GG and similar,
+   each with its own small ASCII picture next to the padlock (an open door, a skull, a terminal).
+   Decoration, not translated, static under reduced motion like PWNED.
 
-10. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
-    open plate in the same framing as the maglock (`docs/art.md`).
+6. **More obstacle plates.** Camera hub, server rack and card reader, each a locked and an
+   open plate in the same framing as the maglock (`docs/art.md`).
 
-11. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
-    progress; crew members on comms with names; backgrounds that change with the obstacle
-    (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
-    last level of a run.
+7. **Runs and crew.** Chapters as small runs feeding a big final run; a map of the run showing
+   progress; crew members on comms with names; backgrounds that change with the obstacle
+   (maglock, camera hub, server rack) and react to progress, like a door unlocking on the
+   last level of a run.
 
-12. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
-    for matches, specials and the payout; mute in settings.
+8. **Sound and music.** Reuse Splice’s generated music engine with its own style; sound effects
+   for matches, specials and the payout; mute in settings.
+
+## Done
+
+- **Board layouts, drops and teleporters** (merged 2026-11-16). Spec:
+  `docs/superpowers/specs/2026-11-14-board-layouts-design.md`. Holes, blocks, spawners anywhere, blocker
+  patterns, teleporters (from level 16), drop tiles and drop points (from level 21), the template library.
+  Research: `docs/research/2026-11-11-level-layouts.md`, `docs/research/2026-11-11-layout-gallery.md`.
+- **Board shapes and the level start screen** (merged 2026-11-16). Spec:
+  `docs/superpowers/specs/2026-11-16-board-shapes-design.md`. Boards from 5 to 9 wide and 5 to 11 tall,
+  islands and compositions, 153 templates, the thin photo strip, the compact terminal, a start screen
+  before every level (DECKER’s line and the mechanic hints moved there). Research:
+  `docs/research/2026-11-16-board-designs.md`, `docs/research/2026-11-16-board-shapes-second-pass.md`.
+- **Level score.** A score per level from what you clear: tiles, specials fired, combos, blockers
+  broken, with cascades worth more. Shown in the HUD and on the win sheet, best score per level kept.
+  Stars were dropped. Goals still decide win or loss; the score never does.
+- **End-of-level finale.** When a level is won with moves to spare, every special left fires, then spare
+  moves go in rounds of 5, each turning that many random tiles into worms or bombs that fire together.
+  Part of the pure core (`finale(S)`, seeded), saved before it animates; a tap skips the animation.
 
 ## Later
 
@@ -129,9 +113,12 @@ These are the genre’s pay-to-win parts, which Override exists to leave out:
 
 ## Polish
 
+- Levels that run long for the bot: cisterns (level 119), decks (level 143); many boards sit at the
+  lowest effort already.
+- Older templates come up less often since the library grew to 153.
+
 - Toast sits over the Share button in the menu.
 - Sheets and the menu have no dialog roles for screen readers.
-- The HUD jumps to the final goal counts on the first wave instead of counting along.
 
 ## Tuning (by playtest)
 
