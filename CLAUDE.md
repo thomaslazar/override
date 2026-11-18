@@ -44,6 +44,7 @@ Read before changing behaviour:
 - `src/layouts.js`: board templates (shapes, teleporters, drops), `parse`, `check`, `exitDistance`, pure. Tested in `tests/layouts.test.mjs`.
 - `src/bot.js`: greedy bot over the core API, pure; sets each attempt's move limit. Tested in
   `tests/bot.test.mjs`. `tools/sim.mjs`: balance report with it.
+- `src/deck.js`: cred, stock, loot and gear offers, pure (`tests/deck.test.mjs`).
 - `src/plays.js`: opt-in play log (pure, tested in `tests/plays.test.mjs`); `tools/plays.mjs`: report over
   exported logs (`tests/plays-report.test.mjs`).
 - `src/worker.js`: Web Worker that runs `prepare(level, fails, pick)` off the main thread.
@@ -55,7 +56,7 @@ Read before changing behaviour:
 - `fonts/`: Barlow Semi Condensed (latin 400 and 600) and Share Tech Mono (latin 400, terminal text), woff2, self-hosted, with `OFL.txt`.
 - `art/`: generated WebP images (lock plates, deck frame, plug, keys, stickers). Everything drawn on the board is code. `docs/art.md` has the prompts, cut-out steps and rules. All of `art/` and `fonts/` must be in `SHELL` and the workflow copy; `tests/shell.test.mjs` checks this.
 - `manifest.webmanifest`, `sw.js`, `icons/`: PWA. `sw.js` is network first (revalidates; 3 s
-  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-6`; rename it when `sw.js`
+  bounds the wait for response headers only, cache is the offline or slow fallback). `CACHE` is `override-7`; rename it when `sw.js`
   changes how it caches or `SHELL` changes, so `activate` drops the old cache (only `override-`
   caches). `icons/og.png` (1200 x 630) is the link preview card, rendered from `tools/og.html`; not in `SHELL`.
   App icons (a 3 x 3 board with a lit row of three メ; `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` 180, `icon-maskable-512.png`) are rendered
@@ -70,7 +71,7 @@ Read before changing behaviour:
 ## Working rules
 
 - Every `localStorage` key and cache name starts with `override-` (now `override-v1`,
-  `override-run`, `override-lang`, `override-palette`, `override-plays`, `override-best`, `override-6`; the old `override-theme` is ignored, not deleted); the origin is shared with
+  `override-run`, `override-lang`, `override-palette`, `override-plays`, `override-best`, `override-deck`, `override-7`; the old `override-theme` is ignored, not deleted); the origin is shared with
   Kiln and Splice, and `sw.js` only deletes `override-` caches.
 - Conventional Commits. Ask before committing unless the owner has said otherwise for the
   current work. Work happens on one branch per plan, merged into `master` locally; no pull

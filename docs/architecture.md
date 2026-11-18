@@ -238,6 +238,14 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   easing. The bot plays with `nice` off.
 
 
+## Economy (`src/deck.js`)
+
+Pure; the UI owns storage (`override-deck`). `deckFrom` validates a stored `{ cred, items }` (bad or missing gives
+cred 0 and the starter stock, every id present). `payout(score, best)` is the cred for a win: score / 100 on a first
+win, the gain over the best on a replay. `lootFor(level)` (seed channel 47) is the one reward item: always on every
+5th level and the chapter's last, 35 % in the chapter's ten hardest, else 10 %, weighted by item. `gearFor(level)`
+(channel 53) offers three of worm, bomb, rocket, zero, moves; `moves` carries 3 to 5. `buy`, `take`, `add` change a deck in place.
+
 ## Worker and UI (`src/worker.js`, `src/ui.js`)
 
 - Boards: each attempt plays one of a level's 10 deals by `pick` (stored in `S.pick`). A level's first attempt
