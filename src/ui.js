@@ -172,6 +172,11 @@ async function animate(steps, speed = 1){
     if (s.k === 'wave') {
       const fire = f => { const q = sprites.get(idAt.get(f.i)); flash(f.i, f.s, q && q.t >= 0 ? PAL.t[S.types[q.t]] : undefined) };
       const pop = c => { const p = sprites.get(c.id); fx.push({ k: 'pop', p, at: performance.now() }); sparks(p.x + .5, p.y + .5, p.t >= 0 ? PAL.t[S.types[p.t]] : '#ffffff', 5, 5); sprites.delete(c.id); idAt.delete(c.i) };
+      if (s.rockets) {   // rockets streak to their targets before the hits pop
+        const q = sprites.get(idAt.get(s.rockets[0].from)), col = q && q.t >= 0 ? PAL.t[S.types[q.t]] : GLOW;
+        for (const f of s.rockets) fx.push({ k: 'flight', ...f, col, at: performance.now() });
+        if (!RM) await wait(inFinale ? 90 : 180);
+      }
       for (const c of s.cracked) { vEnc[c.i] = c.hp; fx.push({ k: 'crack', i: c.i, at: performance.now() }) }
       for (const i of s.unlocked) sprites.get(idAt.get(i)).lock = false;
       if (inFinale && s.fired.length > 1) {
@@ -307,6 +312,18 @@ function drawBomb(ty, cx, cy, sz){
   if (Math.floor(T / 500) % 2) { g.fillStyle = '#ff4040'; g.shadowColor = '#ff4040'; g.beginPath(); g.arc(cx + a * .7, cy - a * .7, sz * .05, 0, 7); g.fill() }
   g.restore(); glyph(ty, cx, cy, sz * .34);
 }
+// rocket: a slim rocket outline in the tile's colour, tilted to fly up and right, fins and a flickering exhaust
+function drawRocket(ty, cx, cy, sz){
+  const c = PAL.t[ty], u = sz / 100, fl = 1 + .3 * Math.sin(now() / 60);
+  g.save(); g.translate(cx, cy); g.rotate(Math.PI / 4); g.lineJoin = 'round'; g.shadowColor = c; g.shadowBlur = sz * .25;
+  g.beginPath(); g.moveTo(-6 * u, 24 * u); g.lineTo(0, 24 * u + 16 * u * fl); g.lineTo(6 * u, 24 * u); g.fillStyle = '#fff'; g.fill();   // exhaust
+  g.beginPath(); for (const d of [-1, 1]) { g.moveTo(d * 9 * u, 4 * u); g.lineTo(d * 21 * u, 22 * u); g.lineTo(d * 21 * u, 30 * u); g.lineTo(d * 9 * u, 22 * u) }   // fins
+  g.fillStyle = c; g.fill();
+  g.beginPath(); g.moveTo(0, -40 * u); g.bezierCurveTo(14 * u, -26 * u, 12 * u, 4 * u, 9 * u, 24 * u); g.lineTo(-9 * u, 24 * u); g.bezierCurveTo(-12 * u, 4 * u, -14 * u, -26 * u, 0, -40 * u);   // body
+  g.fillStyle = tint(c, .3); g.fill(); g.lineWidth = sz * .05; g.strokeStyle = c; g.stroke();
+  g.beginPath(); g.arc(0, -12 * u, 5 * u, 0, 7); g.fillStyle = '#fff'; g.fill();   // window
+  g.restore(); glyph(ty, cx + 24 * u, cy + 24 * u, sz * .28);   // the colour's glyph in the free corner
+}
 // zero-day: a turning ring in the level's colours around a white core
 function drawZero(cx, cy, sz){
   const T = now(); g.save(); g.translate(cx, cy); g.rotate(T / 320);
@@ -382,6 +399,7 @@ function drawTile(x, cx, cy, sc = 1){
   else if (x.s === 'z') drawZero(cx, cy, sz);
   else if (x.s === 'h' || x.s === 'v') drawWorm(S.types[x.t], cx, cy, sz, x.s === 'v');
   else if (x.s === 'b') drawBomb(S.types[x.t], cx, cy, sz);
+  else if (x.s === 'r') drawRocket(S.types[x.t], cx, cy, sz);
   else glyph(S.types[x.t], cx, cy, sz * .5);
   if (x.lock) drawFw(cx, cy, sz);
 }
@@ -447,8 +465,9 @@ function boom(i, kind, col){
     for (let k = 0; k < (kind === 'h' ? S.w : S.h); k++) { if (dead(S, kind === 'h' ? r * n + k : k * n + c)) continue; const x = kind === 'h' ? k + .5 : cx, y = kind === 'h' ? cy : k + .5; sparks(x, y, cl, 3, 6, 1.2, kind === 'h' ? -Math.PI / 2 : 0); sparks(x, y, cl, 2, 6, 1.2, kind === 'h' ? Math.PI / 2 : Math.PI) }
     kick(4);
   } else if (kind === 'b') { sparks(cx, cy, cl, 34, 11); kick(8) }
-  else if (kind === 'bb' || kind === 'bw' || kind === 'ww') { sparks(cx, cy, cl, 50, 14); kick(11) }
-  else if (kind === 'z' || kind === 'zw' || kind === 'zb' || kind === 'zz') { for (let t = 0; t < S.k; t++) sparks(cx, cy, PAL.t[S.types[t]], 12, 12); kick(kind === 'zz' ? 14 : 9) }
+  else if (kind === 'r') { sparks(cx, cy, cl, 14, 7); kick(3) }
+  else if (kind === 'bb' || kind === 'bw' || kind === 'ww' || kind === 'rr' || kind === 'rw' || kind === 'rb') { sparks(cx, cy, cl, 50, 14); kick(11) }
+  else if (kind === 'z' || kind === 'zw' || kind === 'zb' || kind === 'zz' || kind === 'zr') { for (let t = 0; t < S.k; t++) sparks(cx, cy, PAL.t[S.types[t]], 12, 12); kick(kind === 'zz' ? 14 : 9) }
 }
 const GLOW = '#c9ffd9';
 function flashShape(kind, r, c, n, p, col){
@@ -461,7 +480,7 @@ function flashShape(kind, r, c, n, p, col){
     g.globalAlpha = fade * .9; g.fillStyle = '#ffffff'; for (const e of [a, b]) { g.beginPath(); kind === 'h' ? g.arc(e, m, th * .55, 0, 7) : g.arc(m, e, th * .55, 0, 7); g.fill() }
     g.shadowBlur = 0; return;
   }
-  if (kind === 'b' || kind === 'bb') {   // bomb: white flash, then two shock rings racing out past the blast area
+  if (kind === 'b' || kind === 'bb' || /^r.$/.test(kind)) {   // bomb, rocket combo: white flash, then two shock rings racing out
     const X = (c + .5) * cs, Y = (r + .5) * cs, big = kind === 'bb' ? 5 : 3;
     if (p < .25) { g.globalAlpha = 1 - p / .25; g.fillStyle = '#ffffff'; g.shadowColor = col || GLOW; g.shadowBlur = cs; g.beginPath(); g.arc(X, Y, cs * big * .45 * (.5 + p * 2), 0, 7); g.fill(); g.shadowBlur = 0 }
     for (const [lag, lw] of [[0, .16], [.18, .07]]) {
@@ -474,7 +493,7 @@ function flashShape(kind, r, c, n, p, col){
   g.fillStyle = GLOW; g.globalAlpha = (1 - p) * .35;
   if (kind === 'ww') { R(r, 1); C(c, 1) }
   if (kind === 'bw') { R(r - 1, 3); C(c - 1, 3) }
-  if (kind === 'zz' || kind === 'z' || kind === 'zw' || kind === 'zb') g.fillRect(0, 0, w, h);
+  if (kind[0] === 'z') g.fillRect(0, 0, w, h);
 }
 // Falling tiles accelerate (GRAV cells/s²), drift sideways for diagonal fills, and hop once on landing.
 // A tile with teleporter hops first sinks out through the bottom of the ingress, then drops in above the egress.
@@ -534,7 +553,7 @@ function frame(ts){
     if (hint && RM) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.setLineDash([5, 4]); for (const i of hint) g.strokeRect(i % n * cs + 2, Math.floor(i / n) * cs + 2, cs - 4, cs - 4); g.setLineDash([]) }
     if (sel >= 0) { g.strokeStyle = PAL.sel; g.lineWidth = 2.5; g.strokeRect(sel % n * cs + 2, Math.floor(sel / n) * cs + 2, cs - 4, cs - 4) }
     fx = fx.filter(f => {
-      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : f.k === 'exit' ? 380 : 240); if (p >= 1 || RM) return false;
+      const p = (ts - f.at) / (f.k === 'spark' ? f.life : f.k === 'flash' ? (f.kind === 'h' || f.kind === 'v' ? 420 : f.kind === 'b' || f.kind === 'bb' ? 460 : 320) : f.k === 'exit' ? 380 : f.k === 'flight' ? 180 : 240); if (p >= 1 || RM) return false;
       g.globalAlpha = 1 - p;
       if (f.k === 'spark') {   // a glowing streak along its velocity, falling and slowing
         const t = (ts - f.at) / 1000, x = f.x + f.vx * t * (1 - t * .6), y = f.y + f.vy * t + SPARK_G * t * t / 2, vy = f.vy + SPARK_G * t;
@@ -542,6 +561,13 @@ function frame(ts){
         g.beginPath(); g.moveTo(x * cs, y * cs); g.lineTo((x - f.vx * .05) * cs, (y - vy * .05) * cs); g.stroke(); g.shadowBlur = 0;
       }
       else if (f.k === 'pop') drawTile(f.p, f.p.x * cs + cs / 2, f.p.y * cs + cs / 2, 1 + p * .9);
+      else if (f.k === 'flight') {   // a bright streak: the head runs from the rocket to its target, the tail follows
+        const [r0, c0] = [Math.floor(f.from / n), f.from % n], [r1, c1] = [Math.floor(f.to / n), f.to % n], e = 1 - (1 - p) ** 2, b = Math.max(0, e - .4);
+        const X = t => (c0 + (c1 - c0) * t + .5) * cs, Y = t => (r0 + (r1 - r0) * t + .5) * cs;
+        g.globalAlpha = 1; g.lineCap = 'round'; g.shadowColor = f.col; g.shadowBlur = cs * .4;
+        for (const [col, lw] of [[f.col, .16], ['#ffffff', .06]]) { g.strokeStyle = col; g.lineWidth = cs * lw; g.beginPath(); g.moveTo(X(b), Y(b)); g.lineTo(X(e), Y(e)); g.stroke() }
+        g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X(e), Y(e), cs * .09, 0, 7); g.fill(); g.shadowBlur = 0;
+      }
       else if (f.k === 'exit') {   // a light bar flares on the drop point's bottom edge
         const X = f.x * cs, Y = f.y * cs;
         g.globalAlpha = 1 - p; g.fillStyle = '#ffffff'; g.shadowColor = PAL.acc; g.shadowBlur = cs * .6;

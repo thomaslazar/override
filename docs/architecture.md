@@ -45,9 +45,11 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   other swap with a special is a `combo` then cascade; a plain match spends the move and cascades; no match swaps
   back and costs nothing. After a cascade, if goals are not met and moves remain but no move
   exists, `reshuffle` runs.
-- **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`
-  zero-day with a worm or bomb converts every tile of that colour into worms (random h or v) or
-  bombs, then fires them, `zz` clears the board. Zero-day with a plain tile clears that colour.
+- **combos**: `ww` row and column, `bw` three rows and three columns, `bb` 5x5, `zw`/`zb`/`zr`
+  zero-day with a worm, bomb or rocket converts every tile of that colour into worms (random h or v),
+  bombs or rockets, then fires them, `zz` clears the board. With a rocket (the kind names it first):
+  `rr` fires 8 rockets from the dragged tile's cell, `rw`/`rb` fire 3 and set off a worm (h or v by
+  `rngFor(S.seed, 19, S.spawns, target)`) or a 3x3 blast at each target. Zero-day with a plain tile clears that colour.
   A zero-day fired by a blast clears a random colour still on the board (seeded by its id).
 - **wave**: fires specials in a chain (each id once), cracks encrypted cells (hits from a fired
   area, plus neighbours of matched cells and of a zero-day's tiles), unlocks firewalled tiles (a firewalled tile hit is unlocked,
@@ -60,7 +62,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   firewalled tiles, encrypted cells, tiles of a colour a tiles goal still needs, the tile directly under a drop,
   any other tile; within a tier seeded by `rngFor(S.seed, 19, S.spawns, from, k)`. Fewer candidates, fewer
   targets. Targets join the wave like a blast's cells (cleared, unlocked or cracked one layer; a special hit
-  fires). Rockets ignore board adjacency (they fly over holes, blocks and teleporters).
+  fires). Rockets ignore board adjacency (they fly over holes, blocks and teleporters). A wave step with
+  rockets carries `rockets: [{ from, to }]` (combo flights first), for the UI.
 - **gravity** (exported): passes until stable, bottom row first: an empty live cell takes the tile from
   `above(S, i)` if movable, else spawns with `spawnColour` if it is a spawner, else fills diagonally
   unless fed (going up via `above` reaches a spawner without a dead cell, encrypted cell or
@@ -153,7 +156,7 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   fails-0 colour count for their size, and goal colours never include the colour that easing
   drops from the 6th fail. Goal kinds are decided first and blockers are placed only with their goal
   (no crack goal, no encrypted cells; no firewall goal, no firewalls); level `FW_FROM` always gets a
-  firewall goal. Tile goals are `GOAL` (1.2) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
+  firewall goal. Tile goals are `GOAL` (1.8, raised from 1.2 when rockets made goals faster) times the base size. Goal kinds: `crack` (all encrypted cells), `firewall`, `tiles` (one
   colour, or two at 60% each on harder levels). Tile goals show in `goalColours(level)` (`levels.js`): the colour
   slots in `S.types` are remapped (the deal is unchanged) so neighbouring levels never share a goal colour; odd
   levels draw two colours freely, even levels draw from what both odd neighbours leave.
@@ -260,7 +263,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
   always equals the state. `animate(steps)` plays the `move` steps in order (swap and back,
   combo flash, convert, wave with flashes, cracks, unlocks, pops and created specials (blasts: worm beams
   shoot out both ways, bombs flash and send two shock rings, sparks fly from every fired special and cleared
-  tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it), fall (a run of
+  tile, the board shakes; `BOOM.spark`/`BOOM.shake` scale it; a wave with `rockets` first draws a bright
+  streak per flight, `flight` fx, and waits 180 ms, 90 in the finale, none with reduced motion, before the hits pop; rocket combos flash shock rings like a bomb), fall (a run of
   gravity passes plays as one drop: tiles accelerate, `GRAV`, and hop once on landing, `HOP`; new
   tiles start stacked above their spawner and are clipped to below its top edge, `top`, cleared on landing
   and on a shuffle; a move through a teleporter goes into the sprite's `hops`: the tile sinks out through
@@ -309,7 +313,8 @@ and drop goals `{ kind: 'drop', d, need, got }`.
 - Look: dark only, a hacker terminal. The strip (a thin band, `clamp(60px,10dvh,84px)`) shows the obstacle plate (locked; `unlockScene`
   toggles `#strip.open` for the open plate on a win). The canvas draws tiles as glowing
   characters (`GLYPHS` ロ ハ メ ト Ξ ミ ム, one per slot) so colour is never the only cue; specials are `drawWorm`
-  (data packet along its line), `drawBomb` (chip with lit pins), `drawZero` (turning ring in the
+  (data packet along its line), `drawBomb` (chip with lit pins), `drawRocket` (slim rocket outline tilted up and right, fins, a
+  flickering exhaust, the colour's glyph in the free corner), `drawZero` (turning ring in the
   level's colours); blockers are `drawEnc` (static slab, amber outline for hits left) and
   `drawFw` (flames and cage bars). Dead cells: a hole is `drawHole` (faint back-slash hatching, no cell background, running on across neighbouring holes), so the board's
   edge follows the shape; a block is `drawBlock` (a dark riveted steel plate with faint hatching, no

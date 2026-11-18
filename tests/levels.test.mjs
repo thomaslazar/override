@@ -130,12 +130,12 @@ test('level picker clamps to 1..max and falls back on junk', () => {
 });
 
 test('still-square levels keep their tiles, goals and blockers', () => {
-  // level 1 recorded from master before boards existed; the others pin the square draw streams (tiles, goals, blockers, firewalls)
+  // level 1 recorded from master before boards existed (goal sizes since scaled with GOAL); the others pin the square draw streams (tiles, goals, blockers, firewalls)
   const master = {
-    1: ['0020133124303041320433032130212044043011103200100033244232031342', [{ kind: 'tiles', t: 1, need: 18, got: 0 }], '0'.repeat(64)],
-    4: ["003241411302121320413202011--1132240110320-30-420421304104203131", [{"kind":"crack","need":4,"got":0},{"kind":"tiles","t":1,"need":21,"got":0}], "0000000000000000000000000001100000000000001001000000000000000000"],
-    10: ["423340110142310043104221130--13220--02203413343220210421-321-00231034424-1430022-", [{"kind":"crack","need":8,"got":0},{"kind":"tiles","t":1,"need":29,"got":0}], "000000000000000000000000000110000011000000000000000000002000200000000000100000001"],
-    38: ["32031403110212214231400120414134--1--1--103113122213404120014410", [{"kind":"crack","need":6,"got":0},{"kind":"tiles","t":0,"need":25,"got":0}], "0000000000000000000000000000000011011011000000000000000000000000"],
+    1: ['0020133124303041320433032130212044043011103200100033244232031342', [{ kind: 'tiles', t: 1, need: 27, got: 0 }], '0'.repeat(64)],
+    4: ["003241411302121320413202011--1132240110320-30-420421304104203131", [{"kind":"crack","need":4,"got":0},{"kind":"tiles","t":1,"need":31,"got":0}], "0000000000000000000000000001100000000000001001000000000000000000"],
+    10: ["423340110142310043104221130--13220--02203413343220210421-321-00231034424-1430022-", [{"kind":"crack","need":8,"got":0},{"kind":"tiles","t":1,"need":43,"got":0}], "000000000000000000000000000110000011000000000000000000002000200000000000100000001"],
+    38: ["32031403110212214231400120414134--1--1--103113122213404120014410", [{"kind":"crack","need":6,"got":0},{"kind":"tiles","t":0,"need":38,"got":0}], "0000000000000000000000000000000011011011000000000000000000000000"],
   };
   for (const [l, [grid, goals, enc]] of Object.entries(master)) {
     const S = makeAttempt(+l);

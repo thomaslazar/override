@@ -48,22 +48,24 @@ export const colourAt = (S, r, c) => { const i = at(S, r, c), x = i < 0 ? null :
 // The 2 x 2 block with top-left (r, c) is all colour t (t >= 0).
 const squareAt = (S, r, c, t) => t >= 0 && colourAt(S, r, c) === t && colourAt(S, r, c + 1) === t && colourAt(S, r + 1, c) === t && colourAt(S, r + 1, c + 1) === t;
 export function findGroups(S){
-  const { n } = S, runs = [];
+  const { n } = S, runs = [], col = S.grid.map(x => x && x.s !== 'z' ? x.t : -1);   // colourAt, read once per cell
   for (let r = 0; r < n; r++) for (let c = 0; c < n;) {
-    const t = colourAt(S, r, c); let e = c + 1;
-    while (t >= 0 && e < n && colourAt(S, r, e) === t) e++;
+    const t = col[r * n + c]; let e = c + 1;
+    while (t >= 0 && e < n && col[r * n + e] === t) e++;
     if (t >= 0 && e - c >= 3) runs.push({ h: true, cells: range(c, e).map(x => r * n + x) });
     c = e;
   }
   for (let c = 0; c < n; c++) for (let r = 0; r < n;) {
-    const t = colourAt(S, r, c); let e = r + 1;
-    while (t >= 0 && e < n && colourAt(S, e, c) === t) e++;
+    const t = col[r * n + c]; let e = r + 1;
+    while (t >= 0 && e < n && col[e * n + c] === t) e++;
     if (t >= 0 && e - r >= 3) runs.push({ h: false, cells: range(r, e).map(x => x * n + c) });
     r = e;
   }
   // 2 x 2 squares of one colour (a 2 x 3 block is two squares, merged below)
-  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++)
-    if (squareAt(S, r, c, colourAt(S, r, c))) runs.push({ sq: true, cells: [r * n + c, r * n + c + 1, (r + 1) * n + c, (r + 1) * n + c + 1] });
+  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+    const i = r * n + c, t = col[i];
+    if (t >= 0 && col[i + 1] === t && col[i + n] === t && col[i + n + 1] === t) runs.push({ sq: true, cells: [i, i + 1, i + n, i + n + 1] });
+  }
   // runs that share a cell form one group
   const owner = new Map(), groups = [];
   for (const run of runs) {
@@ -256,6 +258,7 @@ function wave(S, cells, matched, creates, fired = new Set(), chain = 1){
     if (!x || !x.s || fired.has(x.id)) continue;
     fired.add(x.id); step.fired.push({ i, s: x.s });
     const a = area(S, i, x, cells);
+    if (x.s === 'r') (step.rockets ??= []).push(...a.map(to => ({ from: i, to })));   // flights, for the UI
     if (x.s === 'z') a.forEach(j => near.add(j));   // a zero-day's tiles count as matched
     for (const j of a) if (!cells.has(j)) { cells.add(j); queue.push(j) }
   }
@@ -429,7 +432,7 @@ export function finale(S){
 }
 // A swap with at least one special. A is the dragged tile (now at pa), B the other (now at pb).
 function combo(S, A, pa, B, pb, steps){
-  const cells = new Set(), fired = new Set(), [r, c] = rc(S, pa), n = S.n;
+  const cells = new Set(), fired = new Set(), [r, c] = rc(S, pa), n = S.n, flights = [];
   if (!A.s || !B.s) {
     const [sp, p, other, q] = A.s ? [A, pa, B, pb] : [B, pb, A, pa];
     cells.add(p);
@@ -444,13 +447,18 @@ function combo(S, A, pa, B, pb, steps){
       for (let i = 0; i < n * n; i++) {
         const y = S.grid[i];
         if (!y || y.s === 'z' || y.t !== o.t) continue;
-        if (!y.s) { y.s = o.s === 'b' ? 'b' : rnd() < .5 ? 'h' : 'v'; conv.push({ i, s: y.s }) }
+        if (!y.s) { y.s = o.s === 'b' || o.s === 'r' ? o.s : rnd() < .5 ? 'h' : 'v'; conv.push({ i, s: y.s }) }
         cells.add(i);
       }
-      steps.push({ k: 'combo', i: pa, kind: o.s === 'b' ? 'zb' : 'zw' }, { k: 'convert', cells: conv });
+      steps.push({ k: 'combo', i: pa, kind: o.s === 'b' ? 'zb' : o.s === 'r' ? 'zr' : 'zw' }, { k: 'convert', cells: conv });
     } else {
       fired.add(A.id); fired.add(B.id);
-      const kind = [A.s, B.s].map(s => s === 'b' ? 'b' : 'w').sort().join('');
+      // 'ww', 'bw', 'bb', or a rocket first: 'rr', 'rw', 'rb'
+      const ks = [A.s, B.s].map(s => s === 'h' || s === 'v' ? 'w' : s), kind = ks.includes('r') ? 'r' + ks[ks[0] === 'r' ? 1 : 0] : ks.sort().join('');
+      if (kind[0] === 'r') for (const to of rocketTargets(S, pa, kind === 'rr' ? 8 : 3, cells)) {   // rockets fly; a worm or bomb goes off at each target
+        flights.push({ from: pa, to }); cells.add(to);
+        if (kind !== 'rr') area(S, to, { s: kind === 'rb' ? 'b' : rngFor(S.seed, 19, S.spawns, to)() < .5 ? 'h' : 'v' }, cells).forEach(j => cells.add(j));
+      }
       if (kind === 'ww') for (let k = 0; k < n; k++) { cells.add(r * n + k); cells.add(k * n + c) }
       if (kind === 'bw') for (let d = -1; d <= 1; d++) for (let k = 0; k < n; k++) {
         if (r + d >= 0 && r + d < n) cells.add((r + d) * n + k);
@@ -460,7 +468,9 @@ function combo(S, A, pa, B, pb, steps){
       steps.push({ k: 'combo', i: pa, kind });
     }
   }
-  steps.push(wave(S, cells, new Set(), [], fired));
+  const w = wave(S, cells, new Set(), [], fired);
+  if (flights.length) w.rockets = [...flights, ...w.rockets ?? []];
+  steps.push(w);
   gravity(S, steps);
 }
 // A move is spent: one fewer left, one more towards the next scheduled drop.

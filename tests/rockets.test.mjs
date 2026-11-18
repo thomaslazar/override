@@ -104,3 +104,66 @@ test('validSave accepts rocket tiles', () => {
   const S = mk([...Array(4).fill('A B C D E'), 'B C D E Ar']);
   assert.ok(validSave(JSON.parse(JSON.stringify(toSave(S)))));
 });
+
+// 9 x 9, no match: colour (2r + c) mod 5; `put` sets specials, e.g. { 40: 'Ar' }
+const big = (put = {}) => mk(Array.from({ length: 9 }, (_, r) => Array.from({ length: 9 }, (_, c) => put[r * 9 + c] ?? 'ABCDE'[(2 * r + c) % 5]).join(' ')));
+const combo = steps => steps.find(s => s.k === 'combo');
+
+test('rocket + rocket fires 8 rockets', () => {
+  const S = big({ 40: 'Ar', 41: 'Br' });
+  const r = move(S, 40, 41);
+  assert.ok(r.ok);
+  assert.equal(combo(r.steps).kind, 'rr');
+  const w = waves(r.steps)[0], to = w.rockets.map(f => f.to);
+  assert.equal(w.rockets.length, 8);
+  assert.equal(new Set(to).size, 8);
+  assert.ok(w.rockets.every(f => f.from === 41) && !to.includes(40) && !to.includes(41));
+  assert.equal(w.cleared.length, 10);
+});
+
+test('rocket + worm: 3 targets, each sets off a worm there', () => {
+  const S = big({ 40: 'Ar', 41: 'Bh' });
+  const r = move(S, 40, 41);
+  assert.equal(combo(r.steps).kind, 'rw');
+  const w = waves(r.steps)[0], got = new Set(w.cleared.map(c => c.i));
+  assert.equal(w.rockets.length, 3);
+  for (const { to } of w.rockets) {
+    const row = Array.from({ length: 9 }, (_, k) => Math.floor(to / 9) * 9 + k), col = Array.from({ length: 9 }, (_, k) => k * 9 + to % 9);
+    assert.ok(row.every(i => got.has(i)) || col.every(i => got.has(i)), `line through ${to}`);
+  }
+});
+
+test('rocket + bomb: 3 targets, each sets off a 3x3 blast there', () => {
+  const S = big({ 40: 'Ab', 41: 'Br' });
+  const r = move(S, 40, 41);
+  assert.equal(combo(r.steps).kind, 'rb');
+  const w = waves(r.steps)[0], got = new Set(w.cleared.map(c => c.i));
+  assert.equal(w.rockets.length, 3);
+  for (const { to } of w.rockets) {
+    const tr = Math.floor(to / 9), tc = to % 9;
+    for (let a = tr - 1; a <= tr + 1; a++) for (let b = tc - 1; b <= tc + 1; b++)
+      if (a >= 0 && a < 9 && b >= 0 && b < 9) assert.ok(got.has(a * 9 + b), `${a * 9 + b} near ${to}`);
+  }
+});
+
+test('rocket + zero-day turns every tile of the rocket\'s colour into a rocket and fires them all', () => {
+  const S = big({ 40: 'Z', 41: 'Ar' });
+  const As = S.grid.filter(x => x && x.t === 0).length;
+  const r = move(S, 40, 41);
+  assert.equal(combo(r.steps).kind, 'zr');
+  const conv = r.steps.find(s => s.k === 'convert');
+  assert.equal(conv.cells.length, As - 1);
+  assert.ok(conv.cells.every(c => c.s === 'r'));
+  const w = waves(r.steps)[0];
+  assert.equal(w.fired.filter(f => f.s === 'r').length, As);
+  assert.equal(w.rockets.length, 3 * As);
+  assert.equal(new Set(w.rockets.map(f => f.to)).size, 3 * As);
+});
+
+test('a rocket wave step lists its flights', () => {
+  const S = mk(LINE);
+  const w = waves(move(S, 0, 0).steps)[0];
+  assert.equal(w.rockets.length, 3);
+  assert.ok(w.rockets.every(f => f.from === 0));
+  assert.deepEqual(sorted(w.rockets.map(f => f.to)), sorted(w.cleared.map(c => c.i).filter(i => i !== 0)));
+});
